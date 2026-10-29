@@ -30,8 +30,8 @@ SECRET_KEY = 'django-insecure-5d@hfviie_7*-v@q-pd&1md0j$&r$$!fh%c^lrq1gz-c5s_6a3
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
-
+ALLOWED_HOSTS = ["localhost", "127.0.0.1"]
+PRODUCTION = os.getenv('PRODUCTION', 'False').lower() == 'true'
 
 # Application definition
 
@@ -77,12 +77,28 @@ WSGI_APPLICATION = 'project_calculus.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+# Database configuration
+if PRODUCTION:
+    DATABASES = {
+'default': {
+'ENGINE': 'django.db.backends.postgresql',
+'NAME': os.getenv('DB_NAME'),
+'USER': os.getenv('DB_USER'),
+'PASSWORD': os.getenv('DB_PASSWORD'),
+'HOST': os.getenv('DB_HOST'),
+'PORT': os.getenv('DB_PORT'),
+'OPTIONS': {
+'options': f"-c search_path={os.getenv('SCHEMA', 'public')}"
+            }
+        }
     }
-}
+else:
+    DATABASES = {
+'default': {
+'ENGINE': 'django.db.backends.sqlite3',
+'NAME': BASE_DIR / 'db.sqlite3',
+        }
+    }
 
 
 # Password validation
@@ -125,3 +141,24 @@ STATIC_URL = 'static/'
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+TEMPLATES = [
+    {
+        'BACKEND': 'django.template.backends.django.DjangoTemplates',
+        'DIRS': [BASE_DIR / 'templates'],
+        'APP_DIRS': True,
+        'OPTIONS': {
+            'context_processors': [
+                'django.template.context_processors.debug',
+                'django.template.context_processors.request',
+                'django.contrib.auth.context_processors.auth',
+                'django.contrib.messages.context_processors.messages',
+            ],
+        },
+    },
+]
+
+STATIC_URL = 'static/'
+STATICFILES_DIRS = [
+    BASE_DIR / 'static',
+]

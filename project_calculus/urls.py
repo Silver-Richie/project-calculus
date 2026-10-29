@@ -16,7 +16,9 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path
+from project_calculus.views import landing_page  # atau dari nama app kamu
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+    path('', landing_page, name='landing_page'),  # Hapus `.landing_page` yang kedua
 ]
