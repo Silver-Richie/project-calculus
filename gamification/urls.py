@@ -12,3 +12,4 @@ urlpatterns = [
     path('api/curriculum/', get_curriculum_api, name='curriculum_api'),
     path('api/diagnostic/submit/', submit_diagnostic_api, name='submit_diagnostic_api'),
 ]
+

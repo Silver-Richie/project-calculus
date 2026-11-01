@@ -183,3 +183,4 @@ class Command(BaseCommand):
             self.stdout.write(f"  [Seeded] Diagnostic Question: {q.prompt[:40]}...")
 
         self.stdout.write(self.style.SUCCESS("Calculus Bridge seed completed successfully!"))
+

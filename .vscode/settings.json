@@ -1,0 +1,9 @@
+{
+    "python.defaultInterpreterPath": "${workspaceFolder}/env/Scripts/python.exe",
+    "python.terminal.activateEnvironment": true,
+    "python.analysis.autoSearchPaths": true,
+    "files.exclude": {
+        "**/__pycache__": true,
+        "**/.pytest_cache": true
+    }
+}
