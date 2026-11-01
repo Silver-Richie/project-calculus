@@ -565,6 +565,20 @@ class DiagnosticRunner {
         gameState.addXP(40);
         gameState.saveState();
 
+        // Progressive backend synchronization
+        try {
+            fetch('/api/diagnostic/submit/', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    faculty: gameState.state.faculty,
+                    answers: this.answers.map(a => ({ difficulty: a.difficulty, is_correct: a.isCorrect }))
+                })
+            }).catch(e => console.debug("Offline/Local mode:", e));
+        } catch (e) {
+            console.debug("Backend sync skipped:", e);
+        }
+
         const container = document.getElementById('diag-quiz-content');
         if (container) {
             container.innerHTML = `
@@ -1149,3 +1163,4 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 });
+
