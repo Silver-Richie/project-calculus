@@ -1,0 +1,35 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Calculus Bridge - Gamifikasi Kalkulus Interaktif{% endblock %}</title>
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- Design System Global CSS -->
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <!-- Confetti FX Canvas -->
+    <canvas id="confetti-canvas"></canvas>
+
+    <!-- Main Dynamic Application Container -->
+    <div id="app">
+        {% block content %}
+        <!-- Konten modular akan di-inject di sini oleh index.html -->
+        {% endblock %}
+    </div>
+
+    <!-- Global App Engine JavaScript -->
+    <script src="{% static 'js/app.js' %}"></script>
+
+    {% block extra_js %}{% endblock %}
+</body>
+</html>
