@@ -1,382 +1,57 @@
+{% extends 'base.html' %}
 {% load static %}
-<!DOCTYPE html>
-<html lang="id">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Calculus Bridge - Gamifikasi Pembelajaran Kalkulus Interaktif</title>
 
-    <!-- Google Fonts -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+{% block title %}Calculus Bridge - Gamifikasi Kalkulus Interaktif{% endblock %}
 
-    <!-- Stylesheet -->
-    <link rel="stylesheet" href="{% static 'css/style.css' %}">
-</head>
-<body>
-    <!-- Confetti FX Canvas -->
-    <canvas id="confetti-canvas"></canvas>
+{% block content %}
+    <!-- =========================================================================
+         1. TOPBAR & GAMIFIED HUD (Branch: ui/design-system)
+         ========================================================================= -->
+    {% include 'components/hud.html' %}
 
-    <!-- Top Gamified HUD Header -->
-    <header class="site-hud-header">
-        <div class="hud-container">
-            <a href="/" class="hud-brand">
-                <div class="brand-icon-box">∫</div>
-                <span class="brand-name">Calculus<span class="brand-highlight">Bridge</span></span>
-            </a>
-
-            <!-- HUD Gamification Stats -->
-            <div class="hud-stats-group">
-                <div class="hud-stat-pill pill-faculty" id="hud-faculty-badge" title="Jalur Fakultas Terpilih">
-                    💻 Fasilkom
-                </div>
-                <div class="hud-stat-pill pill-streak" title="Streak Belajar Beruntun">
-                    🔥 <span id="hud-streak">3</span>
-                </div>
-                <div class="hud-stat-pill pill-hearts" id="hud-hearts-container" title="Nyawa / Kesempatan Latihan">
-                    ❤️ <span id="hud-hearts">5/5</span>
-                </div>
-                <div class="hud-stat-pill pill-xp" title="Total Pengalaman (XP)">
-                    ⚡ <span id="hud-xp">60 XP</span>
-                </div>
-                <div class="hud-stat-pill pill-gems" title="Permata Koleksi">
-                    💎 <span id="hud-gems">120</span>
-                </div>
-                <button class="hud-stat-pill pill-sound" id="sound-toggle-btn" onclick="toggleSound()" title="Nyalakan/Matikan Efek Suara">
-                    🔊 Suara
-                </button>
-            </div>
-        </div>
-    </header>
-
-    <!-- Main Content -->
     <main>
-        <!-- Hero Section -->
-        <section class="hero-section">
-            <div class="container hero-grid">
-                <!-- Left: Hero Copy & CTA -->
-                <div class="hero-content">
-                    <div class="hero-tag">
-                        <span>🎓 Dirancang untuk Mahasiswa Baru FT • Fasilkom • FMIPA</span>
-                    </div>
-                    <h1 class="hero-title">
-                        Jembatan Pintar<br>
-                        <span class="gradient-text">Taklukkan Kalkulus</span>
-                    </h1>
-                    <p class="hero-desc">
-                        Ratakan pemahaman dasar kalkulus tanpa rasa cemas. Nikmati sistem leveling adaptif ala Duolingo dengan umpan balik instan, kurikulum spesifik fakultas, dan bimbingan maskot Archie!
-                    </p>
-                    <div class="hero-cta-group">
-                        <button class="btn btn-primary btn-3d btn-lg" onclick="diagnosticRunner.start()">
-                            Mulai Evaluasi Diagnostik (3 Menit) 🚀
-                        </button>
-                        <a href="#skill-tree-section" class="btn btn-secondary btn-3d btn-lg">
-                            Peta Belajar (Skill Tree) 🗺️
-                        </a>
-                    </div>
-                </div>
+        <!-- =====================================================================
+             2. MASKOT & HERO AREA (Branch: ui/design-system)
+             ===================================================================== -->
+        {% include 'components/mascot.html' %}
 
-                <!-- Right: Interactive Mascot ("Archie the Axolotl") -->
-                <div class="mascot-stage">
-                    <div class="speech-bubble speech-pop" id="mascot-speech" onclick="mascot.randomQuote()" title="Klik Archie untuk tips!">
-                        Halo! Aku <strong>Archie</strong>, teman belajarmu! Mulai dari tes diagnostik agar aku bisa merancang rute kalkulus yang pas untukmu!
-                    </div>
+        <!-- =====================================================================
+             3. PILIHAN JALUR FAKULTAS (Branch: feat/auth-onboarding)
+             ===================================================================== -->
+        {% include 'auth/faculty_select.html' %}
 
-                    <div class="mascot-avatar-container" id="mascot-click-trigger" title="Klik Archie!">
-                        <!-- SVG Mascot: Archie the Calculus Axolotl with Math Aura -->
-                        <div class="floating-symbols">
-                            <span class="float-sym sym-1">∫</span>
-                            <span class="float-sym sym-2">dy/dx</span>
-                            <span class="float-sym sym-3">lim</span>
-                        </div>
+        <!-- =====================================================================
+             4. PETA BELAJAR / SKILL TREE (Branch: feat/learning-path)
+             ===================================================================== -->
+        {% include 'learning/skill_tree.html' %}
 
-                        <div id="mascot-avatar" class="mascot-avatar">
-                            <svg class="mascot-svg" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                <!-- Ambient Glow -->
-                                <circle cx="100" cy="110" r="75" fill="url(#mascot-glow)" opacity="0.3"/>
-                                
-                                <!-- Axolotl Feathery Gills (Left) -->
-                                <path d="M42 95C25 80 15 95 28 112C15 118 20 135 38 128" fill="#f43f5e" stroke="#e11d48" stroke-width="3" stroke-linecap="round"/>
-                                <circle cx="20" cy="95" r="5" fill="#fda4af" />
-                                <circle cx="16" cy="118" r="4" fill="#fda4af" />
-                                
-                                <!-- Axolotl Feathery Gills (Right) -->
-                                <path d="M158 95C175 80 185 95 172 112C185 118 180 135 162 128" fill="#f43f5e" stroke="#e11d48" stroke-width="3" stroke-linecap="round"/>
-                                <circle cx="180" cy="95" r="5" fill="#fda4af" />
-                                <circle cx="184" cy="118" r="4" fill="#fda4af" />
+        <!-- =====================================================================
+             5. KOMPONEN BANK SOAL (Branch: feat/question-bank)
+             ===================================================================== -->
+        {% include 'question_bank/question_card.html' %}
 
-                                <!-- Body -->
-                                <ellipse cx="100" cy="120" rx="60" ry="55" fill="url(#mascot-body-grad)" stroke="#4338ca" stroke-width="4"/>
-
-                                <!-- Cute Belly -->
-                                <ellipse cx="100" cy="132" rx="36" ry="32" fill="#c7d2fe" opacity="0.8"/>
-                                <path d="M88 126C95 132 105 132 112 126" stroke="#818cf8" stroke-width="2.5" stroke-linecap="round"/>
-
-                                <!-- Smart Glasses Frame -->
-                                <rect x="58" y="90" width="34" height="28" rx="8" fill="#1e1b4b" stroke="#38bdf8" stroke-width="3.5"/>
-                                <rect x="108" y="90" width="34" height="28" rx="8" fill="#1e1b4b" stroke="#38bdf8" stroke-width="3.5"/>
-                                <line x1="92" y1="102" x2="108" y2="102" stroke="#38bdf8" stroke-width="3.5" stroke-linecap="round"/>
-
-                                <!-- Animated Big Kawaii Eyes inside Glasses -->
-                                <ellipse cx="75" cy="104" rx="8" ry="10" fill="#38bdf8"/>
-                                <circle cx="72" cy="100" r="3.5" fill="white"/>
-                                
-                                <ellipse cx="125" cy="104" rx="8" ry="10" fill="#38bdf8"/>
-                                <circle cx="122" cy="100" r="3.5" fill="white"/>
-
-                                <!-- Cheerful Blushing Cheeks -->
-                                <ellipse cx="56" cy="122" rx="8" ry="5" fill="#f43f5e" opacity="0.6"/>
-                                <ellipse cx="144" cy="122" rx="8" ry="5" fill="#f43f5e" opacity="0.6"/>
-
-                                <!-- Smiling Mouth -->
-                                <path d="M92 118Q100 126 108 118" stroke="#1e1b4b" stroke-width="3.5" stroke-linecap="round" fill="none"/>
-
-                                <!-- Cute Graduation Cap (Top) -->
-                                <path d="M100 48L145 66L100 84L55 66L100 48Z" fill="#1e1b4b" stroke="#6366f1" stroke-width="3"/>
-                                <polygon points="100,50 142,66 100,82 58,66" fill="#312e81"/>
-                                <!-- Tassel -->
-                                <path d="M125 76L135 94L133 104" stroke="#fbbf24" stroke-width="3" stroke-linecap="round"/>
-                                <circle cx="133" cy="104" r="3.5" fill="#f59e0b"/>
-
-                                <!-- Gradients Definition -->
-                                <defs>
-                                    <radialGradient id="mascot-glow" cx="50%" cy="50%" r="50%">
-                                        <stop offset="0%" stop-color="#818cf8"/>
-                                        <stop offset="100%" stop-color="#4f46e5" stop-opacity="0"/>
-                                    </radialGradient>
-                                    <linearGradient id="mascot-body-grad" x1="0%" y1="0%" x2="100%" y2="100%">
-                                        <stop offset="0%" stop-color="#a5b4fc"/>
-                                        <stop offset="50%" stop-color="#818cf8"/>
-                                        <stop offset="100%" stop-color="#6366f1"/>
-                                    </linearGradient>
-                                </defs>
-                            </svg>
-                        </div>
-                    </div>
-                    <span class="mascot-hint">💡 Klik Archie untuk mendengar petuah kalkulus</span>
-                </div>
-            </div>
-        </section>
-
-        <!-- Faculty Path Selector Section -->
-        <section class="section-wrapper">
-            <div class="container">
-                <div class="section-header">
-                    <h2 class="section-title">Pilih Fokus Kurikulum Fakultasmu</h2>
-                    <p class="section-subtitle">
-                        Calculus Bridge menyesuaikan materi dan bank soal aplikasi dengan jurusanmu di universitas.
-                    </p>
-                </div>
-
-                <div class="faculty-grid">
-                    <!-- Faculty: FT -->
-                    <div class="faculty-card" data-faculty="ft" onclick="selectFacultyPath('ft')">
-                        <div class="fac-icon-wrapper fac-icon-ft">⚙️</div>
-                        <h3 class="fac-name">Fakultas Teknik (FT)</h3>
-                        <p class="fac-desc">
-                            Menekankan aplikasi fisik, laju perubahan terapan, perhitungan volume benda putar, dan optimasi material.
-                        </p>
-                        <ul class="fac-perks">
-                            <li>Laju Terkait (Related Rates)</li>
-                            <li>Optimasi Desain & Struktur</li>
-                            <li>Kalkulus Vektor Dasar</li>
-                        </ul>
-                    </div>
-
-                    <!-- Faculty: Fasilkom (Active by default) -->
-                    <div class="faculty-card active" data-faculty="fasilkom" onclick="selectFacultyPath('fasilkom')">
-                        <div class="fac-icon-wrapper fac-icon-fasilkom">💻</div>
-                        <h3 class="fac-name">Fakultas Ilmu Komputer</h3>
-                        <p class="fac-desc">
-                            Fokus pada logika analitis, turunan numerik, gradien untuk Machine Learning, dan analisis limit kompleksitas algoritma.
-                        </p>
-                        <ul class="fac-perks">
-                            <li>Gradien Descent & Turunan Multivariabel</li>
-                            <li>Asimtotik Limit (Big-O Notation)</li>
-                            <li>Aproksimasi Deret Taylor</li>
-                        </ul>
-                    </div>
-
-                    <!-- Faculty: FMIPA -->
-                    <div class="faculty-card" data-faculty="fmipa" onclick="selectFacultyPath('fmipa')">
-                        <div class="fac-icon-wrapper fac-icon-fmipa">🔬</div>
-                        <h3 class="fac-name">Fakultas MIPA</h3>
-                        <p class="fac-desc">
-                            Mempelajari keketatan matematis formal, definisi limit Epsilon-Delta, teorema nilai rata-rata, dan pembuktian kalkulus.
-                        </p>
-                        <ul class="fac-perks">
-                            <li>Pembuktian Formal Limit (ε - δ)</li>
-                            <li>Teorema Rolle & Rata-rata (MVT)</li>
-                            <li>Kekontinuan Seragam (Uniform Continuity)</li>
-                        </ul>
-                    </div>
-                </div>
-            </div>
-        </section>
-
-        <!-- Skill Tree (Duolingo-style Roadmap) -->
-        <section class="tree-section" id="skill-tree-section">
-            <div class="container">
-                <div class="section-header">
-                    <h2 class="section-title">Peta Pembelajaran (Skill Tree)</h2>
-                    <p class="section-subtitle">
-                        Selesaikan materi dan kuis untuk membuka tahapan berikutnya secara bertahap.
-                    </p>
-                </div>
-
-                <div class="skill-tree-container">
-                    <!-- SVG Curved Connector Path -->
-                    <svg class="skill-tree-path-svg" viewBox="0 0 200 650" fill="none">
-                        <path d="M 60 40 Q 150 140 100 210 T 60 380 T 140 520 T 100 620" 
-                              stroke="#27354a" stroke-width="6" stroke-dasharray="10 8" stroke-linecap="round"/>
-                    </svg>
-
-                    <!-- Node 1: Precalculus Bridge -->
-                    <div class="tree-node-item node-completed" id="node-precalc" onclick="handleNodeClick('node-precalc')">
-                        <div class="node-circle" title="Tahap 1: Precalculus">
-                            <span class="node-icon">✓</span>
-                        </div>
-                        <div class="node-info-card">
-                            Tahap 1: Precalculus Bridge
-                        </div>
-                    </div>
-
-                    <!-- Node 2: Limit & Continuity -->
-                    <div class="tree-node-item node-active" id="node-limit" onclick="handleNodeClick('node-limit')">
-                        <div class="node-circle" title="Tahap 2: Limit & Kekontinuan">
-                            <span class="node-icon">🌟</span>
-                        </div>
-                        <div class="node-info-card">
-                            Tahap 2: Limit & Kekontinuan
-                        </div>
-                    </div>
-
-                    <!-- Node 3: Basic Derivatives -->
-                    <div class="tree-node-item node-locked" id="node-deriv" onclick="handleNodeClick('node-deriv')">
-                        <div class="node-circle" title="Tahap 3: Dasar Turunan">
-                            <span class="node-icon">🔒</span>
-                        </div>
-                        <div class="node-info-card">
-                            Tahap 3: Fondasi Turunan
-                        </div>
-                    </div>
-
-                    <!-- Node 4: Chain Rule & Implicit -->
-                    <div class="tree-node-item node-locked" id="node-chain" onclick="handleNodeClick('node-chain')">
-                        <div class="node-circle" title="Tahap 4: Aturan Rantai">
-                            <span class="node-icon">🔒</span>
-                        </div>
-                        <div class="node-info-card">
-                            Tahap 4: Aturan Rantai
-                        </div>
-                    </div>
-
-                    <!-- Node 5: Applications & Optimization -->
-                    <div class="tree-node-item node-locked" id="node-app" onclick="handleNodeClick('node-app')">
-                        <div class="node-circle" title="Tahap 5: Aplikasi & Optimasi">
-                            <span class="node-icon">🔒</span>
-                        </div>
-                        <div class="node-info-card">
-                            Tahap 5: Aplikasi & Optimasi
-                        </div>
-                    </div>
-
-                    <!-- Node 6: Boss Trophy / Checkpoint -->
-                    <div class="tree-node-item node-locked node-boss" id="node-boss" onclick="handleNodeClick('node-boss')">
-                        <div class="node-circle" title="Boss Quest: Ujian Fakultas & SNBT">
-                            <span class="node-icon">🏆</span>
-                        </div>
-                        <div class="node-info-card">
-                            Tantangan Boss: Ujian Fakultas
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </section>
+        <!-- =====================================================================
+             6. PROGRES & ANALITIK XP (Branch: feat/progress-analytics)
+             ===================================================================== -->
+        {% include 'analytics/progress_dashboard.html' %}
     </main>
 
-    <!-- DIAGNOSTIC EVALUATION MODAL -->
-    <div class="modal-overlay" id="diagnostic-modal">
-        <div class="modal-content-card">
-            <button class="modal-close-btn" onclick="diagnosticRunner.close()" title="Tutup">×</button>
-            <div id="diag-quiz-content">
-                <!-- Dynamically populated by DiagnosticRunner in app.js -->
-            </div>
-        </div>
-    </div>
+    <!-- =========================================================================
+         7. MODAL & DRAWER OVERLAYS (Di-trigger oleh interaksi pengguna)
+         ========================================================================= -->
+    <!-- Modal Autentikasi Pengguna (Branch: feat/auth-onboarding) -->
+    {% include 'auth/login_modal.html' %}
 
-    <!-- LEVEL DETAIL & QUIZ DRAWER -->
-    <div class="level-drawer-overlay" id="level-drawer">
-        <div class="level-drawer-sheet">
-            <!-- Header -->
-            <div class="drawer-header">
-                <div>
-                    <span class="drawer-badge" id="drawer-level-badge">Tahap Pembelajaran</span>
-                    <h3 class="drawer-title" id="drawer-level-title">Judul Level</h3>
-                    <p class="drawer-subtitle" id="drawer-level-subtitle">Deskripsi materi pembelajaran</p>
-                </div>
-                <button class="modal-close-btn" onclick="levelDrawer.close()" title="Tutup">×</button>
-            </div>
+    <!-- Modal Evaluasi Diagnostik Awal (Branch: feat/diagnostic-engine) -->
+    {% include 'diagnostic/test_modal.html' %}
+    {% include 'diagnostic/result_card.html' %}
 
-            <!-- Drawer Tabs -->
-            <div class="drawer-tabs-nav">
-                <button class="drawer-tab-btn active" data-tab="summary" onclick="levelDrawer.switchTab('summary')">
-                    📖 Materi & Video
-                </button>
-                <button class="drawer-tab-btn" data-tab="quiz" onclick="levelDrawer.switchTab('quiz')">
-                    🎯 Latihan Kuis (+XP)
-                </button>
-            </div>
+    <!-- Drawer Modul Pembelajaran & Kuis (Branch: feat/learning-path) -->
+    {% include 'learning/drawer_lesson.html' %}
+    {% include 'learning/quiz_modal.html' %}
 
-            <!-- Scrollable Body -->
-            <div class="drawer-body-scroll">
-                <!-- Tab 1: Lesson Summary -->
-                <div id="tab-content-summary">
-                    <div id="drawer-summary-content">
-                        <!-- Populated by LevelDrawerManager -->
-                    </div>
-                    <div style="margin-top: 2rem;">
-                        <button class="btn btn-primary btn-3d btn-lg" onclick="levelDrawer.switchTab('quiz')">
-                            Mulai Latihan Kuis Sekarang ➔
-                        </button>
-                    </div>
-                </div>
-
-                <!-- Tab 2: Gamified Interactive Quiz -->
-                <div id="tab-content-quiz" style="display: none;">
-                    <div id="drawer-quiz-content">
-                        <!-- Populated by LevelDrawerManager -->
-                    </div>
-                </div>
-            </div>
-
-            <!-- Bottom Duolingo Feedback Bar -->
-            <div class="quiz-feedback-bar" id="quiz-feedback-bar">
-                <div class="feedback-details">
-                    <h4 id="feedback-text">Umpan Balik</h4>
-                    <p id="feedback-explanation">Penjelasan langkah matematis akan muncul di sini.</p>
-                </div>
-                <button class="btn btn-secondary btn-3d" id="btn-feedback-action">
-                    Lanjut ➔
-                </button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Footer -->
-    <footer class="site-footer">
-        <div class="container footer-content">
-            <p>&copy; 2026 Calculus Bridge &middot; Mengakselerasi Pemahaman Kalkulus Mahasiswa Baru.</p>
-            <div class="footer-links">
-                <a href="#profile">Tentang Proyek</a>
-                <a href="#skill-tree-section">Skill Tree</a>
-                <a href="javascript:void(0)" onclick="diagnosticRunner.start()">Tes Diagnostik</a>
-            </div>
-        </div>
-    </footer>
-
-    <!-- App JavaScript Engine -->
-    <script src="{% static 'js/app.js' %}"></script>
-</body>
-</html>
+    <!-- =========================================================================
+         8. FOOTER (Branch: ui/design-system)
+         ========================================================================= -->
+    {% include 'components/footer.html' %}
+{% endblock %}
