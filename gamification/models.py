@@ -30,6 +30,42 @@ class Faculty(models.Model):
         return f"{self.short_name} - {self.name}"
 
 
+class SourceDocument(models.Model):
+    """
+    Satu berkas sumber materi (mis. "1_Materi_Umum_Kalkulus.pdf").
+
+    Mechanism: setiap SkillNode, LessonSection, dan Question menunjuk ke berkas
+    asalnya, sehingga konten bisa ditelusuri, difilter, dan diperbarui per berkas
+    tanpa mencampur materi umum dengan materi khusus fakultas.
+    """
+    CATEGORY_CHOICES = [
+        ('materi', 'Materi'),
+        ('soal', 'Soal & Pembahasan'),
+        ('lampiran', 'Lampiran'),
+    ]
+
+    slug = models.SlugField(max_length=80, unique=True, help_text="mis. 'materi-umum'")
+    filename = models.CharField(max_length=150, help_text="Nama berkas asli, mis. '1_Materi_Umum_Kalkulus.pdf'")
+    title = models.CharField(max_length=200)
+    subtitle = models.CharField(max_length=255, blank=True)
+    category = models.CharField(max_length=20, choices=CATEGORY_CHOICES, default='materi')
+    faculty = models.ForeignKey(
+        Faculty,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="source_documents",
+        help_text="Kosongkan jika berkas berlaku untuk semua fakultas atau berisi beberapa fakultas"
+    )
+    order = models.PositiveIntegerField(default=1, help_text="Urutan berkas (nomor di depan nama file)")
+
+    class Meta:
+        ordering = ['order']
+
+    def __str__(self):
+        return self.filename
+
+
 class SkillNode(models.Model):
     """
     Represents an individual node along the Duolingo-style Skill Tree roadmap.
@@ -43,12 +79,27 @@ class SkillNode(models.Model):
         related_name="skill_nodes",
         help_text="Associated faculty; leave blank for universal core stages"
     )
+    source_document = models.ForeignKey(
+        SourceDocument,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="skill_nodes",
+        help_text="Berkas materi yang menjadi sumber node ini"
+    )
     stage_number = models.PositiveIntegerField(help_text="Stage sequence number (1, 2, 3...)")
     title = models.CharField(max_length=200, help_text="e.g., 'Tahap 1: Precalculus Bridge'")
     slug = models.SlugField(max_length=100, unique=True)
     badge_label = models.CharField(max_length=80, default="Materi Inti", help_text="e.g., 'Fondasi Aljabar'")
     subtitle = models.CharField(max_length=255, help_text="Short subtitle explanation")
-    summary_html = models.TextField(help_text="Rich HTML summary of lesson concepts and formulas")
+    KIND_CHOICES = [
+        ('lesson', 'Node skill tree (materi + kuis)'),
+        ('reference', 'Bacaan referensi (hanya di halaman Lesson)'),
+    ]
+    kind = models.CharField(max_length=20, choices=KIND_CHOICES, default='lesson')
+    icon = models.CharField(max_length=10, default="📘", help_text="Emoji ikon node")
+    is_boss = models.BooleanField(default=False, help_text="Node ujian akhir (soal tingkat sulit)")
+    summary_html = models.TextField(blank=True, help_text="Ringkasan singkat isi node (ditampilkan di katalog)")
     
     # Video & Resource integration
     video_title = models.CharField(max_length=200, blank=True, help_text="Title of integrated video module")
@@ -63,6 +114,37 @@ class SkillNode(models.Model):
         return f"Stage {self.stage_number}: {self.title}"
 
 
+class LessonSection(models.Model):
+    """
+    Satu bagian materi di dalam SkillNode (mis. "Tabel turunan dasar").
+
+    Mechanism: materi sebuah node dipecah menjadi beberapa bagian berurutan.
+    Setiap bagian berisi HTML dan daftar grafik interaktif (`graphs`) yang
+    dirender oleh static/js/graphlab.js dengan slider parameter.
+    """
+    node = models.ForeignKey(SkillNode, on_delete=models.CASCADE, related_name="sections")
+    source_document = models.ForeignKey(
+        SourceDocument,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="sections",
+    )
+    order = models.PositiveIntegerField(default=1)
+    heading = models.CharField(max_length=200)
+    body_html = models.TextField(blank=True, help_text="Isi materi dalam HTML")
+    graphs = models.JSONField(default=list, blank=True, help_text="Daftar spec grafik interaktif (lihat gamification/content/README.md)")
+
+    class Meta:
+        ordering = ['node', 'order']
+        constraints = [
+            models.UniqueConstraint(fields=['node', 'order'], name='unique_section_order_per_node')
+        ]
+
+    def __str__(self):
+        return f"{self.node.slug} #{self.order}: {self.heading}"
+
+
 class Question(models.Model):
     """
     Bank of questions used for Diagnostic Evaluation or Level Quizzes.
@@ -74,6 +156,21 @@ class Question(models.Model):
         ('high', 'Tinggi (High)'),
     ]
 
+    code = models.CharField(
+        max_length=20,
+        unique=True,
+        null=True,
+        blank=True,
+        help_text="Kode soal sesuai berkas sumber, mis. 'U-D1', 'FT-S2', 'FK-H3'"
+    )
+    source_document = models.ForeignKey(
+        SourceDocument,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="questions",
+        help_text="Berkas soal asal"
+    )
     node = models.ForeignKey(
         SkillNode,
         on_delete=models.CASCADE,
@@ -100,14 +197,20 @@ class Question(models.Model):
         default='basic',
         help_text="Difficulty bracket used for adaptive decision logic"
     )
-    prompt = models.TextField(help_text="Question prompt text with math equations")
-    explanation = models.TextField(help_text="Detailed step-by-step mathematical reasoning shown on immediate feedback")
+    prompt = models.TextField(help_text="Teks soal (boleh HTML)")
+    steps = models.JSONField(default=list, blank=True, help_text="Langkah pembahasan berurutan (list string HTML)")
+    answer = models.TextField(blank=True, help_text="Jawaban akhir sesuai berkas sumber")
+    explanation = models.TextField(blank=True, help_text="Ringkasan konsep / catatan tambahan untuk umpan balik")
+    graphs = models.JSONField(default=list, blank=True, help_text="Grafik interaktif untuk pembahasan (spec GraphLab)")
+    order = models.PositiveIntegerField(default=0, help_text="Urutan soal di dalam node")
     xp_reward = models.PositiveIntegerField(default=20, help_text="XP earned when answered correctly")
 
     class Meta:
-        ordering = ['node', 'difficulty', 'id']
+        ordering = ['node', 'order', 'id']
 
     def __str__(self):
+        if self.code:
+            return f"{self.code} ({self.get_difficulty_display()})"
         diag_prefix = "[Diagnostic] " if self.is_diagnostic else ""
         return f"{diag_prefix}({self.get_difficulty_display()}) {self.prompt[:60]}..."
 

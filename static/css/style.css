@@ -1808,3 +1808,179 @@ img {
     grid-template-columns: 1fr;
   }
 }
+/* ════════════════════════════════════════════════════════════════
+   CALCULUS CONTENT (feat/calculus-content)
+   Materi per berkas sumber, bank soal, pembahasan, GraphLab sliders
+   ════════════════════════════════════════════════════════════════ */
+
+/* Skill tree: zigzag ditentukan JS (karena ada label grup di antara node) */
+.skill-tree-wrap .tree-node:nth-child(n) { align-self: center; margin: 0; }
+.skill-tree-wrap .tree-node.zig-left { align-self: flex-start; margin-left: 60px; }
+.skill-tree-wrap .tree-node.zig-right { align-self: flex-end; margin-right: 60px; }
+.tree-group-label {
+  align-self: stretch;
+  text-align: center;
+  font-size: .78rem;
+  font-weight: 700;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+  color: var(--clr-text-sec);
+  background: var(--clr-cream);
+  border-radius: var(--radius-full);
+  padding: .4rem 1rem;
+  margin: 1rem 0 1.25rem;
+}
+.loading-text { color: var(--clr-muted); font-size: .9rem; text-align: center; padding: 2rem 0; }
+
+/* Drawer lebih lebar agar grafik nyaman dibaca */
+.drawer-sheet { width: min(720px, 96vw); }
+.drawer-body { padding-bottom: 8rem; }
+.drawer-tab[hidden] { display: none; }
+
+/* Isi materi */
+.lesson-body { font-size: .92rem; color: var(--clr-text-sec); line-height: 1.7; }
+.lesson-body p { margin-bottom: .6rem; }
+.lesson-list { padding-left: 1.25rem; margin: .4rem 0 .8rem; }
+.lesson-list li { margin-bottom: .35rem; }
+.lesson-note { font-size: .82rem; color: var(--clr-muted); }
+.table-scroll { overflow-x: auto; margin: .6rem 0 1rem; }
+.lesson-table { width: 100%; border-collapse: collapse; font-size: .85rem; }
+.lesson-table th {
+  background: var(--clr-sidebar);
+  color: #fff;
+  text-align: left;
+  padding: .55rem .7rem;
+  font-weight: 700;
+}
+.lesson-table td { border-bottom: 1px solid var(--clr-border); padding: .5rem .7rem; vertical-align: top; color: var(--clr-text); }
+.lesson-table tr:nth-child(even) td { background: var(--clr-bg); }
+.lesson-graphs { margin-top: .75rem; }
+.source-tag {
+  display: inline-block;
+  font-size: .75rem;
+  color: var(--clr-muted);
+  background: var(--clr-bg);
+  border: 1px solid var(--clr-border);
+  border-radius: var(--radius-full);
+  padding: .2rem .7rem;
+  margin: .25rem 0 1rem;
+}
+
+/* Halaman Lesson: kelompok per berkas */
+.doc-section { margin-bottom: 2.25rem; }
+.doc-header { display: flex; gap: .85rem; align-items: flex-start; margin-bottom: 1rem; }
+.doc-icon { font-size: 1.6rem; line-height: 1; }
+.doc-filename { font-family: 'Courier New', monospace; font-size: .75rem; color: var(--clr-primary); font-weight: 700; }
+.doc-title { font-family: var(--font-head); font-size: 1.1rem; font-weight: 700; }
+.doc-sub { font-size: .85rem; color: var(--clr-text-sec); }
+.qbank-list { display: flex; flex-direction: column; gap: .5rem; }
+.qbank-row {
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+  width: 100%;
+  text-align: left;
+  background: var(--clr-surface);
+  border: 1px solid var(--clr-border);
+  border-radius: var(--radius-md);
+  padding: .7rem .9rem;
+  cursor: pointer;
+  transition: border-color .2s, transform .2s;
+}
+.qbank-row:hover { border-color: var(--clr-primary); transform: translateX(3px); }
+.qbank-code { font-family: var(--font-head); font-weight: 700; color: var(--clr-sidebar); min-width: 3.6rem; }
+.qbank-prompt { flex: 1; font-size: .87rem; color: var(--clr-text-sec); }
+.qbank-graph { font-size: 1rem; }
+
+/* Pembahasan */
+.pembahasan {
+  background: var(--clr-surface);
+  border: 1px solid var(--clr-border);
+  border-left: 4px solid var(--clr-growth);
+  border-radius: var(--radius-md);
+  padding: 1.1rem 1.25rem;
+  margin-top: 1.25rem;
+  animation: fadeInUp .3s ease both;
+}
+.pembahasan h5 { font-size: .95rem; font-weight: 700; color: var(--clr-growth); margin-bottom: .6rem; }
+.steps-list { padding-left: 1.25rem; font-size: .9rem; color: var(--clr-text); line-height: 1.7; }
+.steps-list li { margin-bottom: .35rem; }
+.answer-box {
+  background: var(--clr-primary-l);
+  border: 1px solid var(--clr-primary);
+  border-radius: var(--radius-sm);
+  padding: .65rem .85rem;
+  margin: .85rem 0;
+  font-size: .9rem;
+}
+.expl-note { font-size: .86rem; color: var(--clr-text-sec); margin-bottom: .75rem; }
+.graph-hint {
+  font-size: .82rem;
+  color: var(--clr-text-sec);
+  background: var(--clr-accent-l);
+  border-radius: var(--radius-sm);
+  padding: .55rem .75rem;
+  margin: .5rem 0 .75rem;
+}
+.option-btn sup, .option-btn sub, .quiz-prompt sup, .quiz-prompt sub { font-size: .72em; }
+
+/* Diagnostik */
+.diag-title { font-family: var(--font-head); font-size: 1.3rem; margin-bottom: .5rem; }
+.diag-sub { font-size: .88rem; color: var(--clr-text-sec); margin-bottom: 1.25rem; }
+.diag-result-card { border-radius: var(--radius-md); padding: 1rem 1.15rem; border: 1px solid var(--clr-border); }
+.diag-result-card.warning { background: var(--clr-accent-l); border-color: var(--clr-accent); }
+.diag-result-card.ready { background: var(--clr-primary-l); border-color: var(--clr-primary); }
+.diag-result-card.mastery { background: var(--clr-growth-l); border-color: var(--clr-growth); }
+.diag-summary {
+  margin-top: .5rem;
+  padding: .7rem;
+  background: var(--clr-cream);
+  border-radius: var(--radius-md);
+  font-size: .85rem;
+  color: var(--clr-text-sec);
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: .35rem;
+}
+
+/* ── GraphLab (static/js/graphlab.js) ─────────────────────────── */
+.graphlab {
+  background: var(--clr-surface);
+  border: 1px solid var(--clr-border);
+  border-radius: var(--radius-md);
+  padding: .9rem 1rem 1rem;
+  margin: .75rem 0 1rem;
+}
+.gl-title { font-family: var(--font-head); font-weight: 700; font-size: .92rem; margin-bottom: .4rem; color: var(--clr-text); }
+.gl-svg { width: 100%; height: auto; display: block; background: #FCFBF9; border-radius: var(--radius-sm); color: var(--clr-text); }
+.gl-grid { stroke: #ECE8E1; stroke-width: 1; }
+.gl-axis { stroke: #8A8378; stroke-width: 1.3; }
+.gl-tick { font-size: 10px; fill: var(--clr-muted); font-family: var(--font-body); }
+.gl-axlabel { font-size: 11px; fill: var(--clr-text-sec); font-weight: 700; font-family: var(--font-body); }
+.gl-label { font-size: 11px; font-weight: 700; font-family: var(--font-body); paint-order: stroke; stroke: #fff; stroke-width: 3px; }
+.gl-legend { display: flex; flex-wrap: wrap; gap: .35rem .6rem; margin: .55rem 0 .2rem; }
+.gl-chip { display: inline-flex; align-items: center; gap: .35rem; font-size: .76rem; color: var(--clr-text-sec); }
+.gl-chip i { width: 14px; height: 4px; border-radius: 2px; display: inline-block; }
+.gl-controls { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: .55rem 1rem; margin-top: .6rem; }
+.gl-slider { display: flex; flex-direction: column; gap: .2rem; font-size: .8rem; color: var(--clr-text-sec); }
+.gl-slider-label b { color: var(--clr-primary); font-family: var(--font-head); }
+.gl-slider input[type=range] { width: 100%; accent-color: var(--clr-primary); cursor: pointer; }
+.gl-actions { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; margin-top: .7rem; }
+.gl-btn {
+  font-size: .78rem;
+  font-weight: 700;
+  padding: .35rem .75rem;
+  border-radius: var(--radius-full);
+  border: 1.5px solid var(--clr-border);
+  background: var(--clr-bg);
+  color: var(--clr-text-sec);
+  cursor: pointer;
+}
+.gl-btn:hover { border-color: var(--clr-primary); color: var(--clr-primary); }
+.gl-check { font-size: .78rem; color: var(--clr-text-sec); display: inline-flex; align-items: center; gap: .3rem; cursor: pointer; }
+.gl-table { width: 100%; border-collapse: collapse; font-size: .8rem; margin-top: .7rem; }
+.gl-table th { text-align: left; color: var(--clr-muted); font-weight: 700; padding: .3rem .4rem; border-bottom: 1px solid var(--clr-border); }
+.gl-table td { padding: .3rem .4rem; border-bottom: 1px dashed var(--clr-border); font-variant-numeric: tabular-nums; }
+.gl-table td.gl-diff { color: var(--clr-accent-d); font-weight: 700; }
+.gl-caption { font-size: .8rem; color: var(--clr-muted); margin-top: .55rem; line-height: 1.55; }

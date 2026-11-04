@@ -1,7 +1,7 @@
 <!-- =========================================================================
      MODUL: Lesson Drawer (Slide-in dari kanan)
      Branch : feat/learning-path
-     Isi    : Tab Materi | Kuis dengan sistem HINT BERTAHAP
+     Isi    : Tab Materi (dengan grafik slider) | Kuis HINT BERTAHAP + pembahasan interaktif
      ========================================================================= -->
 
 <div class="drawer-overlay" id="lesson-drawer">
@@ -32,7 +32,7 @@
           <!-- Diisi dinamis oleh Drawer.open() -->
         </div>
         <div style="margin-top:1.5rem;">
-          <button class="btn btn-primary btn-lg" onclick="Drawer.switchTab('kuis')">
+          <button class="btn btn-primary btn-lg" id="drawer-start-quiz" onclick="Drawer.switchTab('kuis')">
             Mulai Kuis ➔
           </button>
         </div>

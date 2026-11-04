@@ -15,6 +15,7 @@ Always execute Python commands using the workspace virtual environment:
 - **Make Migrations**: `.\env\Scripts\python.exe manage.py makemigrations`
 - **Apply Migrations**: `.\env\Scripts\python.exe manage.py migrate`
 - **Install Packages**: `.\env\Scripts\pip.exe install -r requirements.txt`
+- **Seed Curriculum Content**: `.\env\Scripts\python.exe manage.py seed_gamification` (materi & soal per berkas PDF di `gamification/content/`, lihat README di folder itu)
 
 ## Project Architecture
 - `manage.py`: Django entrypoint.
