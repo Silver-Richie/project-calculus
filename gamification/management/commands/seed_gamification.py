@@ -1,186 +1,146 @@
 """
-Django management command to seed initial faculties, skill tree nodes,
-and calculus questions for Calculus Bridge.
+Memuat kurikulum Calculus Bridge dari paket gamification/content ke database.
+
 Usage:
     .\\env\\Scripts\\python.exe manage.py seed_gamification
+    .\\env\\Scripts\\python.exe manage.py seed_gamification --keep-stale
+
+Mechanism:
+    1. Upsert Faculty dari content/faculties.py.
+    2. Untuk setiap berkas sumber (content/m1 … m7), dengan urutan nomor berkas:
+       - upsert SourceDocument (kunci: slug),
+       - upsert SkillNode (kunci: slug) lalu tulis ulang LessonSection-nya,
+       - upsert Question (kunci: code) lalu tulis ulang Option-nya.
+    3. Hapus node & soal lama yang tidak lagi ada di konten (kecuali --keep-stale),
+       sehingga database selalu sama dengan berkas konten.
+Semua langkah berjalan dalam satu transaksi: jika validasi gagal, tidak ada yang berubah.
 """
 
-from django.core.management.base import BaseCommand
-from gamification.models import Faculty, SkillNode, Question, Option
+from collections import defaultdict
+
+from django.core.management.base import BaseCommand, CommandError
+from django.db import transaction
+
+from gamification import content
+from gamification.models import (
+    Faculty, SourceDocument, SkillNode, LessonSection, Question, Option,
+)
 
 
 class Command(BaseCommand):
-    help = "Populate initial Calculus Bridge curriculum, faculties, and questions."
+    help = "Muat ulang kurikulum (materi, soal, pembahasan, grafik interaktif) dari gamification/content."
 
+    def add_arguments(self, parser):
+        parser.add_argument(
+            "--keep-stale",
+            action="store_true",
+            help="Jangan hapus node/soal lama yang tidak ada di berkas konten.",
+        )
+
+    @transaction.atomic
     def handle(self, *args, **options):
-        self.stdout.write(self.style.NOTICE("Seeding Calculus Bridge data..."))
+        self.stdout.write(self.style.NOTICE("Memuat kurikulum Calculus Bridge..."))
 
-        # 1. Seed Faculties
-        faculties_data = [
-            {
-                "slug": "ft",
-                "name": "Fakultas Teknik",
-                "short_name": "FT",
-                "icon": "⚙️",
-                "description": "Menekankan aplikasi fisik, laju perubahan terapan, perhitungan volume benda putar, dan optimasi material.",
-                "focus_areas": "Laju Terkait • Optimasi Desain & Struktur • Kalkulus Vektor Dasar"
-            },
-            {
-                "slug": "fasilkom",
-                "name": "Fakultas Ilmu Komputer",
-                "short_name": "Fasilkom",
-                "icon": "💻",
-                "description": "Fokus pada logika analitis, turunan numerik, gradien untuk Machine Learning, dan analisis limit kompleksitas algoritma.",
-                "focus_areas": "Gradien Descent & AI • Limit Asimtotik (Big-O) • Aproksimasi Deret Taylor"
-            },
-            {
-                "slug": "fmipa",
-                "name": "Fakultas Matematika dan Ilmu Pengetahuan Alam",
-                "short_name": "FMIPA",
-                "icon": "🔬",
-                "description": "Mempelajari keketatan matematis formal, definisi limit Epsilon-Delta, teorema nilai rata-rata, dan pembuktian kalkulus.",
-                "focus_areas": "Pembuktian Formal (ε - δ) • Teorema Nilai Rata-rata (MVT) • Kekontinuan Seragam"
-            }
-        ]
+        faculties = self._seed_faculties()
+        node_slugs, question_codes = set(), set()
+        self._question_order = defaultdict(int)  # urutan soal per node, sesuai urutan berkas
 
-        faculty_objs = {}
-        for item in faculties_data:
-            fac, created = Faculty.objects.update_or_create(
-                slug=item["slug"],
-                defaults=item
+        for module in content.SOURCES:
+            doc = self._seed_document(module.DOCUMENT, faculties)
+            for node_data in getattr(module, "NODES", []):
+                node_slugs.add(self._seed_node(node_data, doc, faculties).slug)
+            for q_data in getattr(module, "QUESTIONS", []):
+                question_codes.add(self._seed_question(q_data, doc).code)
+
+        if not options["keep_stale"]:
+            stale_nodes = SkillNode.objects.exclude(slug__in=node_slugs)
+            stale_questions = Question.objects.exclude(code__in=question_codes)
+            n_nodes, n_questions = stale_nodes.count(), stale_questions.count()
+            stale_questions.delete()
+            stale_nodes.delete()
+            if n_nodes or n_questions:
+                self.stdout.write(f"  [Dihapus] {n_nodes} node lama, {n_questions} soal lama")
+
+        self.stdout.write(self.style.SUCCESS(
+            f"Selesai: {len(node_slugs)} node, {LessonSection.objects.count()} bagian materi, "
+            f"{len(question_codes)} soal dari {len(content.SOURCES)} berkas."
+        ))
+
+    # ── helpers ────────────────────────────────────────────────────────────
+    def _seed_faculties(self):
+        result = {}
+        for item in content.FACULTIES:
+            fac, _ = Faculty.objects.update_or_create(slug=item["slug"], defaults=item)
+            result[fac.slug] = fac
+        self.stdout.write(f"  [OK] {len(result)} fakultas")
+        return result
+
+    def _seed_document(self, data, faculties):
+        data = dict(data)
+        fac_slug = data.pop("faculty", None)
+        data["faculty"] = faculties[fac_slug] if fac_slug else None
+        doc, _ = SourceDocument.objects.update_or_create(slug=data.pop("slug"), defaults=data)
+        self.stdout.write(f"  [Berkas] {doc.filename}")
+        return doc
+
+    def _seed_node(self, data, doc, faculties):
+        data = dict(data)
+        sections = data.pop("sections", [])
+        fac_slug = data.pop("faculty", None)
+        data["faculty"] = faculties[fac_slug] if fac_slug else None
+        data["source_document"] = doc
+        node, _ = SkillNode.objects.update_or_create(slug=data.pop("slug"), defaults=data)
+
+        node.sections.all().delete()
+        LessonSection.objects.bulk_create([
+            LessonSection(
+                node=node,
+                source_document=doc,
+                order=i,
+                heading=s["heading"],
+                body_html=s.get("body_html", "").strip(),
+                graphs=s.get("graphs", []),
             )
-            faculty_objs[item["slug"]] = fac
-            status = "Created" if created else "Updated"
-            self.stdout.write(f"  [{status}] Faculty: {fac.short_name}")
+            for i, s in enumerate(sections, start=1)
+        ])
+        self.stdout.write(f"    [Node] {node.slug}: {len(sections)} bagian materi")
+        return node
 
-        # 2. Seed Skill Tree Nodes
-        nodes_data = [
-            {
-                "stage_number": 1,
-                "title": "Tahap 1: Precalculus Bridge",
-                "slug": "node-precalc",
-                "badge_label": "Fondasi Aljabar",
-                "subtitle": "Menyegarkan pemfaktoran, pecahan aljabar, dan fungsi sebelum masuk kalkulus.",
-                "summary_html": "Ringkasan konsep pemfaktoran aljabar, selisih kuadrat, dan manipulasi pecahan bentuk rasional.",
-                "video_title": "Video Modul: Rahasia Aljabar Mahasiswa Baru",
-                "video_duration": "08:45",
-                "order": 1
-            },
-            {
-                "stage_number": 2,
-                "title": "Tahap 2: Limit & Kekontinuan",
-                "slug": "node-limit",
-                "badge_label": "Konsep Intuitif",
-                "subtitle": "Memahami batas pendekatan nilai fungsi saat mendekati titik kritis.",
-                "summary_html": "Intuisi limit sepihak, limit bentuk tak tentu 0/0, strategi pemfaktoran dan perkalian sekawan.",
-                "video_title": "Video Modul: Intuisi Limit & Garis Singgung",
-                "video_duration": "12:10",
-                "order": 2
-            },
-            {
-                "stage_number": 3,
-                "title": "Tahap 3: Dasar Turunan & Garis Singgung",
-                "slug": "node-deriv",
-                "badge_label": "Kalkulus 1",
-                "subtitle": "Memahami laju perubahan sesaat, kemiringan tangen, dan aturan pangkat.",
-                "summary_html": "Definisi limit turunan f'(x) = lim_{h->0} [f(x+h) - f(x)]/h dan aturan turunan dasar.",
-                "video_title": "Video Modul: Garis Singgung & Speedometer Kalkulus",
-                "video_duration": "14:20",
-                "order": 3
-            },
-            {
-                "stage_number": 4,
-                "title": "Tahap 4: Aturan Rantai & Implisit",
-                "slug": "node-chain",
-                "badge_label": "Advanced Chain Rule",
-                "subtitle": "Menurunkan fungsi bersarang/komposisi yang sering keluar di ujian.",
-                "summary_html": "Metode kupas kulit buah: d/dx[f(g(x))] = f'(g(x)) * g'(x) serta turunan implisit.",
-                "video_title": "Video Modul: Trik Menguasai Aturan Rantai",
-                "video_duration": "11:15",
-                "order": 4
-            },
-            {
-                "stage_number": 5,
-                "title": "Tahap 5: Aplikasi Turunan & Optimasi",
-                "slug": "node-app",
-                "badge_label": "Real-world Engineering",
-                "subtitle": "Mencari nilai maksimum, minimum, laju terkait, dan desain efisien.",
-                "summary_html": "Titik stasioner, uji turunan pertama dan kedua untuk mencari solusi optimal dalam rekayasa.",
-                "video_title": "Video Modul: Optimasi Biaya & Struktur",
-                "video_duration": "16:40",
-                "order": 5
-            }
-        ]
+    def _seed_question(self, data, doc):
+        data = dict(data)
+        code = data.pop("code")
+        options = data.pop("options", [])
+        node_slug = data.pop("node")
 
-        node_objs = {}
-        for item in nodes_data:
-            node, created = SkillNode.objects.update_or_create(
-                slug=item["slug"],
-                defaults=item
-            )
-            node_objs[item["slug"]] = node
-            status = "Created" if created else "Updated"
-            self.stdout.write(f"  [{status}] SkillNode: {node.title}")
+        if sum(1 for _, ok in options if ok) != 1:
+            raise CommandError(f"Soal {code} harus punya tepat satu opsi benar.")
+        try:
+            node = SkillNode.objects.get(slug=node_slug)
+        except SkillNode.DoesNotExist:
+            raise CommandError(f"Soal {code} menunjuk node '{node_slug}' yang tidak ada.")
 
-        # 3. Seed Diagnostic Questions
-        diag_questions = [
-            {
-                "faculty": faculty_objs["fasilkom"],
-                "is_diagnostic": True,
-                "difficulty": "basic",
-                "prompt": "Sederhanakan ekspresi aljabar berikut untuk x ≠ 3: (x² - 9) / (x - 3)",
-                "explanation": "Pembilang merupakan selisih kuadrat: x² - 9 = (x - 3)(x + 3). Bagi dengan (x - 3) menghasilkan x + 3.",
-                "options": [
-                    {"text": "x - 3", "is_correct": False},
-                    {"text": "x + 3", "is_correct": True},
-                    {"text": "3x", "is_correct": False},
-                    {"text": "x² + 3", "is_correct": False}
-                ]
-            },
-            {
-                "faculty": faculty_objs["fasilkom"],
-                "is_diagnostic": True,
-                "difficulty": "medium",
-                "prompt": "Tentukan nilai dari limit fungsi rasional: lim_{x -> 2} (x² + x - 6) / (x - 2)",
-                "explanation": "Substitusi langsung menghasilkan 0/0. Faktorkan pembilang menjadi (x + 3)(x - 2). Coret faktor (x - 2) dan masukkan x = 2: 2 + 3 = 5.",
-                "options": [
-                    {"text": "0", "is_correct": False},
-                    {"text": "5", "is_correct": True},
-                    {"text": "4", "is_correct": False},
-                    {"text": "Tidak terdefinisi", "is_correct": False}
-                ]
-            },
-            {
-                "faculty": faculty_objs["fasilkom"],
-                "is_diagnostic": True,
-                "difficulty": "high",
-                "prompt": "Dalam optimasi Machine Learning, kita butuh turunan fungsi error. Tentukan f'(x) untuk f(x) = (3x² + 1)³",
-                "explanation": "Gunakan Aturan Rantai: Misal u = 3x² + 1, u' = 6x. Turunan u³ adalah 3u² · u' = 3(3x² + 1)² · 6x = 18x(3x² + 1)².",
-                "options": [
-                    {"text": "9(3x² + 1)²", "is_correct": False},
-                    {"text": "18x(3x² + 1)²", "is_correct": True},
-                    {"text": "6x(3x² + 1)²", "is_correct": False},
-                    {"text": "3(6x)²", "is_correct": False}
-                ]
-            }
-        ]
+        self._question_order[node.slug] += 1
+        defaults = {
+            "node": node,
+            "source_document": doc,
+            "faculty": doc.faculty,
+            "difficulty": data.pop("difficulty"),
+            "is_diagnostic": data.pop("is_diagnostic", False),
+            "prompt": data.pop("prompt"),
+            "steps": data.pop("steps", []),
+            "answer": data.pop("answer", ""),
+            "explanation": data.pop("explanation", ""),
+            "graphs": data.pop("graphs", []),
+            "xp_reward": data.pop("xp_reward", 20),
+            "order": self._question_order[node.slug],
+        }
+        if data:
+            raise CommandError(f"Soal {code}: field tidak dikenal {sorted(data)}")
 
-        for q_data in diag_questions:
-            options_list = q_data.pop("options")
-            q, _ = Question.objects.update_or_create(
-                prompt=q_data["prompt"],
-                defaults=q_data
-            )
-            # Create options
-            q.options.all().delete()
-            for idx, opt in enumerate(options_list):
-                Option.objects.create(
-                    question=q,
-                    text=opt["text"],
-                    is_correct=opt["is_correct"],
-                    order=idx
-                )
-            self.stdout.write(f"  [Seeded] Diagnostic Question: {q.prompt[:40]}...")
-
-        self.stdout.write(self.style.SUCCESS("Calculus Bridge seed completed successfully!"))
-
+        question, _ = Question.objects.update_or_create(code=code, defaults=defaults)
+        question.options.all().delete()
+        Option.objects.bulk_create([
+            Option(question=question, text=text, is_correct=ok, order=i)
+            for i, (text, ok) in enumerate(options)
+        ])
+        return question

@@ -1,14 +1,20 @@
 /**
- * Calculus Bridge — App Engine v3
+ * Calculus Bridge — App Engine v4
+ * Konten (materi, soal, pembahasan, grafik) dimuat dari database lewat
+ * /api/curriculum/; tidak ada lagi materi yang ditulis langsung di JS.
+ *
  * Modules:
- *   SFX           – Web Audio synthesizer
- *   State         – LocalStorage game state
- *   Nav           – Bottom nav + sidebar routing
- *   Mascot        – Reactive SVG character
- *   Drawer        – Lesson/Quiz slide-in sheet
- *   QuizEngine    – Progressive-hint quiz system
- *   DiagnosticModal – Adaptive 3-question diagnostic
- *   Confetti      – Canvas particle burst
+ *   SFX             – Web Audio synthesizer
+ *   State           – LocalStorage game state (progres per fakultas)
+ *   Nav             – Bottom nav + sidebar routing
+ *   Mascot          – Reactive SVG character
+ *   Curriculum      – Data kurikulum dari API
+ *   SkillTree       – Peta belajar (Level Up)
+ *   Catalogue       – Halaman Lesson, dikelompokkan per berkas sumber
+ *   QuizEngine      – Kuis hint bertahap + pembahasan dengan grafik slider (GraphLab)
+ *   Drawer          – Panel materi/kuis/bank soal
+ *   DiagnosticModal – Tes diagnostik adaptif (dinilai di server)
+ *   Confetti        – Canvas particle burst
  */
 
 /* ════════════════════════════════════════════════════════════════
@@ -59,25 +65,37 @@ const SFX = (() => {
 
 /* ════════════════════════════════════════════════════════════════
    STATE — LocalStorage persistence
+   Progres disimpan per fakultas karena tiap fakultas punya skill tree sendiri
+   (Tahap 1–5 umum + Tahap 6–8 khusus fakultas).
    ════════════════════════════════════════════════════════════════ */
 const State = (() => {
-  const KEY = 'cb_state_v3';
+  const KEY = 'cb_state_v4';
   const DEFAULTS = {
     faculty: 'fasilkom',
-    xp: 60, streak: 3, hearts: 5, maxHearts: 5, gems: 120,
-    completedNodes: ['node-precalc'],
-    activeNode: 'node-limit',
+    xp: 0, streak: 1, hearts: 5, maxHearts: 5, gems: 100,
+    progress: {},   // { ft: { completed: [slug...], active: slug|null } }
     sound: true,
   };
+  const FAC_LABELS = { fasilkom: '💻 Fasilkom', fmipa: '🔬 FMIPA', ft: '⚙️ Fak. Teknik' };
 
   let s = (() => {
     try { return Object.assign({}, DEFAULTS, JSON.parse(localStorage.getItem(KEY))); }
     catch (_) { return { ...DEFAULTS }; }
   })();
 
+  function prog() {
+    if (!s.progress[s.faculty]) s.progress[s.faculty] = { completed: [], active: null };
+    return s.progress[s.faculty];
+  }
+
   function save() {
     try { localStorage.setItem(KEY, JSON.stringify(s)); } catch (_) { }
     updateHUD();
+  }
+
+  function setText(id, val) {
+    const el = document.getElementById(id);
+    if (el) el.textContent = val;
   }
 
   function updateHUD() {
@@ -90,35 +108,16 @@ const State = (() => {
     setText('profile-hearts', s.hearts);
     setText('profile-gems', s.gems);
     setText('rank-my-xp', `${s.xp} XP`);
+    setText('hud-faculty-badge', FAC_LABELS[s.faculty] || 'Fasilkom');
 
-    const facLabels = { fasilkom: '💻 Fasilkom', fmipa: '🔬 FMIPA', ft: '⚙️ Fak. Teknik' };
-    setText('hud-faculty-badge', facLabels[s.faculty] || 'Fasilkom');
-
-    // Sidebar active
-    ['fasilkom', 'fmipa', 'ft'].forEach(f => {
+    ['fasilkom', 'fmipa', 'ft'].forEach((f) => {
       const el = document.getElementById(`sidebar-${f}`);
       if (el) el.classList.toggle('active', f === s.faculty);
     });
-    // Faculty cards (profile page)
-    document.querySelectorAll('.fac-card').forEach(c => {
+    document.querySelectorAll('.fac-card').forEach((c) => {
       c.classList.toggle('active', c.dataset.fac === s.faculty);
     });
-    // Tree nodes
-    updateTree();
-  }
-
-  function updateTree() {
-    document.querySelectorAll('.tree-node').forEach(n => {
-      n.classList.remove('node-completed', 'node-active', 'node-locked');
-      if (s.completedNodes.includes(n.id)) n.classList.add('node-completed');
-      else if (n.id === s.activeNode) n.classList.add('node-active');
-      else n.classList.add('node-locked');
-    });
-  }
-
-  function setText(id, val) {
-    const el = document.getElementById(id);
-    if (el) el.textContent = val;
+    if (typeof SkillTree !== 'undefined') SkillTree.refreshStates();
   }
 
   function floatXP(amount) {
@@ -135,26 +134,38 @@ const State = (() => {
 
   return {
     get: () => s,
+    progress: prog,
     addXP(n) { s.xp += n; save(); floatXP(n); },
     loseHeart() {
-      if (s.hearts > 0) { s.hearts--; save(); SFX.wrong(); }
+      if (s.hearts > 0) { s.hearts--; save(); }
       const p = document.getElementById('hud-hearts-pill');
       if (p) { p.classList.add('hearts-shake'); setTimeout(() => p.classList.remove('hearts-shake'), 500); }
     },
     setFaculty(f) {
+      if (s.faculty === f) return;
       s.faculty = f; save(); SFX.click();
-      const facDescs = {
-        fasilkom: 'Jalur <strong>Fasilkom</strong> — Gradient Descent, Limit Kompleksitas & Turunan Numerik',
-        fmipa: 'Jalur <strong>FMIPA</strong> — Pembuktian ε-δ, MVT & Analisis Formal Ketat',
-        ft: 'Jalur <strong>Fak. Teknik</strong> — Laju Terkait, Optimasi Struktur & Kalkulus Vektor',
-      };
-      setText('tree-fac-desc', '');
-      const el = document.getElementById('tree-fac-desc');
-      if (el) el.innerHTML = facDescs[f] || '';
+      Curriculum.load(f);
     },
-    completeNode(nodeId, nextId) {
-      if (!s.completedNodes.includes(nodeId)) s.completedNodes.push(nodeId);
-      if (nextId) s.activeNode = nextId;
+    /** Status node: 'completed' | 'active' | 'locked'. Node pertama otomatis aktif. */
+    nodeStatus(slug, tree) {
+      const p = prog();
+      if (p.completed.includes(slug)) return 'completed';
+      const active = p.active || tree.find((n) => !p.completed.includes(n.slug))?.slug;
+      return slug === active ? 'active' : 'locked';
+    },
+    completeNode(slug, nextSlug) {
+      const p = prog();
+      if (!p.completed.includes(slug)) p.completed.push(slug);
+      if (nextSlug && !p.completed.includes(nextSlug)) p.active = nextSlug;
+      else if (!nextSlug) p.active = null;
+      save();
+    },
+    /** Dipakai diagnostik: semua node sebelum `slug` dianggap lulus, `slug` menjadi aktif. */
+    startFrom(slug, tree) {
+      const p = prog();
+      const idx = tree.findIndex((n) => n.slug === slug);
+      tree.slice(0, Math.max(0, idx)).forEach((n) => { if (!p.completed.includes(n.slug)) p.completed.push(n.slug); });
+      p.active = slug;
       save();
     },
     save, updateHUD,
@@ -226,269 +237,316 @@ const Mascot = (() => {
 })();
 
 /* ════════════════════════════════════════════════════════════════
-   LEVEL DATA — Curriculum content (materi + kuis + hints)
+   CURRICULUM — data materi & soal dari database (/api/curriculum/)
    ════════════════════════════════════════════════════════════════ */
-const LEVELS = {
-  'node-precalc': {
-    badge: 'Tahap 1', title: 'Precalculus Bridge', sub: 'Pemfaktoran & Manipulasi Aljabar',
-    nextNode: 'node-limit',
-    lesson: `
-      <div class="lesson-block">
-        <h4>Mengapa Precalculus Penting?</h4>
-        <p>90% kesalahan kalkulus bukan pada rumus turunannya, melainkan kegagalan memanipulasi aljabar dasar. Kuasai ini dulu!</p>
-      </div>
-      <div class="formula-box">
-        <code>a² - b² = (a - b)(a + b)</code>
-        <span>Selisih Dua Kuadrat — paling sering muncul di soal limit</span>
-      </div>
-      <div class="formula-box">
-        <code>a³ - b³ = (a - b)(a² + ab + b²)</code>
-        <span>Selisih Dua Kubik</span>
-      </div>
-      <div class="video-card">
-        <div class="video-play">▶</div>
-        <div class="video-info">
-          <strong>Rahasia Aljabar Mahasiswa Baru UI</strong>
-          <span>Durasi: 08:45 · Dosen Pengampu Kalkulus</span>
-        </div>
-      </div>`,
-    quiz: [
-      {
-        q: 'Sederhanakan untuk x ≠ 3: (x² - 9) / (x - 3)',
-        diff: 'basic',
-        options: ['x - 3', 'x + 3', '3x', 'x² + 3'],
-        correct: 1,
-        hints: [
-          '💡 Coba lihat pembilangnya — apakah x² - 9 bisa difaktorkan?',
-          '📐 Ingat rumus: a² - b² = (a-b)(a+b). Di sini a = x, b = 3.',
-          '✂️ Setelah difaktorkan: (x-3)(x+3)/(x-3). Sekarang apa yang bisa disederhanakan?',
-        ],
-        explanation: 'Pembilang x² - 9 = (x-3)(x+3). Dibagi (x-3) → tersisa (x+3). Jadi jawabannya x + 3.'
-      },
-      {
-        q: 'Jika f(x) = 2x + 1, berapakah f(x+h) - f(x)?',
-        diff: 'basic',
-        options: ['2h', '2x + 2h', 'h', '2h + 1'],
-        correct: 0,
-        hints: [
-          '💡 Hitung f(x+h) dulu: masukkan (x+h) sebagai pengganti x dalam f(x) = 2x + 1.',
-          '📐 f(x+h) = 2(x+h) + 1 = 2x + 2h + 1.',
-          '✂️ Sekarang kurangi f(x): f(x+h) - f(x) = (2x + 2h + 1) - (2x + 1) = ?',
-        ],
-        explanation: 'f(x+h) = 2(x+h)+1 = 2x+2h+1. Dikurangi f(x) = 2x+1 → hasilnya 2h.'
-      }
-    ]
-  },
-  'node-limit': {
-    badge: 'Tahap 2', title: 'Limit & Kekontinuan', sub: 'Intuisi Mendekati Nilai Fungsi',
-    nextNode: 'node-deriv',
-    lesson: `
-      <div class="lesson-block">
-        <h4>Intuisi Limit: "Mendekati, Bukan Menyentuh"</h4>
-        <p>Limit f(x) saat x → c adalah nilai L yang dituju oleh f(x) ketika x bergerak sangat dekat ke c dari kiri maupun kanan, tanpa harus tepat di c.</p>
-      </div>
-      <div class="formula-box">
-        <code>lim_{x→0} sin(x)/x = 1</code>
-        <span>Teorema limit trigonometri fundamental — hafal ini!</span>
-      </div>
-      <div class="formula-box">
-        <code>Bentuk 0/0 → Faktorkan → Kurangkan → Substitusi</code>
-        <span>Strategi utama menghadapi bentuk tak tentu</span>
-      </div>
-      <div class="video-card">
-        <div class="video-play">▶</div>
-        <div class="video-info">
-          <strong>Intuisi Limit & Garis Singgung</strong>
-          <span>Durasi: 12:10 · Visualisasi Interaktif</span>
-        </div>
-      </div>`,
-    quiz: [
-      {
-        q: 'Hitung: lim_{x→3} (x² - 9) / (x - 3)',
-        diff: 'medium',
-        options: ['0', '6', '3', 'Tak terdefinisi'],
-        correct: 1,
-        hints: [
-          '💡 Coba substitusi x=3 langsung. Apa yang terjadi pada pembilang dan penyebut?',
-          '📐 Kamu mendapat 0/0 (bentuk tak tentu). Strategi: faktorkan pembilangnya terlebih dahulu.',
-          '✂️ x² - 9 = (x-3)(x+3). Coret faktor (x-3), lalu substitusi x=3 ke (x+3).',
-        ],
-        explanation: 'Faktorkan (x-3)(x+3)/(x-3) = x+3. Substitusi x=3 → 3+3 = 6.'
-      },
-      {
-        q: 'Suatu fungsi f(x) kontinu di x = c jika...',
-        diff: 'medium',
-        options: [
-          'f(c) ada, lim ada, dan lim = f(c)',
-          'Grafiknya berupa garis lurus',
-          'f(c) > 0',
-          'Turunan keduanya nol'
-        ],
-        correct: 0,
-        hints: [
-          '💡 Kontinuitas punya 3 syarat ketat. Syarat pertama: apakah f(c) terdefinisi?',
-          '📐 Syarat kedua: apakah lim_{x→c} f(x) ada (limit kiri = limit kanan)?',
-          '✂️ Syarat ketiga: apakah nilai limit sama dengan nilai fungsinya di c?',
-        ],
-        explanation: 'Tiga syarat kontinuitas: (1) f(c) ada, (2) lim_{x→c} f(x) ada, (3) keduanya sama nilainya.'
-      }
-    ]
-  },
-  'node-deriv': {
-    badge: 'Tahap 3', title: 'Dasar Turunan', sub: 'Laju Perubahan Sesaat & Power Rule',
-    nextNode: 'node-chain',
-    lesson: `
-      <div class="lesson-block">
-        <h4>Definisi Limit Turunan</h4>
-        <p>f'(x) = lim_{h→0} [f(x+h) - f(x)] / h. Ini adalah kemiringan garis singgung di titik x — seperti speedometer sesaat.</p>
-      </div>
-      <div class="formula-box">
-        <code>d/dx [xⁿ] = n · xⁿ⁻¹</code>
-        <span>Power Rule — berlaku untuk semua n real</span>
-      </div>`,
-    quiz: [
-      {
-        q: "Tentukan turunan: f(x) = 5x⁴ - 3x² + 7",
-        diff: 'medium',
-        options: ['20x³ - 6x', '20x⁴ - 6x²', '5x³ - 3x', '20x³ - 6x + 7'],
-        correct: 0,
-        hints: [
-          '💡 Gunakan Power Rule: d/dx[xⁿ] = n·xⁿ⁻¹. Turunkan tiap suku secara terpisah.',
-          '📐 d/dx(5x⁴) = 5·4·x³ = 20x³',
-          '✂️ d/dx(-3x²) = -3·2·x = -6x, dan d/dx(7) = 0 (konstanta).',
-        ],
-        explanation: 'd/dx(5x⁴) = 20x³, d/dx(-3x²) = -6x, d/dx(7) = 0. Total: 20x³ - 6x.'
-      }
-    ]
-  },
-  'node-chain': {
-    badge: 'Tahap 4', title: 'Aturan Rantai', sub: 'Turunan Fungsi Komposisi f(g(x))',
-    nextNode: 'node-app',
-    lesson: `
-      <div class="lesson-block">
-        <h4>Aturan Rantai: Kupas Kulit Buah</h4>
-        <p>Turunkan fungsi terluar dengan membiarkan fungsi dalam tetap, lalu kalikan turunan fungsi dalamnya.</p>
-      </div>
-      <div class="formula-box">
-        <code>d/dx[f(g(x))] = f'(g(x)) · g'(x)</code>
-        <span>Chain Rule — kunci turunan fungsi bersarang</span>
-      </div>`,
-    quiz: [
-      {
-        q: 'Jika y = sin(3x²), maka dy/dx adalah...',
-        diff: 'high',
-        options: ['6x·cos(3x²)', 'cos(3x²)', '6x·sin(3x²)', '3x²·cos(6x)'],
-        correct: 0,
-        hints: [
-          '💡 Ini fungsi komposisi: f(u) = sin(u) dan g(x) = 3x². Turunkan f dulu.',
-          '📐 Turunan sin(u) = cos(u). Jadi f\'(g(x)) = cos(3x²).',
-          '✂️ Sekarang kalikan dengan g\'(x). g(x) = 3x², maka g\'(x) = 6x.',
-        ],
-        explanation: 'Turunan terluar sin → cos. Turunan dalam 3x² → 6x. Hasil: 6x·cos(3x²).'
-      }
-    ]
-  },
-  'node-app': {
-    badge: 'Tahap 5', title: 'Aplikasi & Optimasi', sub: 'Nilai Maks, Min & Desain Efisien',
-    nextNode: null,
-    lesson: `
-      <div class="lesson-block">
-        <h4>Mencari Nilai Ekstrem</h4>
-        <p>Titik kritis terjadi ketika f'(x) = 0 atau tidak ada. Uji f''(x): positif = minimum, negatif = maksimum.</p>
-      </div>`,
-    quiz: [
-      {
-        q: 'Nilai x yang meminimumkan C(x) = 2x² - 8x + 50 adalah...',
-        diff: 'high',
-        options: ['x = 2', 'x = 4', 'x = -2', 'x = 0'],
-        correct: 0,
-        hints: [
-          '💡 Cari titik kritis: turunkan C(x) dan set C\'(x) = 0.',
-          '📐 C\'(x) = 4x - 8 = 0. Selesaikan untuk x.',
-          '✂️ 4x = 8 → x = 2. Konfirmasi: C\'\'(2) = 4 > 0 → titik minimum.',
-        ],
-        explanation: 'C\'(x) = 4x - 8 = 0 → x = 2. C\'\'(2) = 4 > 0 membuktikan x = 2 adalah minimum lokal.'
-      }
-    ]
-  },
-  'node-boss': {
-    badge: 'Boss Quest', title: 'Ujian Akhir Kalkulus', sub: 'Tantangan Gabungan Semua Topik',
-    nextNode: null,
-    lesson: `<div class="lesson-block"><h4>🏆 Kamu hampir di puncak!</h4><p>Selesaikan semua tahap terlebih dahulu untuk membuka Boss Quest ini.</p></div>`,
-    quiz: []
+const Curriculum = (() => {
+  let data = { tree: [], documents: [], references: [], faculties: [] };
+  const FAC_DESC = {
+    fasilkom: 'Jalur <strong>Fasilkom</strong> — Kalkulus untuk Komputasi dan AI',
+    fmipa: 'Jalur <strong>FMIPA</strong> — Analisis dan Ketelitian Konsep',
+    ft: 'Jalur <strong>Fak. Teknik</strong> — Kalkulus untuk Pemodelan Rekayasa',
+  };
+
+  async function load(faculty) {
+    const treeEl = document.getElementById('skill-tree');
+    if (treeEl) treeEl.innerHTML = '<p class="loading-text">Memuat peta belajar…</p>';
+    try {
+      const res = await fetch(`/api/curriculum/?faculty=${encodeURIComponent(faculty)}`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      data = await res.json();
+    } catch (err) {
+      console.error('[Curriculum] gagal memuat', err);
+      if (treeEl) treeEl.innerHTML = '<p class="loading-text">Gagal memuat materi. Pastikan server berjalan dan data sudah di-seed.</p>';
+      return;
+    }
+    const desc = document.getElementById('tree-fac-desc');
+    if (desc) desc.innerHTML = FAC_DESC[faculty] || '';
+    SkillTree.render();
+    Catalogue.render();
   }
-};
+
+  return {
+    load,
+    get tree() { return data.tree || []; },
+    get documents() { return data.documents || []; },
+    node(slug) { return (data.tree || []).find((n) => n.slug === slug) || (data.references || []).find((n) => n.slug === slug); },
+    question(code) {
+      for (const n of data.tree || []) {
+        const q = (n.questions || []).find((x) => x.code === code);
+        if (q) return { q, node: n };
+      }
+      return null;
+    },
+    nextOf(slug) {
+      const t = data.tree || [];
+      const i = t.findIndex((n) => n.slug === slug);
+      return i >= 0 && i + 1 < t.length ? t[i + 1].slug : null;
+    },
+  };
+})();
+
+const DIFF_LABEL = { basic: 'Dasar / Mudah', medium: 'Sedang', high: 'Sulit' };
 
 /* ════════════════════════════════════════════════════════════════
-   QUIZ ENGINE — Progressive hint system
+   SKILL TREE — Peta belajar (halaman Level Up)
+   ════════════════════════════════════════════════════════════════ */
+const SkillTree = (() => {
+  function render() {
+    const wrap = document.getElementById('skill-tree');
+    if (!wrap) return;
+    const tree = Curriculum.tree;
+    let lastGroup = null;
+    wrap.innerHTML = tree.map((n, i) => {
+      const group = n.faculty ? 'khusus' : 'umum';
+      let header = '';
+      if (group !== lastGroup) {
+        header = `<div class="tree-group-label">${group === 'umum'
+          ? '📘 Materi Umum · semua fakultas'
+          : `🎓 Materi Khusus ${(n.badge_label || '').split('·')[0].replace('Khusus', '').trim()}`}</div>`;
+        lastGroup = group;
+      }
+      const connector = i < tree.length - 1 ? '<div class="tree-connector"></div>' : '';
+      const zig = ['zig-left', '', 'zig-right', ''][i % 4];
+      return `${header}
+        <div class="tree-node${n.is_boss ? ' node-boss' : ''} ${zig}" id="node-${n.slug}" data-slug="${n.slug}"
+             onclick="Drawer.open('${n.slug}')">
+          <button class="node-btn" title="${n.title}">${n.icon}</button>
+          <span class="node-label">${n.title.replace(/^Tahap \d+:\s*/, `Tahap ${n.stage_number}: `)}</span>
+        </div>${connector}`;
+    }).join('');
+    refreshStates();
+  }
+
+  function refreshStates() {
+    const tree = Curriculum.tree;
+    document.querySelectorAll('#skill-tree .tree-node').forEach((el) => {
+      const st = State.nodeStatus(el.dataset.slug, tree);
+      el.classList.remove('node-completed', 'node-active', 'node-locked');
+      el.classList.add(`node-${st}`);
+      const btn = el.querySelector('.node-btn');
+      const n = Curriculum.node(el.dataset.slug);
+      if (btn && n) btn.textContent = st === 'completed' ? '✓' : st === 'locked' ? '🔒' : n.icon;
+    });
+    if (typeof Catalogue !== 'undefined') Catalogue.refreshStates();
+  }
+
+  return { render, refreshStates };
+})();
+
+/* ════════════════════════════════════════════════════════════════
+   CATALOGUE — Halaman Lesson, dikelompokkan per berkas sumber
+   ════════════════════════════════════════════════════════════════ */
+const Catalogue = (() => {
+  const CAT_ICON = { materi: '📖', soal: '📝', lampiran: '📚' };
+
+  function nodeCard(n) {
+    return `
+      <div class="lesson-card" data-slug="${n.slug}" onclick="Drawer.open('${n.slug}', { browse: true })">
+        <div class="lesson-card-icon">${n.icon}</div>
+        <div class="lesson-card-title">${n.title}</div>
+        <div class="lesson-card-desc">${n.subtitle || ''}</div>
+        <div class="lesson-card-meta">
+          ${n.kind === 'reference' ? 'Bacaan referensi' : `${(n.sections || []).length} bagian · ${(n.questions || []).length} soal`}
+          <span class="lesson-card-status" data-status-for="${n.slug}"></span>
+        </div>
+      </div>`;
+  }
+
+  function questionRow(code) {
+    const found = Curriculum.question(code);
+    if (!found) return '';
+    const { q } = found;
+    const plain = q.prompt.replace(/<[^>]+>/g, '');
+    return `
+      <button class="qbank-row" onclick="Drawer.openQuestion('${q.code}')">
+        <span class="qbank-code">${q.code}</span>
+        <span class="quiz-diff-badge diff-${q.difficulty}">${DIFF_LABEL[q.difficulty] || q.difficulty}</span>
+        <span class="qbank-prompt">${plain.length > 110 ? plain.slice(0, 110) + '…' : plain}</span>
+        ${(q.graphs || []).length ? '<span class="qbank-graph" title="Pembahasan memiliki grafik interaktif">🎛️</span>' : ''}
+      </button>`;
+  }
+
+  function render() {
+    const box = document.getElementById('lesson-catalogue');
+    if (!box) return;
+    box.innerHTML = Curriculum.documents.map((doc) => `
+      <section class="doc-section">
+        <header class="doc-header">
+          <span class="doc-icon">${CAT_ICON[doc.category] || '📄'}</span>
+          <div>
+            <div class="doc-filename">${doc.filename}</div>
+            <h3 class="doc-title">${doc.title}</h3>
+            ${doc.subtitle ? `<p class="doc-sub">${doc.subtitle}</p>` : ''}
+          </div>
+        </header>
+        ${doc.category === 'soal'
+          ? `<div class="qbank-list">${doc.items.map(questionRow).join('')}</div>`
+          : `<div class="lesson-grid">${doc.items.map((slug) => Curriculum.node(slug)).filter(Boolean).map(nodeCard).join('')}</div>`}
+      </section>`).join('');
+    refreshStates();
+  }
+
+  function refreshStates() {
+    const tree = Curriculum.tree;
+    document.querySelectorAll('[data-status-for]').forEach((el) => {
+      const slug = el.dataset.statusFor;
+      if (!tree.find((n) => n.slug === slug)) { el.textContent = ''; return; }
+      const st = State.nodeStatus(slug, tree);
+      el.className = `lesson-card-status status-${st === 'completed' ? 'done' : st}`;
+      el.textContent = st === 'completed' ? '✓ Selesai' : st === 'active' ? '▶ Aktif' : '🔒 Kuis terkunci';
+    });
+  }
+
+  return { render, refreshStates };
+})();
+
+/* ════════════════════════════════════════════════════════════════
+   LESSON RENDERING — bagian materi + grafik interaktif
+   ════════════════════════════════════════════════════════════════ */
+function renderSections(container, node) {
+  container.innerHTML = '';
+  if (node.source) {
+    container.insertAdjacentHTML('beforeend', `<div class="source-tag">📄 Sumber: ${node.source.filename}</div>`);
+  }
+  (node.sections || []).forEach((sec) => {
+    const block = document.createElement('div');
+    block.className = 'lesson-block';
+    block.innerHTML = `<h4>${sec.heading}</h4><div class="lesson-body">${sec.body_html}</div>`;
+    container.appendChild(block);
+    if ((sec.graphs || []).length) {
+      const g = document.createElement('div');
+      g.className = 'lesson-graphs';
+      block.appendChild(g);
+      GraphLab.mountList(g, sec.graphs);
+    }
+  });
+}
+
+/* ════════════════════════════════════════════════════════════════
+   QUIZ ENGINE — hint bertahap + pembahasan lengkap dengan grafik slider
+   Mode 'level'   : kuis node skill tree (membuka node berikutnya).
+   Mode 'practice': satu soal dari Bank Soal (tanpa XP/nyawa).
    ════════════════════════════════════════════════════════════════ */
 const QuizEngine = (() => {
-  let nodeId = null;
+  let nodeSlug = null;
   let questions = [];
   let idx = 0;
   let hintsUsed = 0;
   let answered = false;
+  let mode = 'level';
+
+  /** Hint = langkah pembahasan kecuali langkah terakhir (agar jawaban tidak langsung bocor). */
+  function hintsOf(q) {
+    const steps = q.steps || [];
+    if (steps.length > 1) return steps.slice(0, -1);
+    return q.explanation ? [q.explanation] : [];
+  }
+
+  function pembahasanHTML(q) {
+    return `
+      <div class="pembahasan" id="pembahasan">
+        <h5>📚 Pembahasan</h5>
+        <ol class="steps-list">${(q.steps || []).map((s) => `<li>${s}</li>`).join('')}</ol>
+        <div class="answer-box"><strong>Jawaban:</strong> ${q.answer || ''}</div>
+        ${q.explanation ? `<p class="expl-note">💬 ${q.explanation}</p>` : ''}
+        ${(q.graphs || []).length ? `
+          <div class="pembahasan-graphs" id="pembahasan-graphs">
+            <p class="graph-hint">🎛️ Geser slider untuk memanipulasi variabel. Grafik soal tetap tampil sebagai bayangan abu-abu,
+            dan tombol <b>📌 Pin</b> menyimpan kondisi untuk dibandingkan.</p>
+          </div>` : ''}
+        <div class="source-tag">📄 ${q.source} · ${q.code}</div>
+      </div>`;
+  }
 
   function render() {
     const container = document.getElementById('quiz-container');
     if (!container) return;
 
+    if (!questions.length) {
+      container.innerHTML = `
+        <div class="level-complete">
+          <div class="trophy-anim">📖</div>
+          <h3>Tahap ini berisi materi saja</h3>
+          <p>Berkas soal tidak memuat latihan untuk tahap ini. Tandai selesai setelah membaca materinya.</p>
+          <button class="btn btn-growth btn-lg" onclick="QuizEngine.finish()">✓ Tandai Selesai</button>
+        </div>`;
+      return;
+    }
     if (idx >= questions.length) { showComplete(); return; }
 
     const q = questions[idx];
+    const hints = hintsOf(q);
     const progress = Math.round((idx / questions.length) * 100);
     answered = false;
     hintsUsed = 0;
 
     container.innerHTML = `
       <div class="quiz-wrap">
-        <div class="quiz-progress-bar">
-          <div class="quiz-progress-fill" id="qpf" style="width:${progress}%"></div>
-        </div>
+        ${mode === 'level' ? `<div class="quiz-progress-bar"><div class="quiz-progress-fill" style="width:${progress}%"></div></div>` : ''}
         <div class="quiz-meta">
-          <span class="quiz-num">Soal ${idx + 1} dari ${questions.length}</span>
-          <span class="quiz-diff-badge diff-${q.diff}">${diffLabel(q.diff)}</span>
+          <span class="quiz-num">${mode === 'level' ? `Soal ${idx + 1} dari ${questions.length} · ` : ''}${q.code}</span>
+          <span class="quiz-diff-badge diff-${q.difficulty}">${DIFF_LABEL[q.difficulty] || q.difficulty}</span>
         </div>
-        <div class="quiz-prompt">${q.q}</div>
+        <div class="quiz-prompt">${q.prompt}</div>
 
         <div class="options-list" id="options-list">
           ${q.options.map((o, i) => `
             <button class="option-btn" id="opt-${i}" onclick="QuizEngine.select(${i})">
-              <span class="opt-letter">${'ABCD'[i]}</span>
-              ${o}
+              <span class="opt-letter">${'ABCDEF'[i]}</span>
+              <span>${o.text}</span>
             </button>`).join('')}
         </div>
 
         <div class="quiz-actions">
-          <button class="btn btn-accent btn-sm" id="btn-hint" onclick="QuizEngine.showNextHint()">
-            💡 Minta Hint (${q.hints.length} tersedia)
-          </button>
-          <button class="btn btn-primary" id="btn-submit" onclick="QuizEngine.submit()" disabled>
-            ✅ Jawab
-          </button>
+          ${hints.length ? `<button class="btn btn-accent btn-sm" id="btn-hint" onclick="QuizEngine.showNextHint()">
+            💡 Minta Hint (${hints.length} tersedia)</button>` : ''}
+          <button class="btn btn-primary" id="btn-submit" onclick="QuizEngine.submit()" disabled>✅ Jawab</button>
         </div>
 
-        <!-- Progressive Hints (collapsed by default) -->
         <div class="hint-section" id="hint-section"></div>
-
-        <!-- Full explanation — revealed only after answer -->
-        <div class="full-explanation" id="full-explanation">
-          <h5>📚 Langkah Penyelesaian Lengkap</h5>
-          <p>${q.explanation}</p>
-        </div>
+        <div id="pembahasan-slot"></div>
       </div>`;
 
     hideFeedback();
   }
 
-  function diffLabel(d) {
-    return { basic: 'Dasar', medium: 'Menengah', high: 'Tinggi' }[d] || d;
+  function revealPembahasan(q) {
+    const slot = document.getElementById('pembahasan-slot');
+    if (!slot || slot.childElementCount) return;
+    slot.innerHTML = pembahasanHTML(q);
+    document.getElementById('btn-reveal')?.remove();
+    const g = document.getElementById('pembahasan-graphs');
+    if (g) GraphLab.mountList(g, q.graphs);
+  }
+
+  function finishNode() {
+    if (mode !== 'level' || !nodeSlug) return;
+    State.completeNode(nodeSlug, Curriculum.nextOf(nodeSlug));
+  }
+
+  function showComplete() {
+    const container = document.getElementById('quiz-container');
+    if (!container) return;
+    SFX.fanfare();
+    Confetti.burst();
+    Mascot.setMood('celebrate', '🏆 Selamat! Level ini berhasil kamu taklukkan!');
+    State.addXP(50);
+    finishNode();
+    const next = Curriculum.nextOf(nodeSlug);
+    container.innerHTML = `
+      <div class="level-complete">
+        <div class="trophy-anim">🏆</div>
+        <h3>Level Selesai!</h3>
+        <p>Kamu mendapatkan <strong>+50 Bonus XP</strong>${next ? ' dan membuka tahap berikutnya!' : '. Semua tahap jalur ini tuntas!'}</p>
+        <button class="btn btn-growth btn-lg" onclick="Drawer.close(); Nav.go('levelup');">Kembali ke Peta Belajar 🗺️</button>
+      </div>`;
   }
 
   return {
-    init(nid) {
-      nodeId = nid;
-      questions = (LEVELS[nid] || {}).quiz || [];
+    start(slug, qs, m = 'level') {
+      nodeSlug = slug;
+      questions = qs || [];
+      mode = m;
       idx = 0;
       render();
     },
@@ -496,9 +554,7 @@ const QuizEngine = (() => {
     select(i) {
       if (answered) return;
       SFX.click();
-      document.querySelectorAll('.option-btn').forEach((b, j) => {
-        b.classList.toggle('selected', j === i);
-      });
+      document.querySelectorAll('#options-list .option-btn').forEach((b, j) => b.classList.toggle('selected', j === i));
       const btn = document.getElementById('btn-submit');
       if (btn) { btn.dataset.sel = i; btn.removeAttribute('disabled'); }
     },
@@ -507,144 +563,175 @@ const QuizEngine = (() => {
       if (answered) return;
       const btn = document.getElementById('btn-submit');
       if (!btn || btn.disabled) return;
-      const sel = parseInt(btn.dataset.sel);
+      const sel = parseInt(btn.dataset.sel, 10);
       const q = questions[idx];
-      const correct = q.correct;
+      const correct = q.options.findIndex((o) => o.is_correct);
       answered = true;
+      btn.disabled = true;
+      const hintBtn = document.getElementById('btn-hint');
+      if (hintBtn) hintBtn.disabled = true;
 
-      // Mark options
-      document.querySelectorAll('.option-btn').forEach((b, j) => {
+      document.querySelectorAll('#options-list .option-btn').forEach((b, j) => {
         if (j === correct) b.classList.add('correct');
-        else if (j === sel && j !== correct) b.classList.add('incorrect');
+        else if (j === sel) b.classList.add('incorrect');
         b.disabled = true;
       });
+      revealPembahasan(q);
 
-      // Reveal full explanation now
-      const expl = document.getElementById('full-explanation');
-      if (expl) expl.classList.add('revealed');
-
+      const isLast = idx + 1 >= questions.length;
+      const actionLabel = mode === 'practice' ? 'Tutup' : isLast ? 'Selesai ➔' : 'Lanjut ➔';
       if (sel === correct) {
         SFX.correct();
-        State.addXP(20);
-        Mascot.setMood('celebrate', '🎉 Jawaban tepat! Luar biasa!');
-        showFeedback(true, '+20 XP — Jawaban Tepat!', q.explanation);
+        if (mode === 'level') State.addXP(q.xp_reward || 20);
+        Mascot.setMood('celebrate', '🎉 Jawaban tepat! Coba geser slider di pembahasan.');
+        showFeedback(true, mode === 'level' ? `+${q.xp_reward || 20} XP — Jawaban Tepat!` : 'Jawaban Tepat!',
+          `Jawaban: ${q.answer}`, actionLabel);
       } else {
         SFX.wrong();
-        State.loseHeart();
+        if (mode === 'level') State.loseHeart();
         Mascot.setMood('comfort', 'Jangan menyerah! Baca pembahasannya ya.');
-        showFeedback(false, 'Belum tepat (-1 Nyawa)', q.explanation);
+        showFeedback(false, mode === 'level' ? 'Belum tepat (−1 Nyawa)' : 'Belum tepat',
+          'Baca pembahasan langkah demi langkah di atas.', actionLabel);
       }
     },
 
     nextQuestion() {
       hideFeedback();
+      if (mode === 'practice') { Drawer.close(); return; }
       idx++;
       render();
+      document.querySelector('.drawer-body')?.scrollTo({ top: 0, behavior: 'smooth' });
+    },
+
+    finish() {
+      finishNode();
+      SFX.fanfare();
+      Mascot.setMood('celebrate', '📖 Materi tuntas! Tahap berikutnya terbuka.');
+      Drawer.close();
+      Nav.go('levelup');
     },
 
     showNextHint() {
       const q = questions[idx];
-      if (!q || hintsUsed >= q.hints.length) return;
+      const hints = q ? hintsOf(q) : [];
+      if (!q || hintsUsed >= hints.length) return;
       SFX.hint();
-
-      const section = document.getElementById('hint-section');
-      const hint = q.hints[hintsUsed];
-
       const card = document.createElement('div');
       card.className = 'hint-card open';
       card.innerHTML = `
         <div class="hint-card-header" onclick="this.parentElement.classList.toggle('open')">
-          <span>💡 Petunjuk ${hintsUsed + 1}/${q.hints.length}</span>
+          <span>💡 Petunjuk ${hintsUsed + 1}/${hints.length}</span>
           <span style="font-size:.75rem;color:var(--clr-muted);">▾</span>
         </div>
-        <div class="hint-card-body">${hint}</div>`;
-      section.appendChild(card);
-
+        <div class="hint-card-body">${hints[hintsUsed]}</div>`;
+      document.getElementById('hint-section').appendChild(card);
       hintsUsed++;
-
-      // Update button label
       const hintBtn = document.getElementById('btn-hint');
       if (hintBtn) {
-        const left = q.hints.length - hintsUsed;
-        hintBtn.textContent = left > 0
-          ? `💡 Hint Berikutnya (${left} tersisa)`
-          : '🚫 Semua Hint Telah Digunakan';
+        const left = hints.length - hintsUsed;
+        hintBtn.textContent = left > 0 ? `💡 Hint Berikutnya (${left} tersisa)` : '🚫 Semua Hint Telah Digunakan';
         if (left === 0) hintBtn.disabled = true;
       }
-
       Mascot.setMood('thinking', '🤔 Semoga petunjuknya membantu!');
+    },
+
+    /** Mode latihan: tampilkan pembahasan tanpa menjawab. */
+    reveal() {
+      const q = questions[idx];
+      if (q) revealPembahasan(q);
     },
   };
 })();
 
-function showFeedback(success, title, body) {
+function showFeedback(success, title, body, actionLabel = 'Lanjut ➔') {
   const bar = document.getElementById('feedback-bar');
   const ttl = document.getElementById('feedback-title');
   const bdy = document.getElementById('feedback-body');
+  const btn = document.getElementById('feedback-action-btn');
   if (!bar) return;
   bar.className = `feedback-bar shown ${success ? 'success' : 'error'}`;
   if (ttl) { ttl.textContent = title; ttl.className = success ? 'success-text' : 'error-text'; }
-  if (bdy) bdy.textContent = body;
+  if (bdy) bdy.innerHTML = body;
+  if (btn) btn.textContent = actionLabel;
 }
 function hideFeedback() {
   const bar = document.getElementById('feedback-bar');
   if (bar) bar.className = 'feedback-bar';
 }
 
-function showComplete() {
-  const container = document.getElementById('quiz-container');
-  if (!container) return;
-
-  SFX.fanfare();
-  Confetti.burst();
-  Mascot.setMood('celebrate', '🏆 Selamat! Level ini berhasil kamu taklukkan!');
-  State.addXP(50);
-
-  const lv = LEVELS[QuizEngine._nodeId] || {};
-  const nextId = (LEVELS[container.dataset?.nodeId] || {}).nextNode || null;
-
-  container.innerHTML = `
-    <div class="level-complete">
-      <div class="trophy-anim">🏆</div>
-      <h3>Level Selesai!</h3>
-      <p>Kamu mendapatkan <strong>+50 Bonus XP</strong> dan membuka level berikutnya!</p>
-      <button class="btn btn-growth btn-lg" onclick="Drawer.close()">
-        Kembali ke Peta Belajar 🗺️
-      </button>
-    </div>`;
-}
-
 /* ════════════════════════════════════════════════════════════════
-   DRAWER — Slide-in lesson/quiz panel
+   DRAWER — Panel materi/kuis
    ════════════════════════════════════════════════════════════════ */
 const Drawer = (() => {
-  let currentNode = null;
+  let current = null;      // slug node
+  let quizMode = 'level';  // 'level' | 'practice' | 'locked' | 'none'
+  let practiceCode = null;
+
+  function setHeader(badge, title, sub) {
+    document.getElementById('drawer-badge').textContent = badge || '';
+    document.getElementById('drawer-title').textContent = title || '';
+    document.getElementById('drawer-sub').textContent = sub || '';
+  }
+
+  function setTabs(materiLabel, kuisLabel) {
+    const tabs = document.querySelectorAll('.drawer-tab');
+    tabs[0].textContent = materiLabel;
+    tabs[0].hidden = !materiLabel;
+    tabs[1].textContent = kuisLabel || '';
+    tabs[1].hidden = !kuisLabel;
+  }
+
+  function show() {
+    document.getElementById('lesson-drawer').classList.add('open');
+    document.querySelector('.drawer-body')?.scrollTo({ top: 0 });
+  }
 
   return {
-    open(nodeId) {
-      const s = State.get();
-      const isOk = s.completedNodes.includes(nodeId) || s.activeNode === nodeId;
+    /**
+     * Membuka node. Dari skill tree node terkunci ditolak; dari katalog (browse)
+     * materi selalu bisa dibaca, tetapi kuis tetap terkunci.
+     */
+    open(slug, opts = {}) {
+      const node = Curriculum.node(slug);
+      if (!node) return;
+      const isRef = node.kind === 'reference';
+      const status = isRef ? 'active' : State.nodeStatus(slug, Curriculum.tree);
 
-      if (!isOk && nodeId !== 'node-boss') {
+      if (status === 'locked' && !opts.browse) {
         SFX.wrong();
         Mascot.setMood('comfort', '🔒 Selesaikan tahap sebelumnya untuk membuka ini!');
-        const el = document.getElementById(nodeId);
+        const el = document.getElementById(`node-${slug}`);
         if (el) { el.classList.add('node-shake'); setTimeout(() => el.classList.remove('node-shake'), 500); }
         return;
       }
 
-      currentNode = nodeId;
-      const lv = LEVELS[nodeId] || {};
+      current = slug;
+      practiceCode = null;
+      quizMode = isRef ? 'none' : status === 'locked' ? 'locked' : 'level';
       SFX.click();
-
-      document.getElementById('drawer-badge').textContent = lv.badge || '';
-      document.getElementById('drawer-title').textContent = lv.title || '';
-      document.getElementById('drawer-sub').textContent = lv.sub || '';
-      document.getElementById('drawer-lesson-content').innerHTML = lv.lesson || '';
-
+      setHeader(node.badge_label, node.title, node.subtitle);
+      setTabs('📖 Materi', isRef ? '' : `🎯 Kuis (${(node.questions || []).length} soal)`);
+      renderSections(document.getElementById('drawer-lesson-content'), node);
+      const startBtn = document.getElementById('drawer-start-quiz');
+      if (startBtn) startBtn.hidden = isRef;
       this.switchTab('materi');
-      document.getElementById('lesson-drawer').classList.add('open');
-      Mascot.setMood('wave', `Selamat datang di <strong>${lv.title}</strong>! Pelajari materi dulu ya.`);
+      show();
+      Mascot.setMood('wave', `Selamat datang di <strong>${node.title}</strong>! Pelajari materi dulu ya.`);
+    },
+
+    /** Bank Soal: buka satu soal beserta pembahasannya. */
+    openQuestion(code) {
+      const found = Curriculum.question(code);
+      if (!found) return;
+      const { q, node } = found;
+      current = node.slug;
+      practiceCode = code;
+      quizMode = 'practice';
+      SFX.click();
+      setHeader(`Bank Soal · ${q.code}`, q.source, `Latihan dari ${node.title}`);
+      setTabs('', '🎯 Soal & Pembahasan');
+      this.switchTab('kuis');
+      show();
     },
 
     close() {
@@ -654,91 +741,120 @@ const Drawer = (() => {
     },
 
     switchTab(tab) {
-      SFX.click();
-      document.querySelectorAll('.drawer-tab').forEach(t => {
-        t.classList.toggle('active', t.dataset.tab === tab);
-      });
-      document.querySelectorAll('.tab-pane').forEach(p => {
-        p.classList.toggle('active', p.id === `tab-${tab}`);
-      });
-      if (tab === 'kuis') {
-        QuizEngine.init(currentNode);
-      }
+      document.querySelectorAll('.drawer-tab').forEach((t) => t.classList.toggle('active', t.dataset.tab === tab));
+      document.querySelectorAll('.tab-pane').forEach((p) => p.classList.toggle('active', p.id === `tab-${tab}`));
       hideFeedback();
+      if (tab !== 'kuis') return;
+
+      const node = Curriculum.node(current);
+      const container = document.getElementById('quiz-container');
+      if (quizMode === 'practice') {
+        const { q } = Curriculum.question(practiceCode);
+        QuizEngine.start(current, [q], 'practice');
+        const actions = container.querySelector('.quiz-actions');
+        if (actions) actions.insertAdjacentHTML('beforeend',
+          '<button class="btn btn-outline btn-sm" id="btn-reveal" onclick="QuizEngine.reveal()">👀 Lihat Pembahasan</button>');
+      } else if (quizMode === 'locked') {
+        container.innerHTML = `
+          <div class="level-complete">
+            <div class="trophy-anim">🔒</div>
+            <h3>Kuis masih terkunci</h3>
+            <p>Selesaikan tahap sebelumnya di Peta Belajar. Soal tetap bisa dilatih lewat Bank Soal di halaman Lesson.</p>
+          </div>`;
+      } else if (node) {
+        QuizEngine.start(current, node.questions || [], 'level');
+      }
     },
 
-    get current() { return currentNode; },
+    get current() { return current; },
   };
 })();
 
-// Expose nextQuestion on QuizEngine for feedback button
-QuizEngine.nextQuestion = QuizEngine.nextQuestion || function () { };
-
 /* ════════════════════════════════════════════════════════════════
-   DIAGNOSTIC MODAL
+   DIAGNOSTIC MODAL — soal dari /api/diagnostic/, dinilai di server
    ════════════════════════════════════════════════════════════════ */
-const DIAG_QUESTIONS = {
-  fasilkom: [
-    {
-      level: 'Dasar', diff: 'basic',
-      q: 'Sederhanakan untuk x ≠ 3: (x² - 9) / (x - 3)',
-      opts: ['x - 3', 'x + 3', '3x', 'x² + 3'], correct: 1,
-      expl: 'x² - 9 = (x-3)(x+3). Dibagi (x-3) → x + 3.'
-    },
-    {
-      level: 'Menengah', diff: 'medium',
-      q: 'lim_{x→2} (x² + x - 6) / (x - 2) = ?',
-      opts: ['0', '5', '4', 'Tak terdefinisi'], correct: 1,
-      expl: 'Faktorkan: (x+3)(x-2)/(x-2) = x+3. Substitusi x=2 → 5.'
-    },
-    {
-      level: 'Tinggi', diff: 'high',
-      q: "f(x) = (3x² + 1)³ → f'(x) = ?",
-      opts: ['9(3x²+1)²', '18x(3x²+1)²', '6x(3x²+1)²', '3(6x)²'], correct: 1,
-      expl: 'Chain Rule: 3(3x²+1)² · 6x = 18x(3x²+1)².'
-    }
-  ]
-};
-
 const DiagnosticModal = (() => {
-  let step = 0, answers = [];
+  let step = 0;
+  let qs = [];
+  let answers = [];
+
+  function container() { return document.getElementById('diag-content'); }
 
   function render() {
-    const fac = State.get().faculty;
-    const qs = DIAG_QUESTIONS[fac] || DIAG_QUESTIONS.fasilkom;
     const q = qs[step];
     const pct = Math.round((step / qs.length) * 100);
-    const container = document.getElementById('diag-content');
-    if (!container) return;
-
-    container.innerHTML = `
-      <h3 style="font-family:var(--font-head);font-size:1.3rem;margin-bottom:.5rem;">🧪 Tes Diagnostik</h3>
-      <p style="font-size:.88rem;color:var(--clr-text-sec);margin-bottom:1.25rem;">
-        Soal ${step + 1} dari ${qs.length}  •  <span class="quiz-diff-badge diff-${q.diff}" style="display:inline;">${q.level}</span>
-      </p>
-      <div class="quiz-progress-bar" style="margin-bottom:1.5rem;">
-        <div class="quiz-progress-fill" style="width:${pct}%;"></div>
-      </div>
-      <div class="quiz-prompt">${q.q}</div>
-      <div class="options-list" id="diag-opts">
-        ${q.opts.map((o, i) => `
-          <button class="option-btn" id="dopt-${i}" onclick="DiagnosticModal.select(${i})">
-            <span class="opt-letter">${'ABCD'[i]}</span>${o}
+    container().innerHTML = `
+      <h3 class="diag-title">🧪 Tes Diagnostik</h3>
+      <p class="diag-sub">Soal ${step + 1} dari ${qs.length} · <span class="quiz-diff-badge diff-${q.difficulty}">${q.difficulty_label}</span></p>
+      <div class="quiz-progress-bar" style="margin-bottom:1.5rem;"><div class="quiz-progress-fill" style="width:${pct}%;"></div></div>
+      <div class="quiz-prompt">${q.prompt}</div>
+      <div class="options-list">
+        ${q.options.map((o, i) => `
+          <button class="option-btn" data-opt="${o.id}" onclick="DiagnosticModal.select(${i})">
+            <span class="opt-letter">${'ABCDEF'[i]}</span><span>${o.text}</span>
           </button>`).join('')}
       </div>
       <div style="text-align:right;margin-top:1rem;">
-        <button class="btn btn-accent" id="diag-submit" onclick="DiagnosticModal.submit()" disabled>
-          Jawab & Lanjut ➔
+        <button class="btn btn-accent" id="diag-submit" onclick="DiagnosticModal.submit()" disabled>Jawab &amp; Lanjut ➔</button>
+      </div>`;
+  }
+
+  async function finish() {
+    container().innerHTML = '<p class="loading-text">Menilai jawaban…</p>';
+    const faculty = State.get().faculty;
+    let result;
+    try {
+      const res = await fetch('/api/diagnostic/submit/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ faculty, answers }),
+      });
+      result = await res.json();
+      if (result.status !== 'success') throw new Error(result.message);
+    } catch (err) {
+      container().innerHTML = `<p class="loading-text">Gagal menilai: ${err.message}</p>`;
+      return;
+    }
+
+    const cls = { weak_foundation: 'warning', ready_for_calculus: 'ready', mastery: 'mastery' }[result.evaluation] || 'ready';
+    if (result.evaluation === 'weak_foundation') {
+      Mascot.setMood('comfort', 'Jangan khawatir! Kita perkuat fondasi dulu ya!');
+    } else {
+      Mascot.setMood('celebrate', 'Kamu siap! Selamat belajar Kalkulus!');
+      SFX.fanfare(); Confetti.burst();
+    }
+    State.addXP(result.xp_awarded || 40);
+    if (result.recommended_node) State.startFrom(result.recommended_node, Curriculum.tree);
+
+    container().innerHTML = `
+      <div style="text-align:center;padding:1rem 0 .5rem;">
+        <div style="font-size:3rem;margin-bottom:.75rem;">✨</div>
+        <h3 class="diag-title">Evaluasi Selesai!</h3>
+        <div class="diag-result-card ${cls}" style="margin:1.25rem 0;text-align:left;"><p>${result.message}</p></div>
+        <div class="diag-summary">
+          ${result.results.map((r) => `
+            <div>${r.code} (${r.difficulty_label || r.difficulty}):
+              <strong style="color:${r.is_correct ? 'var(--clr-growth)' : 'var(--clr-danger)'}">${r.is_correct ? '✅ Benar' : '❌ Salah'}</strong>
+              — Jawaban: ${r.answer || ''}</div>`).join('')}
+        </div>
+        <button class="btn btn-primary btn-lg" style="margin-top:1.25rem;" onclick="DiagnosticModal.close(); Nav.go('levelup');">
+          Lihat Peta Belajar 🗺️
         </button>
       </div>`;
   }
 
   return {
-    open() {
-      step = 0; answers = [];
-      Mascot.setMood('thinking', 'Ayo ukur kemampuan dasarmu! Santai saja 😊');
+    async open() {
+      step = 0; answers = []; qs = [];
       document.getElementById('diagnostic-modal').classList.add('open');
+      container().innerHTML = '<p class="loading-text">Menyiapkan soal…</p>';
       SFX.click();
+      Mascot.setMood('thinking', 'Ayo ukur kemampuan dasarmu! Santai saja 😊');
+      try {
+        const res = await fetch(`/api/diagnostic/?faculty=${encodeURIComponent(State.get().faculty)}`);
+        qs = (await res.json()).questions || [];
+      } catch (_) { qs = []; }
+      if (!qs.length) { container().innerHTML = '<p class="loading-text">Soal diagnostik belum tersedia.</p>'; return; }
       render();
     },
     close() {
@@ -747,61 +863,19 @@ const DiagnosticModal = (() => {
     },
     select(i) {
       SFX.click();
-      document.querySelectorAll('.option-btn[id^=dopt]').forEach((b, j) => {
-        b.classList.toggle('selected', j === i);
-      });
+      container().querySelectorAll('.option-btn').forEach((b, j) => b.classList.toggle('selected', j === i));
       const sb = document.getElementById('diag-submit');
       if (sb) { sb.dataset.sel = i; sb.removeAttribute('disabled'); }
     },
     submit() {
-      const fac = State.get().faculty;
-      const qs = DIAG_QUESTIONS[fac] || DIAG_QUESTIONS.fasilkom;
       const sb = document.getElementById('diag-submit');
       if (!sb || sb.disabled) return;
-      const sel = parseInt(sb.dataset.sel);
-      answers.push({ diff: qs[step].diff, correct: sel === qs[step].correct });
+      const q = qs[step];
+      answers.push({ code: q.code, option_id: q.options[parseInt(sb.dataset.sel, 10)].id });
       step++;
-      if (step < qs.length) { render(); return; }
-
-      // Evaluate
-      const basicOk = answers.find(a => a.diff === 'basic')?.correct ?? false;
-      const highOk = answers.find(a => a.diff === 'high')?.correct ?? false;
-      let rec = 'node-limit', msg = '', cls = 'ready';
-
-      if (!basicOk) {
-        rec = 'node-precalc'; cls = 'warning';
-        msg = '🛡️ Fondasi aljabar perlu diperkuat. Jalur Precalculus Bridge disiapkan untukmu.';
-        Mascot.setMood('comfort', 'Jangan khawatir! Kita perkuat fondasi dulu ya!');
-      } else if (!highOk) {
-        msg = '🚀 Fondasi kuat! Langsung masuk Kalkulus 1 — Limit & Turunan.';
-        Mascot.setMood('celebrate', 'Kamu siap! Selamat belajar Kalkulus!');
-        SFX.fanfare(); Confetti.burst();
-      } else {
-        rec = 'node-chain'; cls = 'mastery';
-        msg = '👑 Penguasaan tinggi! Jalur Akselerasi Aturan Rantai terbuka.';
-        Mascot.setMood('celebrate', 'Wow, kamu berbakat! 🌟');
-        SFX.fanfare(); Confetti.burst();
-      }
-
-      State.addXP(40);
-      const st = State.get(); st.activeNode = rec;
-      State.save();
-
-      document.getElementById('diag-content').innerHTML = `
-        <div style="text-align:center;padding:1rem 0 .5rem;">
-          <div style="font-size:3rem;margin-bottom:.75rem;">✨</div>
-          <h3 style="font-family:var(--font-head);margin-bottom:.5rem;">Evaluasi Selesai!</h3>
-          <div class="diag-result-card ${cls}" style="margin:1.25rem 0;text-align:left;">
-            <p>${msg}</p>
-          </div>
-          <div style="margin-top:.5rem;padding:.6rem;background:var(--clr-cream);border-radius:var(--radius-md);font-size:.85rem;color:var(--clr-text-sec);">
-            ${answers.map((a, i) => `<div>${qs[i].level}: <strong style="color:${a.correct ? 'var(--clr-growth)' : 'var(--clr-danger)'}">${a.correct ? '✅ Benar' : '❌ Salah'}</strong> — ${qs[i].expl}</div>`).join('')}
-          </div>
-          <button class="btn btn-primary btn-lg" style="margin-top:1.25rem;" onclick="DiagnosticModal.close(); Nav.go('levelup');">
-            Lihat Peta Belajar 🗺️
-          </button>
-        </div>`;
-    }
+      if (step < qs.length) render();
+      else finish();
+    },
   };
 })();
 
@@ -850,5 +924,6 @@ const Confetti = (() => ({
    ════════════════════════════════════════════════════════════════ */
 document.addEventListener('DOMContentLoaded', () => {
   State.updateHUD();
+  Curriculum.load(State.get().faculty);
   SFX.toggle(); SFX.toggle(); // init sound state from saved
 });

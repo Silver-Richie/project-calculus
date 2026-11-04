@@ -1,7 +1,7 @@
 <!-- =========================================================================
      MODUL: Skill Tree (Page: Level Up)
      Branch : feat/learning-path
-     Isi    : Peta belajar berliku, node states, trigger DrawerLesson
+     Isi    : Peta belajar per fakultas (Tahap 1–5 umum + Tahap 6–8 khusus fakultas)
      ========================================================================= -->
 
 <div style="max-width:720px; margin: 0 auto;">
@@ -42,51 +42,10 @@
   </div>
 
   <h2 class="page-heading">Peta Belajar Kalkulus</h2>
-  <p class="page-subheading" id="tree-fac-desc">Jalur <strong>Fasilkom</strong> — Gradient Descent, Limit Kompleksitas & Turunan Numerik</p>
+  <p class="page-subheading" id="tree-fac-desc"></p>
 
-  <!-- Skill Tree Nodes -->
+  <!-- Skill Tree Nodes: dirender oleh SkillTree.render() dari /api/curriculum/ -->
   <div class="skill-tree-wrap" id="skill-tree">
-
-    <!-- Node 1 -->
-    <div class="tree-node node-completed" id="node-precalc" onclick="Drawer.open('node-precalc')">
-      <button class="node-btn" title="Tahap 1: Precalculus Bridge">✓</button>
-      <span class="node-label">Tahap 1: Precalculus</span>
-    </div>
-    <div class="tree-connector"></div>
-
-    <!-- Node 2 -->
-    <div class="tree-node node-active" id="node-limit" onclick="Drawer.open('node-limit')">
-      <button class="node-btn" title="Tahap 2: Limit & Kekontinuan">🌟</button>
-      <span class="node-label">Tahap 2: Limit</span>
-    </div>
-    <div class="tree-connector"></div>
-
-    <!-- Node 3 -->
-    <div class="tree-node node-locked" id="node-deriv" onclick="Drawer.open('node-deriv')">
-      <button class="node-btn" title="Tahap 3: Dasar Turunan">🔒</button>
-      <span class="node-label">Tahap 3: Turunan</span>
-    </div>
-    <div class="tree-connector"></div>
-
-    <!-- Node 4 -->
-    <div class="tree-node node-locked" id="node-chain" onclick="Drawer.open('node-chain')">
-      <button class="node-btn" title="Tahap 4: Aturan Rantai">🔒</button>
-      <span class="node-label">Tahap 4: Rantai</span>
-    </div>
-    <div class="tree-connector"></div>
-
-    <!-- Node 5 -->
-    <div class="tree-node node-locked" id="node-app" onclick="Drawer.open('node-app')">
-      <button class="node-btn" title="Tahap 5: Optimasi">🔒</button>
-      <span class="node-label">Tahap 5: Optimasi</span>
-    </div>
-    <div class="tree-connector"></div>
-
-    <!-- Boss Node -->
-    <div class="tree-node node-locked node-boss" id="node-boss" onclick="Drawer.open('node-boss')">
-      <button class="node-btn" title="Boss Quest">🏆</button>
-      <span class="node-label">Boss: Ujian Akhir</span>
-    </div>
-
+    <p class="loading-text">Memuat peta belajar…</p>
   </div>
 </div>
