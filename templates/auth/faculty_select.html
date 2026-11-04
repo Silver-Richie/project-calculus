@@ -1,9 +1,41 @@
-<!-- =========================================================================
-     MODUL: Pemilihan Profil Fakultas (FT / Fasilkom / FMIPA)
-     Dikerjakan oleh Branch : feat/auth-onboarding
-     Fungsi                 : Kartu pilihan fakultas untuk menentukan kurikulum belajar
-     Prioritas              : MVP
-     ========================================================================= -->
+{% extends 'auth/base_auth.html' %}
+{% comment %}
+  HALAMAN: Pemilihan fakultas (FT / FMIPA / Fasilkom)
+  Branch : feat/auth-onboarding
+  Fungsi : Menentukan jalur belajar (Tahap 6–8) dan soal tes diagnostik.
+{% endcomment %}
 
-<!-- TODO (Dev: feat/auth-onboarding): Tuliskan kartu pemilihan fakultas di sini -->
+{% block title %}Pilih Fakultas — Calculus Bridge{% endblock %}
 
+{% block auth_content %}
+<section class="auth-card auth-card-wide">
+  <div class="auth-card-head">
+    {% include 'components/mascot.html' with svg_class="mascot-thinking" size=72 %}
+    <div>
+      <h2 class="auth-title">Kamu kuliah di fakultas apa?</h2>
+      <p class="auth-sub">Pilihanmu menentukan materi khusus dan soal tes yang sesuai prodi. Bisa diubah nanti di halaman Profil.</p>
+    </div>
+  </div>
+
+  <form method="post" class="auth-form" data-transition>
+    {% csrf_token %}
+    {% for error in form.faculty.errors %}<div class="auth-alert auth-alert-error">{{ error }}</div>{% endfor %}
+    <div class="fac-choice-grid">
+      {% for fac in faculties %}
+        <label class="fac-choice">
+          <input type="radio" name="faculty" value="{{ fac.slug }}" {% if fac.slug == selected %}checked{% endif %} required>
+          <span class="fac-choice-card fac-{{ fac.slug }}">
+            <span class="fac-choice-icon">{{ fac.icon }}</span>
+            <span class="fac-choice-name">{{ fac.short_name }}</span>
+            <span class="fac-choice-full">{{ fac.name }}</span>
+            <span class="fac-choice-desc">{{ fac.description }}</span>
+          </span>
+        </label>
+      {% endfor %}
+    </div>
+    <button type="submit" class="btn btn-primary btn-lg auth-submit">Lanjut ➔</button>
+  </form>
+</section>
+{% endblock %}
+
+{% block auth_steps %}{% include 'auth/_steps.html' with step=2 %}{% endblock %}

@@ -26,6 +26,7 @@ QUESTIONS = [
         "code": "FK-M1",
         "node": "fasilkom-konsep",
         "difficulty": "basic",
+        "is_diagnostic": True,
         "prompt": "Fungsi kerugian f(x) = (x − 3)² diminimalkan dengan gradient descent: x<sub>baru</sub> = x − η f′(x). "
                   "Mulai x₀ = 0 dan η = 0,1. Berapa x₁?",
         "options": [("x₁ = −0,6", False), ("x₁ = 0,3", False), ("x₁ = 0,6", True), ("x₁ = 6", False)],
@@ -64,6 +65,7 @@ QUESTIONS = [
         "code": "FK-M2",
         "node": "fasilkom-konsep",
         "difficulty": "basic",
+        "is_diagnostic": True,
         "prompt": "Waktu eksekusi sebuah algoritma T(n) = 3n² + 2n. Hitung lim<sub>n→∞</sub> T(n)/(n² + 5) dan simpulkan "
                   "orde pertumbuhannya.",
         "options": [
@@ -102,6 +104,7 @@ QUESTIONS = [
         "code": "FK-M3",
         "node": "fasilkom-konsep",
         "difficulty": "basic",
+        "is_diagnostic": True,
         "prompt": "Hampiri ∫<sub>0</sub><sup>2</sup> x dx dengan jumlah Riemann kanan, n = 4 persegi panjang. "
                   "Berapa galat terhadap nilai eksak?",
         "options": [
@@ -140,6 +143,7 @@ QUESTIONS = [
         "code": "FK-S1",
         "node": "fasilkom-terapan",
         "difficulty": "medium",
+        "is_diagnostic": True,
         "prompt": "Fungsi sigmoid σ(x) = 1/(1 + e<sup>−x</sup>) dipakai pada neural network. Tunjukkan σ′(x) = σ(x)(1 − σ(x)) "
                   "dan hitung σ′(0).",
         "options": [
@@ -231,6 +235,7 @@ QUESTIONS = [
         "code": "FK-S3",
         "node": "fasilkom-terapan",
         "difficulty": "medium",
+        "is_diagnostic": True,
         "prompt": "Potongan kode: <code>for i in 1..n: for j in 1..i: kerjakan()</code>. Hitung banyak pemanggilan T(n) "
                   "dan tentukan lim T(n)/n².",
         "options": [
@@ -381,6 +386,7 @@ QUESTIONS = [
         "code": "FK-H3",
         "node": "fasilkom-ujian",
         "difficulty": "high",
+        "is_diagnostic": True,
         "prompt": "Hampiri ∫<sub>0</sub><sup>1</sup> x² dx dengan aturan trapesium n = 4. (a) Hitung hampiran dan galatnya. "
                   "(b) Gunakan batas galat |E| ≤ (b−a)h²·max|f″|/12 untuk mencari n minimum agar galat &lt; 10<sup>−4</sup>.",
         "options": [

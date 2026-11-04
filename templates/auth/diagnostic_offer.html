@@ -1,0 +1,31 @@
+{% extends 'auth/base_auth.html' %}
+{% comment %}
+  HALAMAN: Tawaran tes kemampuan awal.  Ya → tes 10 soal.  Lewati → beranda.
+{% endcomment %}
+
+{% block title %}Tes Kemampuan Awal — Calculus Bridge{% endblock %}
+
+{% block auth_content %}
+<section class="auth-card offer-card">
+  {% include 'components/mascot.html' with svg_class="mascot-celebrate" size=120 %}
+  <h2 class="auth-title">Mau uji kemampuan awal dulu?</h2>
+  <p class="auth-sub">
+    Tes singkat {{ total }} soal untuk jalur <strong>{{ faculty.icon }} {{ faculty.short_name }}</strong>.
+    Hasilnya menentukan dari tahap mana kamu mulai — jika fondasimu sudah kuat, tahap awal akan dilewati.
+  </p>
+
+  <div class="offer-plan">
+    {% for p in plan %}
+      <div class="offer-chip offer-chip-{{ forloop.counter }}"><strong>{{ p.count }}</strong> soal {{ p.label }}</div>
+    {% endfor %}
+  </div>
+
+  <div class="offer-actions">
+    <a href="{% url 'gamification:auth_diagnostic_test' %}" class="btn btn-accent btn-lg" data-nav>🧪 Ya, mulai tes</a>
+    <a href="{% url 'gamification:home' %}" class="btn btn-outline btn-lg" data-nav>Lewati, langsung ke beranda</a>
+  </div>
+  <p class="auth-help">Tes juga bisa diulang kapan saja dari halaman Profil.</p>
+</section>
+{% endblock %}
+
+{% block auth_steps %}{% include 'auth/_steps.html' with step=3 %}{% endblock %}

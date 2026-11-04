@@ -3,13 +3,30 @@ Calculus Bridge - Gamification URL routing.
 """
 
 from django.urls import path
-from .views import landing_page, get_curriculum_api, get_diagnostic_api, submit_diagnostic_api
+
+from . import auth_views
+from .views import (
+    landing_page, get_curriculum_api, get_diagnostic_api, submit_diagnostic_api, set_faculty_api,
+)
 
 app_name = 'gamification'
 
 urlpatterns = [
     path('', landing_page, name='home'),
+
+    # Autentikasi & onboarding (templates/auth/)
+    path('auth/', auth_views.splash, name='auth_splash'),
+    path('auth/masuk/', auth_views.login_view, name='auth_login'),
+    path('auth/daftar/', auth_views.register_view, name='auth_register'),
+    path('auth/keluar/', auth_views.logout_view, name='auth_logout'),
+    path('auth/fakultas/', auth_views.faculty_select, name='auth_faculty'),
+    path('auth/tes-awal/', auth_views.diagnostic_offer, name='auth_diagnostic_offer'),
+    path('auth/tes-awal/mulai/', auth_views.diagnostic_test, name='auth_diagnostic_test'),
+    path('auth/tes-awal/hasil/', auth_views.diagnostic_result, name='auth_diagnostic_result'),
+
+    # API
     path('api/curriculum/', get_curriculum_api, name='curriculum_api'),
     path('api/diagnostic/', get_diagnostic_api, name='diagnostic_api'),
     path('api/diagnostic/submit/', submit_diagnostic_api, name='submit_diagnostic_api'),
+    path('api/profile/faculty/', set_faculty_api, name='set_faculty_api'),
 ]

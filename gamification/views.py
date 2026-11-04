@@ -6,21 +6,51 @@ Views dibuat tipis: pengambilan dan pengolahan data ada di services.py.
 
 import json
 
+from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
-from django.shortcuts import render
+from django.shortcuts import redirect, render
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_POST
 
 from . import services
-from .models import Faculty
+from .models import Faculty, UserProfile
 
 
 def landing_page(request):
     """
-    Merender aplikasi satu halaman. Konten kurikulum dimuat oleh JavaScript
-    lewat /api/curriculum/ sesuai fakultas yang dipilih pengguna.
+    Beranda (aplikasi satu halaman). Hanya untuk pengguna yang sudah login.
+
+    - Belum login        → splash autentikasi (/auth/).
+    - Belum pilih fakultas → halaman pilih fakultas.
+    Data profil & progres dikirim ke JS lewat json_script (`server-profile`),
+    sedangkan konten kurikulum dimuat lewat /api/curriculum/.
     """
-    return render(request, "index.html", {"faculties": Faculty.objects.all()})
+    if not request.user.is_authenticated:
+        return redirect("gamification:auth_splash")
+    profile, _ = UserProfile.objects.get_or_create(user=request.user)
+    if not profile.faculty_id:
+        return redirect("gamification:auth_faculty")
+    return render(request, "index.html", {
+        "faculties": Faculty.objects.all(),
+        "server_profile": services.profile_bootstrap(request.user),
+    })
+
+
+@login_required
+@require_POST
+def set_faculty_api(request):
+    """POST /api/profile/faculty/ {"faculty": "ft"} — menyimpan jalur fakultas ke akun."""
+    try:
+        slug = json.loads(request.body or b"{}").get("faculty")
+    except json.JSONDecodeError:
+        slug = None
+    faculty = Faculty.objects.filter(slug=slug).first()
+    if not faculty:
+        return JsonResponse({"status": "error", "message": "Fakultas tidak dikenal."}, status=400)
+    profile, _ = UserProfile.objects.get_or_create(user=request.user)
+    profile.faculty = faculty
+    profile.save(update_fields=["faculty", "updated_at"])
+    return JsonResponse({"status": "success", "faculty": faculty.slug})
 
 
 @require_GET

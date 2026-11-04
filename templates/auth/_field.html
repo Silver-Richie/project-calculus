@@ -1,0 +1,7 @@
+{% comment %}Satu field form dengan label, error, dan help text. {% include 'auth/_field.html' with field=form.username %}{% endcomment %}
+<div class="auth-field{% if field.errors %} has-error{% endif %}">
+  <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+  {{ field }}
+  {% for error in field.errors %}<p class="auth-error">{{ error }}</p>{% endfor %}
+  {% if field.help_text %}<p class="auth-help">{{ field.help_text }}</p>{% endif %}
+</div>

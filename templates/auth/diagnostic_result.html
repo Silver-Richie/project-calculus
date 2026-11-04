@@ -1,0 +1,54 @@
+{% extends 'auth/base_auth.html' %}
+{% comment %}
+  HALAMAN: Hasil tes kemampuan awal + rekomendasi tahap mulai → beranda.
+{% endcomment %}
+
+{% block title %}Hasil Tes — Calculus Bridge{% endblock %}
+
+{% block auth_content %}
+<section class="auth-card auth-card-wide diag-result">
+  <div class="diag-score">
+    {% include 'components/mascot.html' with svg_class="mascot-celebrate" size=96 %}
+    <div>
+      <div class="diag-score-num">{{ result.score }}<small>/{{ result.total }}</small></div>
+      <div class="diag-score-label">jawaban benar</div>
+    </div>
+  </div>
+
+  <div class="diag-result-card {% if result.evaluation == 'weak_foundation' %}warning{% elif result.evaluation == 'mastery' %}mastery{% else %}ready{% endif %}">
+    <strong>{{ result.evaluation_label }}</strong>
+    <p>{{ result.message }}</p>
+    {% if recommended_title %}<p class="auth-help">Titik mulaimu: <strong>{{ recommended_title }}</strong></p>{% endif %}
+  </div>
+
+  <div class="diag-levels">
+    {% for row in level_rows %}
+      <div class="diag-level {% if row.passed %}passed{% endif %}">
+        <span>{{ row.label }}</span>
+        <strong>{{ row.correct }}/{{ row.total }}</strong>
+        <em>{% if row.passed %}lulus{% else %}perlu latihan{% endif %}</em>
+      </div>
+    {% endfor %}
+  </div>
+
+  <details class="diag-review">
+    <summary>Lihat jawabanmu per soal</summary>
+    <ol>
+      {% for r in result.results %}
+        <li class="{% if r.is_correct %}ok{% else %}bad{% endif %}">
+          <div class="diag-review-q">{{ r.code }} · {{ r.prompt|safe }}</div>
+          <div>Jawabanmu: {{ r.chosen|safe }} {% if r.is_correct %}✅{% else %}❌{% endif %}</div>
+          {% if not r.is_correct %}<div>Jawaban benar: {{ r.correct|safe }}</div>{% endif %}
+        </li>
+      {% endfor %}
+    </ol>
+  </details>
+
+  <div class="offer-actions">
+    <a href="{% url 'gamification:home' %}" class="btn btn-primary btn-lg" data-nav>Masuk ke Beranda 🗺️</a>
+  </div>
+  <p class="auth-help">+{{ result.xp_awarded }} XP untuk menyelesaikan tes. Pembahasan lengkap tiap soal ada di Bank Soal.</p>
+</section>
+{% endblock %}
+
+{% block auth_steps %}{% include 'auth/_steps.html' with step=4 %}{% endblock %}

@@ -24,6 +24,7 @@ QUESTIONS = [
         "code": "FM-M1",
         "node": "fmipa-konsep",
         "difficulty": "basic",
+        "is_diagnostic": True,
         "prompt": "Hitung lim<sub>x→0</sub> sin(3x)/x.",
         "options": [("1", False), ("3", True), ("0", False), ("1/3", False)],
         "steps": [
@@ -45,6 +46,7 @@ QUESTIONS = [
         "code": "FM-M2",
         "node": "fmipa-konsep",
         "difficulty": "basic",
+        "is_diagnostic": True,
         "prompt": "Tentukan turunan f(x) = x²eˣ.",
         "options": [
             ("f′(x) = 2x·eˣ", False),
@@ -70,6 +72,7 @@ QUESTIONS = [
         "code": "FM-M3",
         "node": "fmipa-konsep",
         "difficulty": "basic",
+        "is_diagnostic": True,
         "prompt": "Hitung ∫<sub>0</sub><sup>π</sup> sin x dx.",
         "options": [("0", False), ("1", False), ("2", True), ("−2", False)],
         "steps": [
@@ -123,6 +126,7 @@ QUESTIONS = [
         "code": "FM-S2",
         "node": "fmipa-terapan",
         "difficulty": "medium",
+        "is_diagnostic": True,
         "prompt": "Hitung ∫ x e<sup>2x</sup> dx.",
         "options": [
             ("x e<sup>2x</sup>/2 + C", False),
@@ -161,6 +165,7 @@ QUESTIONS = [
         "code": "FM-S3",
         "node": "fmipa-terapan",
         "difficulty": "medium",
+        "is_diagnostic": True,
         "prompt": "Tentukan interval konvergensi deret Σ<sub>n=1</sub><sup>∞</sup> xⁿ/(n·2ⁿ).",
         "options": [("(−2, 2)", False), ("(−2, 2]", False), ("[−2, 2]", False), ("[−2, 2)", True)],
         "steps": [
@@ -252,6 +257,7 @@ QUESTIONS = [
         "code": "FM-H2",
         "node": "fmipa-ujian",
         "difficulty": "high",
+        "is_diagnostic": True,
         "prompt": "Hampiri ∫<sub>0</sub><sup>1</sup> e<sup>−x²</sup> dx memakai deret Maclaurin sampai suku ke-5 dan taksir galatnya.",
         "options": [
             ("≈ 0,7429 dengan galat ≤ 0,0046", False),

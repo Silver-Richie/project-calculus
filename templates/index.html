@@ -5,6 +5,9 @@
 
 {% block content %}
 
+  {# Profil & progres akun yang login → dibaca State (app.js) #}
+  {{ server_profile|json_script:"server-profile" }}
+
   <!-- ══════════════════════════════════════════════════════════════
        1. TOP HUD  (Branch: ui/design-system → components/hud.html)
        ══════════════════════════════════════════════════════════════ -->
