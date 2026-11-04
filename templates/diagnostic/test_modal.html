@@ -1,9 +1,14 @@
 <!-- =========================================================================
-     MODUL: Tes Diagnostik Adaptif Awal
-     Dikerjakan oleh Branch : feat/diagnostic-engine
-     Fungsi                 : Pengambilan soal bertingkat (Dasar, Menengah, Tinggi), progress bar
-     Prioritas              : MVP
+     MODUL: Diagnostic Modal
+     Branch : feat/diagnostic-engine
+     Isi    : 3 soal adaptif (Basic→Medium→High) + hasil rekomendasi
      ========================================================================= -->
 
-<!-- TODO (Dev: feat/diagnostic-engine): Tuliskan kontainer soal kuis diagnostik di sini -->
-
+<div class="modal-overlay" id="diagnostic-modal">
+  <div class="modal-card">
+    <button class="btn-close" style="position:absolute;top:1.25rem;right:1.25rem;" onclick="DiagnosticModal.close()">×</button>
+    <div id="diag-content">
+      <!-- Diisi dinamis oleh DiagnosticModal.start() -->
+    </div>
+  </div>
+</div>

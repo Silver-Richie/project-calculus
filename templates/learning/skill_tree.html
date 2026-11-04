@@ -1,9 +1,92 @@
 <!-- =========================================================================
-     MODUL: Peta Belajar Skill Tree (Duolingo Style)
-     Dikerjakan oleh Branch : feat/learning-path
-     Fungsi                 : Node berkelok vertikal, status node (locked, active, completed)
-     Prioritas              : MVP
+     MODUL: Skill Tree (Page: Level Up)
+     Branch : feat/learning-path
+     Isi    : Peta belajar berliku, node states, trigger DrawerLesson
      ========================================================================= -->
 
-<!-- TODO (Dev: feat/learning-path): Tuliskan roadmap skill tree di sini -->
+<div style="max-width:720px; margin: 0 auto;">
 
+  <!-- Mascot + speech -->
+  <div style="display:flex; align-items:flex-end; gap:1rem; margin-bottom:2rem;">
+    <div id="mascot-container" style="position:relative; cursor:pointer;" onclick="Mascot.randomQuote()" title="Klik Archie!">
+      <svg id="mascot-svg" class="mascot-idle" width="90" height="90" viewBox="0 0 200 200" fill="none">
+        <!-- Gills -->
+        <path d="M42 95C25 80 15 95 28 112C15 118 20 135 38 128" fill="#f43f5e" stroke="#e11d48" stroke-width="3" stroke-linecap="round"/>
+        <path d="M158 95C175 80 185 95 172 112C185 118 180 135 162 128" fill="#f43f5e" stroke="#e11d48" stroke-width="3" stroke-linecap="round"/>
+        <!-- Body -->
+        <ellipse cx="100" cy="120" rx="58" ry="52" fill="#93C5FD" stroke="#2563EB" stroke-width="3"/>
+        <ellipse cx="100" cy="130" rx="34" ry="30" fill="#DBEAFE" opacity=".9"/>
+        <!-- Glasses -->
+        <rect x="58" y="90" width="32" height="26" rx="8" fill="#1E3A5F" stroke="#38bdf8" stroke-width="3"/>
+        <rect x="110" y="90" width="32" height="26" rx="8" fill="#1E3A5F" stroke="#38bdf8" stroke-width="3"/>
+        <line x1="90" y1="102" x2="110" y2="102" stroke="#38bdf8" stroke-width="3" stroke-linecap="round"/>
+        <!-- Eyes -->
+        <ellipse cx="74" cy="103" rx="7" ry="8" fill="#38bdf8"/>
+        <circle cx="71" cy="100" r="3" fill="white"/>
+        <ellipse cx="126" cy="103" rx="7" ry="8" fill="#38bdf8"/>
+        <circle cx="123" cy="100" r="3" fill="white"/>
+        <!-- Cheeks -->
+        <ellipse cx="56" cy="120" rx="7" ry="4" fill="#f43f5e" opacity=".55"/>
+        <ellipse cx="144" cy="120" rx="7" ry="4" fill="#f43f5e" opacity=".55"/>
+        <!-- Smile -->
+        <path d="M93 117Q100 124 107 117" stroke="#1E3A5F" stroke-width="3" stroke-linecap="round" fill="none"/>
+        <!-- Cap -->
+        <path d="M100 50L143 66L100 82L57 66Z" fill="#1E3A5F" stroke="#6366f1" stroke-width="2.5"/>
+        <path d="M125 74L133 90" stroke="#D97706" stroke-width="2.5" stroke-linecap="round"/>
+        <circle cx="133" cy="90" r="3" fill="#D97706"/>
+      </svg>
+    </div>
+    <div class="speech-bubble bubble-pop" id="mascot-speech" onclick="Mascot.randomQuote()">
+      Halo! Aku <strong>Archie</strong>. Klik node yang bersinar untuk mulai belajar!
+    </div>
+  </div>
+
+  <h2 class="page-heading">Peta Belajar Kalkulus</h2>
+  <p class="page-subheading" id="tree-fac-desc">Jalur <strong>Fasilkom</strong> — Gradient Descent, Limit Kompleksitas & Turunan Numerik</p>
+
+  <!-- Skill Tree Nodes -->
+  <div class="skill-tree-wrap" id="skill-tree">
+
+    <!-- Node 1 -->
+    <div class="tree-node node-completed" id="node-precalc" onclick="Drawer.open('node-precalc')">
+      <button class="node-btn" title="Tahap 1: Precalculus Bridge">✓</button>
+      <span class="node-label">Tahap 1: Precalculus</span>
+    </div>
+    <div class="tree-connector"></div>
+
+    <!-- Node 2 -->
+    <div class="tree-node node-active" id="node-limit" onclick="Drawer.open('node-limit')">
+      <button class="node-btn" title="Tahap 2: Limit & Kekontinuan">🌟</button>
+      <span class="node-label">Tahap 2: Limit</span>
+    </div>
+    <div class="tree-connector"></div>
+
+    <!-- Node 3 -->
+    <div class="tree-node node-locked" id="node-deriv" onclick="Drawer.open('node-deriv')">
+      <button class="node-btn" title="Tahap 3: Dasar Turunan">🔒</button>
+      <span class="node-label">Tahap 3: Turunan</span>
+    </div>
+    <div class="tree-connector"></div>
+
+    <!-- Node 4 -->
+    <div class="tree-node node-locked" id="node-chain" onclick="Drawer.open('node-chain')">
+      <button class="node-btn" title="Tahap 4: Aturan Rantai">🔒</button>
+      <span class="node-label">Tahap 4: Rantai</span>
+    </div>
+    <div class="tree-connector"></div>
+
+    <!-- Node 5 -->
+    <div class="tree-node node-locked" id="node-app" onclick="Drawer.open('node-app')">
+      <button class="node-btn" title="Tahap 5: Optimasi">🔒</button>
+      <span class="node-label">Tahap 5: Optimasi</span>
+    </div>
+    <div class="tree-connector"></div>
+
+    <!-- Boss Node -->
+    <div class="tree-node node-locked node-boss" id="node-boss" onclick="Drawer.open('node-boss')">
+      <button class="node-btn" title="Boss Quest">🏆</button>
+      <span class="node-label">Boss: Ujian Akhir</span>
+    </div>
+
+  </div>
+</div>

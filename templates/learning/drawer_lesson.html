@@ -1,9 +1,62 @@
 <!-- =========================================================================
-     MODUL: Drawer Pembelajaran Materi & Video
-     Dikerjakan oleh Branch : feat/learning-path
-     Fungsi                 : Ringkasan konsep, cheatsheet rumus, integrasi video modul
-     Prioritas              : MVP
+     MODUL: Lesson Drawer (Slide-in dari kanan)
+     Branch : feat/learning-path
+     Isi    : Tab Materi | Kuis dengan sistem HINT BERTAHAP
      ========================================================================= -->
 
-<!-- TODO (Dev: feat/learning-path): Tuliskan drawer materi & video player di sini -->
+<div class="drawer-overlay" id="lesson-drawer">
+  <div class="drawer-sheet">
 
+    <!-- Header -->
+    <div class="drawer-header">
+      <div>
+        <span class="drawer-badge" id="drawer-badge">Tahap</span>
+        <h3 class="drawer-title" id="drawer-title">Judul Materi</h3>
+        <p class="drawer-sub"   id="drawer-sub">Deskripsi singkat</p>
+      </div>
+      <button class="btn-close" onclick="Drawer.close()">×</button>
+    </div>
+
+    <!-- Tabs -->
+    <div class="drawer-tabs">
+      <button class="drawer-tab active" data-tab="materi" onclick="Drawer.switchTab('materi')">📖 Materi</button>
+      <button class="drawer-tab"        data-tab="kuis"   onclick="Drawer.switchTab('kuis')">🎯 Kuis (+XP)</button>
+    </div>
+
+    <!-- Body (scrollable) -->
+    <div class="drawer-body">
+
+      <!-- TAB: Materi -->
+      <div class="tab-pane active" id="tab-materi">
+        <div id="drawer-lesson-content">
+          <!-- Diisi dinamis oleh Drawer.open() -->
+        </div>
+        <div style="margin-top:1.5rem;">
+          <button class="btn btn-primary btn-lg" onclick="Drawer.switchTab('kuis')">
+            Mulai Kuis ➔
+          </button>
+        </div>
+      </div>
+
+      <!-- TAB: Kuis dengan HINT BERTAHAP -->
+      <div class="tab-pane" id="tab-kuis">
+        <div id="quiz-container">
+          <!-- Diisi dinamis oleh QuizEngine.render() -->
+        </div>
+      </div>
+
+    </div><!-- /drawer-body -->
+
+    <!-- Bottom feedback bar (Duolingo style) -->
+    <div class="feedback-bar" id="feedback-bar">
+      <div>
+        <h4 id="feedback-title" class="success-text">Jawabanmu Tepat!</h4>
+        <p  id="feedback-body">Penjelasan akan muncul di sini.</p>
+      </div>
+      <button class="btn btn-growth btn-sm" id="feedback-action-btn" onclick="QuizEngine.nextQuestion()">
+        Lanjut ➔
+      </button>
+    </div>
+
+  </div>
+</div>

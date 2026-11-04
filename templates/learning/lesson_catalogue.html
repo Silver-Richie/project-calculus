@@ -1,0 +1,62 @@
+<!-- =========================================================================
+     MODUL: Lesson Catalogue  (Page: Lesson)
+     Branch : feat/learning-path
+     Isi    : Grid kartu materi per topik
+     ========================================================================= -->
+
+<h2 class="page-heading">Semua Pelajaran</h2>
+<p class="page-subheading">Pelajari materi sebelum mengerjakan latihan soal di tiap node.</p>
+
+<div class="lesson-grid">
+
+  <div class="lesson-card" onclick="Drawer.open('node-precalc')">
+    <div class="lesson-card-icon">📐</div>
+    <div class="lesson-card-title">Precalculus Bridge</div>
+    <div class="lesson-card-desc">Pemfaktoran aljabar, selisih kuadrat, dan manipulasi pecahan rasional.</div>
+    <div class="lesson-card-meta">
+      Tahap 1 · 3 soal
+      <span class="lesson-card-status status-done">✓ Selesai</span>
+    </div>
+  </div>
+
+  <div class="lesson-card" onclick="Drawer.open('node-limit')">
+    <div class="lesson-card-icon">∞</div>
+    <div class="lesson-card-title">Limit & Kekontinuan</div>
+    <div class="lesson-card-desc">Intuisi limit sepihak, bentuk tak tentu 0/0, strategi faktorkan & sekawan.</div>
+    <div class="lesson-card-meta">
+      Tahap 2 · 2 soal
+      <span class="lesson-card-status status-active">▶ Aktif</span>
+    </div>
+  </div>
+
+  <div class="lesson-card locked">
+    <div class="lesson-card-icon">📏</div>
+    <div class="lesson-card-title">Fondasi Turunan</div>
+    <div class="lesson-card-desc">Definisi limit turunan & aturan pangkat (Power Rule).</div>
+    <div class="lesson-card-meta">
+      Tahap 3 · 2 soal
+      <span class="lesson-card-status status-locked">🔒 Terkunci</span>
+    </div>
+  </div>
+
+  <div class="lesson-card locked">
+    <div class="lesson-card-icon">⛓️</div>
+    <div class="lesson-card-title">Aturan Rantai</div>
+    <div class="lesson-card-desc">d/dx[f(g(x))] = f'(g(x))·g'(x) — turunan fungsi bersarang.</div>
+    <div class="lesson-card-meta">
+      Tahap 4 · 1 soal
+      <span class="lesson-card-status status-locked">🔒 Terkunci</span>
+    </div>
+  </div>
+
+  <div class="lesson-card locked">
+    <div class="lesson-card-icon">🎯</div>
+    <div class="lesson-card-title">Aplikasi & Optimasi</div>
+    <div class="lesson-card-desc">Titik stasioner, uji turunan kedua, dan solusi rekayasa optimal.</div>
+    <div class="lesson-card-meta">
+      Tahap 5 · 1 soal
+      <span class="lesson-card-status status-locked">🔒 Terkunci</span>
+    </div>
+  </div>
+
+</div>
