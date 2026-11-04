@@ -140,7 +140,11 @@ class GamificationApiTests(TestCase):
 
     def test_diagnostic_questions_hide_answers(self):
         data = json.loads(self.client.get('/api/diagnostic/?faculty=fasilkom').content)
-        self.assertEqual([q["code"] for q in data["questions"]], ["U-D1", "FK-S2", "FK-H1"])
+        codes = [q["code"] for q in data["questions"]]
+        self.assertEqual(len(codes), 10)
+        levels = [q["difficulty"] for q in data["questions"]]
+        self.assertEqual((levels.count("basic"), levels.count("medium"), levels.count("high")), (5, 3, 2))
+        self.assertTrue(all(c.startswith(("FK-", "U-")) for c in codes))
         for q in data["questions"]:
             self.assertNotIn("steps", q)
             for o in q["options"]:
@@ -178,3 +182,122 @@ class GamificationApiTests(TestCase):
     def test_diagnostic_rejects_bad_payload(self):
         response = self.client.post('/api/diagnostic/submit/', data="{}", content_type='application/json')
         self.assertEqual(response.status_code, 400)
+
+
+class AuthOnboardingTests(TestCase):
+    """Alur: splash → login/daftar → pilih fakultas → tawaran tes → tes 10 soal → hasil → beranda."""
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_gamification", stdout=io.StringIO())
+
+    def _register(self, username="budi", email="budi@mail.com"):
+        return self.client.post("/auth/daftar/", {
+            "reg-first_name": "Budi Santoso",
+            "reg-username": username,
+            "reg-email": email,
+            "reg-password1": "KalkulusAsik123",
+            "reg-password2": "KalkulusAsik123",
+        })
+
+    def test_home_requires_login(self):
+        self.assertRedirects(self.client.get("/"), "/auth/")
+
+    def test_splash_links_to_login(self):
+        response = self.client.get("/auth/")
+        self.assertContains(response, "Archie")
+        self.assertContains(response, 'href="/auth/masuk/"')
+
+    def test_register_saves_user_and_goes_to_faculty(self):
+        response = self._register()
+        self.assertRedirects(response, "/auth/fakultas/")
+        user = User.objects.get(username="budi")
+        self.assertEqual(user.email, "budi@mail.com")
+        self.assertTrue(UserProfile.objects.filter(user=user, faculty=None).exists())
+        # Belum pilih fakultas → beranda mengarahkan ke pilih fakultas
+        self.assertRedirects(self.client.get("/"), "/auth/fakultas/")
+
+    def test_register_rejects_duplicate_email(self):
+        self._register()
+        self.client.post("/auth/keluar/")
+        response = self._register(username="budi2")
+        self.assertEqual(response.status_code, 400)
+        self.assertContains(response, "Email ini sudah terdaftar", status_code=400)
+
+    def test_login_existing_user_goes_home(self):
+        self._register()
+        self.client.post("/auth/fakultas/", {"faculty": "ft"})
+        self.client.post("/auth/keluar/")
+        response = self.client.post("/auth/masuk/", {"login-username": "budi@mail.com", "login-password": "KalkulusAsik123"})
+        self.assertRedirects(response, "/")
+        home = self.client.get("/")
+        self.assertContains(home, 'id="server-profile"')
+        self.assertContains(home, "Budi Santoso")
+
+    def test_login_wrong_password(self):
+        self._register()
+        self.client.post("/auth/keluar/")
+        response = self.client.post("/auth/masuk/", {"login-username": "budi", "login-password": "salah"})
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "kata sandi salah")
+
+    def test_faculty_then_offer_then_skip(self):
+        self._register()
+        self.assertRedirects(self.client.post("/auth/fakultas/", {"faculty": "fmipa"}), "/auth/tes-awal/")
+        offer = self.client.get("/auth/tes-awal/")
+        self.assertContains(offer, 'href="/auth/tes-awal/mulai/"')
+        self.assertContains(offer, 'href="/"')
+        self.assertEqual(self.client.get("/").status_code, 200)
+
+    def test_diagnostic_test_has_10_questions_for_faculty(self):
+        self._register()
+        self.client.post("/auth/fakultas/", {"faculty": "ft"})
+        response = self.client.get("/auth/tes-awal/mulai/")
+        questions = response.context["questions"]
+        self.assertEqual(len(questions), 10)
+        self.assertEqual([q.difficulty for q in questions].count("basic"), 5)
+        self.assertEqual([q.difficulty for q in questions].count("medium"), 3)
+        self.assertEqual([q.difficulty for q in questions].count("high"), 2)
+        self.assertTrue(all(q.faculty is None or q.faculty.slug == "ft" for q in questions))
+
+    def test_diagnostic_all_correct_saves_mastery(self):
+        self._register()
+        self.client.post("/auth/fakultas/", {"faculty": "fmipa"})
+        questions = self.client.get("/auth/tes-awal/mulai/").context["questions"]
+        data = {f"q_{q.code}": q.options.get(is_correct=True).id for q in questions}
+        response = self.client.post("/auth/tes-awal/mulai/", data)
+        self.assertRedirects(response, "/auth/tes-awal/hasil/")
+
+        user = User.objects.get(username="budi")
+        profile = user.gamification_profile
+        self.assertTrue(profile.diagnostic_completed)
+        self.assertEqual(profile.recommended_node.slug, "fmipa-konsep")
+        self.assertEqual(UserProgress.objects.get(user=user, node__slug="fmipa-konsep").status, "active")
+        self.assertEqual(UserProgress.objects.get(user=user, node__slug="umum-limit").status, "completed")
+
+        result = self.client.get("/auth/tes-awal/hasil/")
+        self.assertContains(result, "10<small>/10</small>")
+
+    def test_diagnostic_weak_basics_starts_at_stage_one(self):
+        self._register()
+        self.client.post("/auth/fakultas/", {"faculty": "fasilkom"})
+        questions = self.client.get("/auth/tes-awal/mulai/").context["questions"]
+        data = {f"q_{q.code}": q.options.filter(is_correct=False).first().id for q in questions}
+        self.client.post("/auth/tes-awal/mulai/", data)
+        profile = User.objects.get(username="budi").gamification_profile
+        self.assertEqual(profile.recommended_node.slug, "umum-limit")
+
+    def test_diagnostic_incomplete_answers_rejected(self):
+        self._register()
+        self.client.post("/auth/fakultas/", {"faculty": "ft"})
+        response = self.client.post("/auth/tes-awal/mulai/", {})
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Jawab semua soal")
+
+    def test_set_faculty_api_requires_login_and_saves(self):
+        self.assertEqual(self.client.post("/api/profile/faculty/", "{}", content_type="application/json").status_code, 302)
+        self._register()
+        self.client.post("/auth/fakultas/", {"faculty": "ft"})
+        r = self.client.post("/api/profile/faculty/", json.dumps({"faculty": "fasilkom"}), content_type="application/json")
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(User.objects.get(username="budi").gamification_profile.faculty.slug, "fasilkom")

@@ -69,7 +69,13 @@ const SFX = (() => {
    (Tahap 1–5 umum + Tahap 6–8 khusus fakultas).
    ════════════════════════════════════════════════════════════════ */
 const State = (() => {
-  const KEY = 'cb_state_v4';
+  // Profil akun yang login (dikirim server lewat json_script di index.html)
+  const SERVER = (() => {
+    try { return JSON.parse(document.getElementById('server-profile')?.textContent || 'null'); }
+    catch (_) { return null; }
+  })();
+  // State disimpan per akun agar beberapa akun di satu browser tidak tercampur.
+  const KEY = SERVER ? `cb_state_v4:${SERVER.username}` : 'cb_state_v4';
   const DEFAULTS = {
     faculty: 'fasilkom',
     xp: 0, streak: 1, hearts: 5, maxHearts: 5, gems: 100,
@@ -82,6 +88,29 @@ const State = (() => {
     try { return Object.assign({}, DEFAULTS, JSON.parse(localStorage.getItem(KEY))); }
     catch (_) { return { ...DEFAULTS }; }
   })();
+
+  /**
+   * Menggabungkan data server ke state lokal: fakultas akun, XP, dan progres
+   * hasil tes diagnostik (node yang dilewati = selesai, node rekomendasi = aktif).
+   */
+  if (SERVER) {
+    if (SERVER.faculty) s.faculty = SERVER.faculty;
+    s.xp = Math.max(s.xp || 0, SERVER.xp || 0);
+    const p = s.progress[s.faculty] || (s.progress[s.faculty] = { completed: [], active: null });
+    (SERVER.completed || []).forEach((slug) => { if (!p.completed.includes(slug)) p.completed.push(slug); });
+    if (SERVER.active && !p.completed.includes(SERVER.active) && !p.active) p.active = SERVER.active;
+  }
+
+  /** Simpan pilihan fakultas ke akun (UserProfile) di server. */
+  function syncFaculty(f) {
+    if (!SERVER) return;
+    const csrf = document.cookie.split('; ').find((c) => c.startsWith('csrftoken='))?.split('=')[1] || '';
+    fetch('/api/profile/faculty/', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf },
+      body: JSON.stringify({ faculty: f }),
+    }).catch(() => {});
+  }
 
   function prog() {
     if (!s.progress[s.faculty]) s.progress[s.faculty] = { completed: [], active: null };
@@ -144,6 +173,7 @@ const State = (() => {
     setFaculty(f) {
       if (s.faculty === f) return;
       s.faculty = f; save(); SFX.click();
+      syncFaculty(f);
       Curriculum.load(f);
     },
     /** Status node: 'completed' | 'active' | 'locked'. Node pertama otomatis aktif. */

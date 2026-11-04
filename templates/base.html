@@ -3,6 +3,7 @@
 <html lang="id">
 <head>
   <meta charset="UTF-8">
+  <script>document.documentElement.classList.add('js');</script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{% block title %}Calculus Bridge{% endblock %}</title>
 
@@ -12,15 +13,17 @@
   <link rel="stylesheet" href="{% static 'css/style.css' %}">
   {% block extra_css %}{% endblock %}
 </head>
-<body>
+<body class="{% block body_class %}{% endblock %}">
   <canvas id="confetti-canvas"></canvas>
 
   <div id="app">
     {% block content %}{% endblock %}
   </div>
 
+  {% block app_js %}
   <script src="{% static 'js/graphlab.js' %}"></script>
   <script src="{% static 'js/app.js' %}"></script>
+  {% endblock %}
   {% block extra_js %}{% endblock %}
 </body>
 </html>

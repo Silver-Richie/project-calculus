@@ -24,6 +24,7 @@ QUESTIONS = [
         "code": "FT-M1",
         "node": "ft-konsep",
         "difficulty": "basic",
+        "is_diagnostic": True,
         "prompt": "Tentukan f′(x) dan nilai f′(1) untuk f(x) = 3x⁴ − 2x² + 5x − 7.",
         "options": [
             ("f′(x) = 12x³ − 4x + 5 dan f′(1) = 13", True),
@@ -49,6 +50,7 @@ QUESTIONS = [
         "code": "FT-M2",
         "node": "ft-konsep",
         "difficulty": "basic",
+        "is_diagnostic": True,
         "prompt": "Hitung ∫(6x² − 4x + 3) dx.",
         "options": [
             ("12x − 4 + C", False),
@@ -72,6 +74,7 @@ QUESTIONS = [
         "code": "FT-M3",
         "node": "ft-konsep",
         "difficulty": "basic",
+        "is_diagnostic": True,
         "prompt": "Hitung lim<sub>x→2</sub> (x² − 4)/(x − 2).",
         "options": [("0", False), ("2", False), ("4", True), ("Tidak ada, karena bentuknya 0/0", False)],
         "steps": [
@@ -138,6 +141,7 @@ QUESTIONS = [
         "code": "FT-S2",
         "node": "ft-terapan",
         "difficulty": "medium",
+        "is_diagnostic": True,
         "prompt": "Dari selembar karton persegi 12 cm × 12 cm, dipotong persegi kecil bersisi x di keempat sudutnya, "
                   "lalu dilipat menjadi kotak tanpa tutup. Tentukan x agar volume kotak maksimum.",
         "options": [
@@ -183,6 +187,7 @@ QUESTIONS = [
         "code": "FT-S3",
         "node": "ft-terapan",
         "difficulty": "medium",
+        "is_diagnostic": True,
         "prompt": "Pegas memiliki konstanta k = 200 N/m. Berapa usaha untuk meregangkannya dari x = 0,1 m sampai x = 0,3 m? "
                   "(Hukum Hooke: F = kx)",
         "options": [("W = 4 joule", False), ("W = 8 joule", True), ("W = 16 joule", False), ("W = 40 joule", False)],
@@ -219,6 +224,7 @@ QUESTIONS = [
         "code": "FT-H1",
         "node": "ft-ujian",
         "difficulty": "high",
+        "is_diagnostic": True,
         "prompt": "Daerah D dibatasi kurva y = x² dan y = √x. Tentukan volume benda yang terbentuk jika D diputar "
                   "mengelilingi sumbu x.",
         "options": [("7π/10", False), ("9π/70", False), ("π/3", False), ("3π/10", True)],

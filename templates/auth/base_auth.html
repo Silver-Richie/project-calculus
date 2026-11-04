@@ -1,0 +1,36 @@
+{% extends 'base.html' %}
+{% load static %}
+{% comment %}
+  LAYOUT: Halaman autentikasi & onboarding
+  Branch : feat/auth-onboarding
+  Isi    : Semua halaman auth berada di dalam <main id="auth-main">.
+           static/js/auth.js memberi animasi masuk/keluar pada <main> saat
+           berpindah halaman (link [data-nav] dan form [data-transition]).
+{% endcomment %}
+
+{% block body_class %}auth-body{% endblock %}
+
+{% block content %}
+<div class="auth-shell">
+  <a href="{% url 'gamification:auth_splash' %}" class="auth-brand" data-nav>
+    <span class="hud-brand-icon">∫</span> Calculus<span>Bridge</span>
+  </a>
+
+  <main class="auth-main" id="auth-main">
+    {% if messages %}
+      <div class="auth-messages">
+        {% for message in messages %}
+          <div class="auth-alert auth-alert-{{ message.tags }}">{{ message }}</div>
+        {% endfor %}
+      </div>
+    {% endif %}
+    {% block auth_content %}{% endblock %}
+  </main>
+
+  {% block auth_steps %}{% endblock %}
+</div>
+{% endblock %}
+
+{% block app_js %}
+<script src="{% static 'js/auth.js' %}"></script>
+{% endblock %}

@@ -1,0 +1,178 @@
+"""
+Calculus Bridge - Alur autentikasi & onboarding (templates/auth/).
+
+Alur:
+    /auth/                 Splash: logo maskot Archie → klik
+    /auth/masuk/           Halaman login (tab Masuk / Daftar)
+        ├─ Masuk berhasil  → beranda (/)            [atau pilih fakultas jika belum]
+        └─ Daftar berhasil → /auth/fakultas/
+    /auth/fakultas/        Pilih FT / FMIPA / Fasilkom
+    /auth/tes-awal/        Tawaran tes kemampuan awal (Ya / Lewati)
+        ├─ Ya    → /auth/tes-awal/mulai/  (10 soal: 5 mudah, 3 sedang, 2 sulit)
+        │           → /auth/tes-awal/hasil/ → beranda
+        └─ Lewati → beranda
+"""
+
+from django.contrib import messages
+from django.contrib.auth import login, logout
+from django.contrib.auth.decorators import login_required
+from django.shortcuts import redirect, render
+from django.views.decorators.http import require_POST
+
+from . import services
+from .forms import FacultyForm, LoginForm, RegisterForm
+from .models import Faculty, SkillNode, UserProfile
+
+RESULT_SESSION_KEY = "diagnostic_result"
+
+
+def _profile(user):
+    profile, _ = UserProfile.objects.get_or_create(user=user)
+    return profile
+
+
+def next_step_for(user):
+    """Ke mana pengguna yang sudah login harus diarahkan berikutnya."""
+    if not _profile(user).faculty_id:
+        return "gamification:auth_faculty"
+    return "gamification:home"
+
+
+def splash(request):
+    """Layar pembuka: logo maskot CalculusBridge. Klik → halaman login."""
+    if request.user.is_authenticated:
+        return redirect(next_step_for(request.user))
+    return render(request, "auth/splash.html")
+
+
+def login_view(request):
+    """Halaman login berisi dua tab: Masuk (akun lama) dan Daftar (akun baru)."""
+    if request.user.is_authenticated:
+        return redirect(next_step_for(request.user))
+
+    login_form = LoginForm(request, data=request.POST or None, prefix="login")
+    if request.method == "POST" and login_form.is_valid():
+        login(request, login_form.get_user())
+        return redirect(next_step_for(request.user))
+
+    return render(request, "auth/login.html", {
+        "login_form": login_form,
+        "register_form": RegisterForm(prefix="reg"),
+        "active_tab": "masuk",
+    })
+
+
+@require_POST
+def register_view(request):
+    """Mendaftarkan akun baru (disimpan ke database) lalu lanjut memilih fakultas."""
+    form = RegisterForm(request.POST, prefix="reg")
+    if form.is_valid():
+        user = form.save()
+        UserProfile.objects.get_or_create(user=user)
+        login(request, user, backend="django.contrib.auth.backends.ModelBackend")
+        messages.success(request, f"Akun berhasil dibuat. Selamat datang, {user.first_name or user.username}!")
+        return redirect("gamification:auth_faculty")
+
+    return render(request, "auth/login.html", {
+        "login_form": LoginForm(request, prefix="login"),
+        "register_form": form,
+        "active_tab": "daftar",
+    }, status=400)
+
+
+@require_POST
+def logout_view(request):
+    logout(request)
+    return redirect("gamification:auth_splash")
+
+
+@login_required
+def faculty_select(request):
+    """Memilih fakultas; menentukan jalur belajar dan soal diagnostik."""
+    profile = _profile(request.user)
+    form = FacultyForm(request.POST or None, initial={"faculty": profile.faculty})
+    if request.method == "POST" and form.is_valid():
+        profile.faculty = form.cleaned_data["faculty"]
+        profile.save(update_fields=["faculty", "updated_at"])
+        return redirect("gamification:auth_diagnostic_offer")
+
+    return render(request, "auth/faculty_select.html", {
+        "form": form,
+        "faculties": Faculty.objects.all(),
+        "selected": profile.faculty.slug if profile.faculty else None,
+    })
+
+
+def _require_faculty(view):
+    """Dekorator: halaman diagnostik butuh fakultas yang sudah dipilih."""
+    @login_required
+    def wrapper(request, *args, **kwargs):
+        if not _profile(request.user).faculty_id:
+            return redirect("gamification:auth_faculty")
+        return view(request, *args, **kwargs)
+    wrapper.__name__ = view.__name__
+    wrapper.__doc__ = view.__doc__
+    return wrapper
+
+
+@_require_faculty
+def diagnostic_offer(request):
+    """Menawarkan tes kemampuan awal. Ya → tes, Lewati → beranda."""
+    profile = _profile(request.user)
+    return render(request, "auth/diagnostic_offer.html", {
+        "faculty": profile.faculty,
+        "plan": [{"label": lbl, "count": c} for lbl, c in
+                 zip(("Mudah", "Sedang", "Sulit"), (c for _, c in services.DIAGNOSTIC_PLAN))],
+        "total": sum(c for _, c in services.DIAGNOSTIC_PLAN),
+    })
+
+
+@_require_faculty
+def diagnostic_test(request):
+    """
+    Tes kemampuan awal 10 soal sesuai prodi.
+
+    GET  : menampilkan soal (tanpa kunci jawaban).
+    POST : menilai di server, menyimpan hasil ke UserProfile & UserProgress,
+           lalu mengalihkan ke halaman hasil.
+    """
+    profile = _profile(request.user)
+    questions = services.diagnostic_questions(profile.faculty)
+
+    if request.method == "POST":
+        answers = [
+            {"code": q.code, "option_id": request.POST.get(f"q_{q.code}")}
+            for q in questions
+        ]
+        missing = [a["code"] for a in answers if not a["option_id"]]
+        if missing:
+            messages.error(request, "Jawab semua soal terlebih dahulu.")
+        else:
+            result = services.evaluate_diagnostic(profile.faculty, answers)
+            services.apply_diagnostic_to_profile(request.user, profile.faculty, result)
+            request.session[RESULT_SESSION_KEY] = result
+            return redirect("gamification:auth_diagnostic_result")
+
+    return render(request, "auth/diagnostic_test.html", {
+        "faculty": profile.faculty,
+        "questions": questions,
+        "answered": request.POST,
+    })
+
+
+@_require_faculty
+def diagnostic_result(request):
+    result = request.session.get(RESULT_SESSION_KEY)
+    if not result:
+        return redirect("gamification:auth_diagnostic_offer")
+    level_rows = [
+        {"label": label, **result["levels"][key]}
+        for key, label in (("basic", "Mudah"), ("medium", "Sedang"), ("high", "Sulit"))
+    ]
+    node = SkillNode.objects.filter(slug=result.get("recommended_node")).first()
+    return render(request, "auth/diagnostic_result.html", {
+        "result": result,
+        "recommended_title": node.title if node else "",
+        "level_rows": level_rows,
+        "faculty": _profile(request.user).faculty,
+    })

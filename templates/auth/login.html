@@ -1,0 +1,55 @@
+{% extends 'auth/base_auth.html' %}
+{% comment %}
+  HALAMAN: Login — tab "Masuk" (akun yang sudah ada) dan "Daftar" (akun baru).
+  Masuk  → beranda.   Daftar → pilih fakultas.
+{% endcomment %}
+
+{% block title %}Masuk — Calculus Bridge{% endblock %}
+
+{% block auth_content %}
+<section class="auth-card" data-active-tab="{{ active_tab }}">
+  <div class="auth-card-head">
+    {% include 'components/mascot.html' with svg_class="mascot-idle" size=72 %}
+    <div>
+      <h2 class="auth-title" data-title-masuk="Selamat datang kembali!" data-title-daftar="Buat akun baru">
+        {% if active_tab == 'daftar' %}Buat akun baru{% else %}Selamat datang kembali!{% endif %}
+      </h2>
+      <p class="auth-sub">Masuk untuk melanjutkan progres belajarmu, atau daftar jika baru pertama kali.</p>
+    </div>
+  </div>
+
+  <div class="auth-tabs" role="tablist">
+    <button type="button" role="tab" class="auth-tab{% if active_tab == 'masuk' %} active{% endif %}" data-tab="masuk">Masuk</button>
+    <button type="button" role="tab" class="auth-tab{% if active_tab == 'daftar' %} active{% endif %}" data-tab="daftar">Daftar</button>
+  </div>
+
+  <!-- TAB: Masuk -->
+  <form method="post" action="{% url 'gamification:auth_login' %}" class="auth-form auth-pane{% if active_tab == 'masuk' %} active{% endif %}"
+        id="pane-masuk" data-transition novalidate>
+    {% csrf_token %}
+    {% for error in login_form.non_field_errors %}<div class="auth-alert auth-alert-error">{{ error }}</div>{% endfor %}
+    {% include 'auth/_field.html' with field=login_form.username %}
+    {% include 'auth/_field.html' with field=login_form.password %}
+    <button type="submit" class="btn btn-primary btn-lg auth-submit">Masuk ➔</button>
+    <p class="auth-switch">Belum punya akun? <button type="button" class="link-btn" data-tab="daftar">Daftar di sini</button></p>
+  </form>
+
+  <!-- TAB: Daftar -->
+  <form method="post" action="{% url 'gamification:auth_register' %}" class="auth-form auth-pane{% if active_tab == 'daftar' %} active{% endif %}"
+        id="pane-daftar" data-transition novalidate>
+    {% csrf_token %}
+    {% for error in register_form.non_field_errors %}<div class="auth-alert auth-alert-error">{{ error }}</div>{% endfor %}
+    {% include 'auth/_field.html' with field=register_form.first_name %}
+    <div class="auth-grid">
+      {% include 'auth/_field.html' with field=register_form.username %}
+      {% include 'auth/_field.html' with field=register_form.email %}
+    </div>
+    <div class="auth-grid">
+      {% include 'auth/_field.html' with field=register_form.password1 %}
+      {% include 'auth/_field.html' with field=register_form.password2 %}
+    </div>
+    <button type="submit" class="btn btn-growth btn-lg auth-submit">Daftar &amp; Lanjut ➔</button>
+    <p class="auth-switch">Sudah punya akun? <button type="button" class="link-btn" data-tab="masuk">Masuk</button></p>
+  </form>
+</section>
+{% endblock %}

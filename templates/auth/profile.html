@@ -5,15 +5,22 @@
      ========================================================================= -->
 
 <div class="profile-hero">
-  <div class="profile-avatar-lg" id="profile-avatar-lg">M</div>
+  <div class="profile-avatar-lg" id="profile-avatar-lg">{{ server_profile.display_name|first|upper|default:"M" }}</div>
   <div>
-    <div class="profile-hero-name" id="profile-name">Mahasiswa Baru</div>
-    <div class="profile-hero-fac"  id="profile-fac-label">Fasilkom · Universitas Indonesia</div>
+    <div class="profile-hero-name" id="profile-name">{{ server_profile.display_name|default:"Mahasiswa Baru" }}</div>
+    <div class="profile-hero-fac"  id="profile-fac-label">{{ server_profile.faculty_name }}{% if server_profile.diagnostic_level %} · {{ server_profile.diagnostic_level }}{% endif %}</div>
   </div>
   <div style="margin-left:auto; display:flex; gap:.75rem; align-items:center;">
-    <button class="btn btn-outline btn-sm" style="color:white; border-color:rgba(255,255,255,.4);" onclick="DiagnosticModal.open()">
+    <a class="btn btn-outline btn-sm" style="color:white; border-color:rgba(255,255,255,.4); text-decoration:none;"
+       href="{% url 'gamification:auth_diagnostic_offer' %}">
       🧪 Tes Ulang Diagnostik
-    </button>
+    </a>
+    <form method="post" action="{% url 'gamification:auth_logout' %}" class="logout-form">
+      {% csrf_token %}
+      <button type="submit" class="btn btn-outline btn-sm" style="color:white; border-color:rgba(255,255,255,.4);">
+        🚪 Keluar
+      </button>
+    </form>
   </div>
 </div>
 

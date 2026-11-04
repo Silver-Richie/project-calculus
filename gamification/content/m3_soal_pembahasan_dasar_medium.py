@@ -85,6 +85,7 @@ QUESTIONS = [
         "code": "U-D3",
         "node": "umum-turunan",
         "difficulty": "basic",
+        "is_diagnostic": True,
         "prompt": "Tentukan f′(x) dan f′(0) untuk f(x) = (2x + 1)⁵.",
         "options": [
             ("f′(x) = 5(2x + 1)⁴; f′(0) = 5", False),

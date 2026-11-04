@@ -141,70 +141,92 @@ def build_curriculum(faculty):
 
 
 # ── Diagnostik ────────────────────────────────────────────────────────────
+# Komposisi tes kemampuan awal: 10 soal = 5 mudah, 3 sedang, 2 sulit.
+DIAGNOSTIC_PLAN = (("basic", 5), ("medium", 3), ("high", 2))
+
+# Batas lulus per tingkat (proporsi jawaban benar).
+PASS_RATIO = {"basic": 0.6, "medium": 0.6, "high": 0.5}
+
+EVALUATION_LABELS = {
+    "weak_foundation": "Perlu Penguatan Fondasi",
+    "ready_for_calculus": "Siap Kalkulus (Jalur Standar)",
+    "mastery": "Penguasaan Tinggi",
+}
+
+
 def diagnostic_questions(faculty):
     """
-    Satu soal per tingkat (Dasar → Menengah → Tinggi).
+    Soal tes diagnostik sesuai DIAGNOSTIC_PLAN (5 mudah, 3 sedang, 2 sulit).
 
-    Mechanism: soal Dasar diambil dari soal umum (berlaku semua fakultas);
-    soal Menengah & Tinggi diambil dari bank soal fakultas yang dipilih,
-    sehingga diagnostik menguji konteks fakultas pengguna.
+    Mechanism: untuk tiap tingkat diambil soal bertanda is_diagnostic, dengan
+    soal milik fakultas pengguna diutamakan lalu dilengkapi soal umum. Dengan
+    demikian tes menguji konteks prodi masing-masing, tetapi tetap lengkap.
     """
     picked = []
-    for level in ("basic", "medium", "high"):
+    for level, count in DIAGNOSTIC_PLAN:
         qs = (
             Question.objects.filter(is_diagnostic=True, difficulty=level)
             .filter(_visible_to(faculty))
-            .select_related("source_document")
+            .select_related("source_document", "node")
             .prefetch_related(Prefetch("options", queryset=Option.objects.order_by("order")))
-            .order_by(F("faculty_id").desc(nulls_last=True), "order")  # utamakan soal milik fakultas
+            .order_by(F("faculty_id").desc(nulls_last=True), "node__order", "order")
         )
-        q = qs.first()
-        if q:
-            picked.append(q)
+        picked.extend(qs[:count])
     return picked
+
+
+def grade_answers(answers):
+    """
+    Menilai jawaban di server. `answers` = [{"code": "U-D1", "option_id": 12}, ...].
+    Item lama {"difficulty": ..., "is_correct": ...} tetap diterima (kompatibilitas).
+    """
+    codes = [a.get("code") for a in answers if a.get("code")]
+    questions = {
+        q.code: q for q in Question.objects.filter(code__in=codes).prefetch_related("options")
+    }
+    results = []
+    for ans in answers:
+        code = ans.get("code")
+        if not code:
+            results.append({"code": None, "difficulty": ans.get("difficulty"),
+                            "is_correct": bool(ans.get("is_correct"))})
+            continue
+        q = questions.get(code)
+        if not q:
+            continue
+        correct_opt = next((o for o in q.options.all() if o.is_correct), None)
+        chosen = next((o for o in q.options.all() if str(o.id) == str(ans.get("option_id"))), None)
+        results.append({
+            "code": q.code,
+            "difficulty": q.difficulty,
+            "difficulty_label": q.get_difficulty_display(),
+            "prompt": q.prompt,
+            "chosen": chosen.text if chosen else "",
+            "correct": correct_opt.text if correct_opt else "",
+            "is_correct": chosen is not None and chosen == correct_opt,
+            "answer": q.answer,
+        })
+    return results
 
 
 def evaluate_diagnostic(faculty, answers):
     """
     Menilai jawaban diagnostik dan menentukan titik mulai skill tree.
 
-    `answers` = [{"code": "U-D1", "option_id": 12}, ...]. Penilaian dilakukan
-    di server (kunci jawaban tidak dikirim ke browser).
-    Untuk kompatibilitas lama, item {"difficulty": ..., "is_correct": ...} juga diterima.
-
-    Decision logic:
-      - Dasar salah                → 'weak_foundation'   → mulai Tahap 1 (fundamental)
-      - Dasar benar, ada yang salah → 'ready_for_calculus' → mulai Tahap 2 (jalur standar)
-      - Semua benar                → 'mastery'           → langsung ke tahap khusus fakultas
+    Decision logic (lulus = proporsi benar >= PASS_RATIO tingkat itu):
+      - Mudah tidak lulus                → 'weak_foundation'    → mulai Tahap 1 (fundamental)
+      - Mudah lulus, Sedang/Sulit tidak  → 'ready_for_calculus' → mulai Tahap 2 (jalur standar)
+      - Semua tingkat lulus              → 'mastery'            → langsung ke tahap khusus fakultas
     """
-    results = []
-    for ans in answers:
-        code = ans.get("code")
-        if code:
-            q = Question.objects.filter(code=code).prefetch_related("options").first()
-            if not q:
-                continue
-            correct_opt = next((o for o in q.options.all() if o.is_correct), None)
-            is_correct = correct_opt is not None and str(correct_opt.id) == str(ans.get("option_id"))
-            results.append({
-                "code": q.code,
-                "difficulty": q.difficulty,
-                "difficulty_label": q.get_difficulty_display(),
-                "is_correct": is_correct,
-                "answer": q.answer,
-            })
-        else:
-            results.append({
-                "code": None,
-                "difficulty": ans.get("difficulty"),
-                "is_correct": bool(ans.get("is_correct")),
-            })
+    results = grade_answers(answers)
 
-    def level_ok(level):
-        level_results = [r for r in results if r["difficulty"] == level]
-        return bool(level_results) and all(r["is_correct"] for r in level_results)
+    def summary(level):
+        rows = [r for r in results if r["difficulty"] == level]
+        correct = sum(r["is_correct"] for r in rows)
+        return {"correct": correct, "total": len(rows),
+                "passed": bool(rows) and correct / len(rows) >= PASS_RATIO[level]}
 
-    basic_ok, medium_ok, high_ok = level_ok("basic"), level_ok("medium"), level_ok("high")
+    levels = {lvl: summary(lvl) for lvl, _ in DIAGNOSTIC_PLAN}
     nodes = list(
         SkillNode.objects.filter(kind="lesson").filter(_visible_to(faculty)).order_by("order", "stage_number")
     )
@@ -214,11 +236,11 @@ def evaluate_diagnostic(faculty, answers):
     def slug_at(seq, i):
         return seq[min(i, len(seq) - 1)].slug if seq else None
 
-    if not basic_ok:
+    if not levels["basic"]["passed"]:
         evaluation = "weak_foundation"
         recommended = slug_at(general, 0)
         message = "Fondasi limit dan aljabar perlu diperkuat. Mulai dari Tahap 1: Fungsi dan Limit."
-    elif not (medium_ok and high_ok):
+    elif not (levels["medium"]["passed"] and levels["high"]["passed"]):
         evaluation = "ready_for_calculus"
         recommended = slug_at(general, 1)
         message = "Fondasi aman. Lanjutkan jalur standar mulai Tahap 2: Turunan dan Aplikasinya."
@@ -230,8 +252,66 @@ def evaluate_diagnostic(faculty, answers):
 
     return {
         "evaluation": evaluation,
+        "evaluation_label": EVALUATION_LABELS[evaluation],
         "recommended_node": recommended,
         "message": message,
+        "levels": levels,
+        "score": sum(r["is_correct"] for r in results),
+        "total": len(results),
         "results": results,
         "xp_awarded": 40,
+    }
+
+
+def apply_diagnostic_to_profile(user, faculty, evaluation):
+    """
+    Menyimpan hasil diagnostik ke database pengguna.
+
+    Mechanism: UserProfile diperbarui (status, level, rekomendasi, XP), lalu
+    UserProgress dibuat untuk setiap node skill tree fakultas: node sebelum
+    rekomendasi = 'completed' (dilewati), node rekomendasi = 'active'.
+    """
+    from django.utils import timezone
+    from .models import UserProfile, UserProgress
+
+    profile, _ = UserProfile.objects.get_or_create(user=user)
+    recommended = SkillNode.objects.filter(slug=evaluation["recommended_node"]).first()
+    profile.faculty = faculty
+    profile.diagnostic_completed = True
+    profile.diagnostic_level = evaluation["evaluation_label"]
+    profile.recommended_node = recommended
+    profile.xp += evaluation.get("xp_awarded", 0)
+    profile.save()
+
+    nodes = list(
+        SkillNode.objects.filter(kind="lesson").filter(_visible_to(faculty)).order_by("order", "stage_number")
+    )
+    rec_index = next((i for i, n in enumerate(nodes) if recommended and n.pk == recommended.pk), 0)
+    for i, node in enumerate(nodes[: rec_index + 1]):
+        progress, _ = UserProgress.objects.get_or_create(user=user, node=node)
+        if i < rec_index and progress.status != "completed":
+            progress.status = "completed"
+            progress.completed_at = timezone.now()
+            progress.save()
+        elif i == rec_index and progress.status == "locked":
+            progress.status = "active"
+            progress.save()
+    return profile
+
+
+def profile_bootstrap(user):
+    """Data profil + progres untuk diinisialisasi ke State JS di halaman beranda."""
+    from .models import UserProfile
+
+    profile, _ = UserProfile.objects.get_or_create(user=user)
+    records = user.progress_records.select_related("node")
+    return {
+        "username": user.username,
+        "display_name": user.first_name or user.username,
+        "faculty": profile.faculty.slug if profile.faculty else None,
+        "faculty_name": profile.faculty.name if profile.faculty else "",
+        "xp": profile.xp,
+        "diagnostic_level": profile.diagnostic_level,
+        "completed": [r.node.slug for r in records if r.status == "completed"],
+        "active": next((r.node.slug for r in records if r.status == "active"), None),
     }

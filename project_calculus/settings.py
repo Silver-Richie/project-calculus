@@ -124,7 +124,7 @@ AUTH_PASSWORD_VALIDATORS = [
 # Internationalization
 # https://docs.djangoproject.com/en/5.2/topics/i18n/
 
-LANGUAGE_CODE = 'en-us'
+LANGUAGE_CODE = 'id'
 
 TIME_ZONE = 'UTC'
 
@@ -163,3 +163,8 @@ STATIC_URL = 'static/'
 STATICFILES_DIRS = [
     BASE_DIR / 'static',
 ]
+
+# Autentikasi (templates/auth/)
+LOGIN_URL = 'gamification:auth_login'
+LOGIN_REDIRECT_URL = 'gamification:home'
+LOGOUT_REDIRECT_URL = 'gamification:auth_splash'
