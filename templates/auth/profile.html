@@ -1,9 +1,64 @@
 <!-- =========================================================================
-     MODUL: Informasi Profil Mahasiswa
-     Dikerjakan oleh Branch : feat/auth-onboarding
-     Fungsi                 : Info akun, fakultas aktif, statistik dasar
-     Prioritas              : MVP
+     MODUL: User Profile  (Page: User)
+     Branch : feat/auth-onboarding
+     Isi    : Hero profil, stats, pemilihan fakultas, diagnostik
      ========================================================================= -->
 
-<!-- TODO (Dev: feat/auth-onboarding): Tuliskan ringkasan profil user di sini -->
+<div class="profile-hero">
+  <div class="profile-avatar-lg" id="profile-avatar-lg">M</div>
+  <div>
+    <div class="profile-hero-name" id="profile-name">Mahasiswa Baru</div>
+    <div class="profile-hero-fac"  id="profile-fac-label">Fasilkom · Universitas Indonesia</div>
+  </div>
+  <div style="margin-left:auto; display:flex; gap:.75rem; align-items:center;">
+    <button class="btn btn-outline btn-sm" style="color:white; border-color:rgba(255,255,255,.4);" onclick="DiagnosticModal.open()">
+      🧪 Tes Ulang Diagnostik
+    </button>
+  </div>
+</div>
 
+<!-- Stats -->
+<div class="profile-stats">
+  <div class="stat-box">
+    <div class="stat-box-val" id="profile-xp">60</div>
+    <div class="stat-box-lbl">Total XP</div>
+  </div>
+  <div class="stat-box">
+    <div class="stat-box-val" id="profile-streak" style="color:var(--clr-accent);">3</div>
+    <div class="stat-box-lbl">Hari Streak</div>
+  </div>
+  <div class="stat-box">
+    <div class="stat-box-val" id="profile-hearts" style="color:var(--clr-danger);">5</div>
+    <div class="stat-box-lbl">Nyawa Tersisa</div>
+  </div>
+  <div class="stat-box">
+    <div class="stat-box-val" id="profile-gems" style="color:var(--clr-growth);">120</div>
+    <div class="stat-box-lbl">Permata</div>
+  </div>
+</div>
+
+<!-- Faculty selector -->
+<div style="margin-top:2rem;">
+  <div class="section-label">Ubah Jalur Kurikulum</div>
+  <div class="fac-selector-row">
+
+    <div class="fac-card" data-fac="fasilkom" onclick="State.setFaculty('fasilkom')">
+      <div class="fac-card-icon">💻</div>
+      <div class="fac-card-name">Fasilkom</div>
+      <div class="fac-card-desc">Gradient Descent, Limit Kompleksitas, AI Math</div>
+    </div>
+
+    <div class="fac-card" data-fac="fmipa" onclick="State.setFaculty('fmipa')">
+      <div class="fac-card-icon">🔬</div>
+      <div class="fac-card-name">FMIPA</div>
+      <div class="fac-card-desc">Pembuktian Epsilon-Delta, MVT, Analisis Formal</div>
+    </div>
+
+    <div class="fac-card" data-fac="ft" onclick="State.setFaculty('ft')">
+      <div class="fac-card-icon">⚙️</div>
+      <div class="fac-card-name">Fak. Teknik</div>
+      <div class="fac-card-desc">Laju Terkait, Optimasi Struktur, Vektor Fisika</div>
+    </div>
+
+  </div>
+</div>

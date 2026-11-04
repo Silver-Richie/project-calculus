@@ -1,57 +1,58 @@
 {% extends 'base.html' %}
 {% load static %}
 
-{% block title %}Calculus Bridge - Gamifikasi Kalkulus Interaktif{% endblock %}
+{% block title %}Calculus Bridge — Gamifikasi Kalkulus Interaktif{% endblock %}
 
 {% block content %}
-    <!-- =========================================================================
-         1. TOPBAR & GAMIFIED HUD (Branch: ui/design-system)
-         ========================================================================= -->
-    {% include 'components/hud.html' %}
 
-    <main>
-        <!-- =====================================================================
-             2. MASKOT & HERO AREA (Branch: ui/design-system)
-             ===================================================================== -->
-        {% include 'components/mascot.html' %}
+  <!-- ══════════════════════════════════════════════════════════════
+       1. TOP HUD  (Branch: ui/design-system → components/hud.html)
+       ══════════════════════════════════════════════════════════════ -->
+  {% include 'components/hud.html' %}
 
-        <!-- =====================================================================
-             3. PILIHAN JALUR FAKULTAS (Branch: feat/auth-onboarding)
-             ===================================================================== -->
-        {% include 'auth/faculty_select.html' %}
+  <!-- ══════════════════════════════════════════════════════════════
+       2. LEFT SIDEBAR  (Branch: feat/auth-onboarding)
+       ══════════════════════════════════════════════════════════════ -->
+  {% include 'components/sidebar.html' %}
 
-        <!-- =====================================================================
-             4. PETA BELAJAR / SKILL TREE (Branch: feat/learning-path)
-             ===================================================================== -->
-        {% include 'learning/skill_tree.html' %}
+  <!-- ══════════════════════════════════════════════════════════════
+       3. MAIN CONTENT — Four page sections toggled by bottom nav
+       ══════════════════════════════════════════════════════════════ -->
+  <main class="site-main">
 
-        <!-- =====================================================================
-             5. KOMPONEN BANK SOAL (Branch: feat/question-bank)
-             ===================================================================== -->
-        {% include 'question_bank/question_card.html' %}
+    <!-- PAGE: Level Up (Skill Tree) -->
+    <div class="page-section active" id="page-levelup">
+      {% include 'learning/skill_tree.html' %}
+    </div>
 
-        <!-- =====================================================================
-             6. PROGRES & ANALITIK XP (Branch: feat/progress-analytics)
-             ===================================================================== -->
-        {% include 'analytics/progress_dashboard.html' %}
-    </main>
+    <!-- PAGE: Lesson (Catalogue) -->
+    <div class="page-section" id="page-lesson">
+      {% include 'learning/lesson_catalogue.html' %}
+    </div>
 
-    <!-- =========================================================================
-         7. MODAL & DRAWER OVERLAYS (Di-trigger oleh interaksi pengguna)
-         ========================================================================= -->
-    <!-- Modal Autentikasi Pengguna (Branch: feat/auth-onboarding) -->
-    {% include 'auth/login_modal.html' %}
+    <!-- PAGE: Rank (Leaderboard) -->
+    <div class="page-section" id="page-rank">
+      {% include 'analytics/leaderboard.html' %}
+    </div>
 
-    <!-- Modal Evaluasi Diagnostik Awal (Branch: feat/diagnostic-engine) -->
-    {% include 'diagnostic/test_modal.html' %}
-    {% include 'diagnostic/result_card.html' %}
+    <!-- PAGE: User (Profile) -->
+    <div class="page-section" id="page-user">
+      {% include 'auth/profile.html' %}
+    </div>
 
-    <!-- Drawer Modul Pembelajaran & Kuis (Branch: feat/learning-path) -->
-    {% include 'learning/drawer_lesson.html' %}
-    {% include 'learning/quiz_modal.html' %}
+  </main>
 
-    <!-- =========================================================================
-         8. FOOTER (Branch: ui/design-system)
-         ========================================================================= -->
-    {% include 'components/footer.html' %}
+  <!-- ══════════════════════════════════════════════════════════════
+       4. BOTTOM NAVIGATION BAR  (Branch: ui/design-system)
+       ══════════════════════════════════════════════════════════════ -->
+  {% include 'components/bottom_nav.html' %}
+
+  <!-- ══════════════════════════════════════════════════════════════
+       5. OVERLAYS — Modals & Drawers (each managed by own branch)
+       ══════════════════════════════════════════════════════════════ -->
+  {% include 'diagnostic/test_modal.html' %}
+  {% include 'diagnostic/result_card.html' %}
+  {% include 'learning/drawer_lesson.html' %}
+  {% include 'auth/login_modal.html' %}
+
 {% endblock %}

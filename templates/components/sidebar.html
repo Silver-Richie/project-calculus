@@ -1,0 +1,49 @@
+<!-- =========================================================================
+     KOMPONEN: Left Sidebar — Faculty & Navigation
+     Branch  : ui/design-system
+     Isi     : Logo mini, pilihan fakultas, quick links, profil mini
+     ========================================================================= -->
+<nav class="site-sidebar">
+
+  <p class="sidebar-label">Jalur Belajar</p>
+
+  <!-- Faculty selector shortcuts -->
+  <div class="sidebar-item active" id="sidebar-fasilkom" onclick="State.setFaculty('fasilkom')">
+    <span class="fac-dot fac-dot-fasilkom"></span>
+    Fasilkom
+  </div>
+  <div class="sidebar-item" id="sidebar-fmipa" onclick="State.setFaculty('fmipa')">
+    <span class="fac-dot fac-dot-fmipa"></span>
+    FMIPA
+  </div>
+  <div class="sidebar-item" id="sidebar-ft" onclick="State.setFaculty('ft')">
+    <span class="fac-dot fac-dot-ft"></span>
+    Fak. Teknik
+  </div>
+
+  <div class="sidebar-divider"></div>
+
+  <p class="sidebar-label">Menu</p>
+  <div class="sidebar-item" onclick="Nav.go('levelup')">🌳 Skill Tree</div>
+  <div class="sidebar-item" onclick="Nav.go('lesson')">📖 Pelajaran</div>
+  <div class="sidebar-item" onclick="Nav.go('rank')">🏆 Peringkat</div>
+  <div class="sidebar-item" onclick="Nav.go('user')">👤 Profil</div>
+
+  <div class="sidebar-divider"></div>
+
+  <!-- Diagnostic trigger -->
+  <div class="sidebar-item" onclick="DiagnosticModal.open()" style="color:#F97316;">
+    🧪 Tes Diagnostik
+  </div>
+
+  <!-- Profile mini at bottom -->
+  <div class="sidebar-profile-mini">
+    <div class="profile-avatar" id="sidebar-avatar">M</div>
+    <div class="profile-mini-info">
+      <div class="profile-mini-name" id="sidebar-username">Mahasiswa</div>
+      <div class="profile-mini-fac"  id="sidebar-fac">Fasilkom · UI</div>
+    </div>
+  </div>
+
+</nav>
+

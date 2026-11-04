@@ -1,8 +1,28 @@
 <!-- =========================================================================
-     KOMPONEN: Topbar / Gamified HUD Navigation
-     Dikerjakan oleh Branch : ui/design-system
-     Fungsi                 : Navbar, Nyawa (Hearts), Streak, XP, Gems, Sound Toggle
+     KOMPONEN: Top Gamified HUD Navbar
+     Branch  : ui/design-system
+     Isi     : Brand, Stat pills (XP, Streak, Hearts, Gems), Sound toggle
      ========================================================================= -->
+<header class="site-hud">
 
-<!-- TODO (Dev: ui/design-system): Tuliskan markup HUD gamifikasi di sini -->
+  <!-- Brand -->
+  <a href="/" class="hud-brand">
+    <div class="hud-brand-icon">∫</div>
+    Calculus<span>Bridge</span>
+  </a>
 
+  <!-- Gamification stats -->
+  <div class="hud-info">
+    <div class="hud-pill" id="hud-faculty-badge" title="Jalur Fakultas">💻 Fasilkom</div>
+    <div class="hud-pill xp"     id="hud-xp"      title="Total XP">⚡ <span>60 XP</span></div>
+    <div class="hud-pill streak" id="hud-streak"   title="Streak Harian">🔥 <span>3</span></div>
+    <div class="hud-pill hearts" id="hud-hearts-pill" title="Nyawa">❤️ <span id="hud-hearts-val">5/5</span></div>
+    <div class="hud-pill gems"   id="hud-gems"     title="Permata">💎 <span>120</span></div>
+  </div>
+
+  <!-- Right controls -->
+  <div class="hud-right">
+    <button class="btn-sound" id="sound-toggle-btn" onclick="SFX.toggle()">🔊 Suara</button>
+  </div>
+
+</header>
