@@ -16,7 +16,7 @@
    ════════════════════════════════════════════════════════════════ */
 const SFX = (() => {
   let ctx = null;
-  let on  = true;
+  let on = true;
 
   function init() {
     if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)();
@@ -26,7 +26,7 @@ const SFX = (() => {
     if (!on) return;
     init();
     try {
-      const osc  = ctx.createOscillator();
+      const osc = ctx.createOscillator();
       const gain = ctx.createGain();
       osc.type = type;
       osc.frequency.setValueAtTime(freq, ctx.currentTime + delay);
@@ -36,7 +36,7 @@ const SFX = (() => {
       gain.connect(ctx.destination);
       osc.start(ctx.currentTime + delay);
       osc.stop(ctx.currentTime + delay + dur);
-    } catch (_) {}
+    } catch (_) { }
   }
 
   return {
@@ -47,13 +47,13 @@ const SFX = (() => {
       if (on) this.click();
       return on;
     },
-    click()   { tone(600, 'triangle', 0.04); },
+    click() { tone(600, 'triangle', 0.04); },
     correct() { [523, 659, 784, 1046].forEach((f, i) => tone(f, 'triangle', 0.18, i * 0.08, 0.14)); },
-    wrong()   { tone(220, 'sine', 0.18); tone(185, 'sine', 0.25, 0.14); },
+    wrong() { tone(220, 'sine', 0.18); tone(185, 'sine', 0.25, 0.14); },
     fanfare() {
-      [[523,.12,0],[659,.12,.1],[784,.14,.2],[1046,.35,.32]].forEach(([f,d,t]) => tone(f,'sine',d,t,.18));
+      [[523, .12, 0], [659, .12, .1], [784, .14, .2], [1046, .35, .32]].forEach(([f, d, t]) => tone(f, 'sine', d, t, .18));
     },
-    hint()    { tone(440, 'sine', 0.1); },
+    hint() { tone(440, 'sine', 0.1); },
   };
 })();
 
@@ -72,30 +72,30 @@ const State = (() => {
 
   let s = (() => {
     try { return Object.assign({}, DEFAULTS, JSON.parse(localStorage.getItem(KEY))); }
-    catch(_) { return { ...DEFAULTS }; }
+    catch (_) { return { ...DEFAULTS }; }
   })();
 
   function save() {
-    try { localStorage.setItem(KEY, JSON.stringify(s)); } catch(_) {}
+    try { localStorage.setItem(KEY, JSON.stringify(s)); } catch (_) { }
     updateHUD();
   }
 
   function updateHUD() {
-    setText('hud-xp',          `⚡ ${s.xp} XP`);
-    setText('hud-streak',      `🔥 ${s.streak}`);
-    setText('hud-hearts-val',  `${s.hearts}/${s.maxHearts}`);
-    setText('hud-gems',        `💎 ${s.gems}`);
-    setText('profile-xp',      s.xp);
-    setText('profile-streak',  s.streak);
-    setText('profile-hearts',  s.hearts);
-    setText('profile-gems',    s.gems);
-    setText('rank-my-xp',      `${s.xp} XP`);
+    setText('hud-xp', `⚡ ${s.xp} XP`);
+    setText('hud-streak', `🔥 ${s.streak}`);
+    setText('hud-hearts-val', `${s.hearts}/${s.maxHearts}`);
+    setText('hud-gems', `💎 ${s.gems}`);
+    setText('profile-xp', s.xp);
+    setText('profile-streak', s.streak);
+    setText('profile-hearts', s.hearts);
+    setText('profile-gems', s.gems);
+    setText('rank-my-xp', `${s.xp} XP`);
 
-    const facLabels = { fasilkom:'💻 Fasilkom', fmipa:'🔬 FMIPA', ft:'⚙️ Fak. Teknik' };
+    const facLabels = { fasilkom: '💻 Fasilkom', fmipa: '🔬 FMIPA', ft: '⚙️ Fak. Teknik' };
     setText('hud-faculty-badge', facLabels[s.faculty] || 'Fasilkom');
 
     // Sidebar active
-    ['fasilkom','fmipa','ft'].forEach(f => {
+    ['fasilkom', 'fmipa', 'ft'].forEach(f => {
       const el = document.getElementById(`sidebar-${f}`);
       if (el) el.classList.toggle('active', f === s.faculty);
     });
@@ -110,9 +110,9 @@ const State = (() => {
   function updateTree() {
     document.querySelectorAll('.tree-node').forEach(n => {
       n.classList.remove('node-completed', 'node-active', 'node-locked');
-      if (s.completedNodes.includes(n.id))  n.classList.add('node-completed');
-      else if (n.id === s.activeNode)        n.classList.add('node-active');
-      else                                   n.classList.add('node-locked');
+      if (s.completedNodes.includes(n.id)) n.classList.add('node-completed');
+      else if (n.id === s.activeNode) n.classList.add('node-active');
+      else n.classList.add('node-locked');
     });
   }
 
@@ -124,11 +124,11 @@ const State = (() => {
   function floatXP(amount) {
     const el = document.getElementById('hud-xp');
     if (!el) return;
-    const r   = el.getBoundingClientRect();
+    const r = el.getBoundingClientRect();
     const tag = document.createElement('span');
     tag.className = 'float-xp';
     tag.textContent = `+${amount} XP!`;
-    tag.style.cssText = `left:${r.left+8}px;top:${r.top-10}px;`;
+    tag.style.cssText = `left:${r.left + 8}px;top:${r.top - 10}px;`;
     document.body.appendChild(tag);
     setTimeout(() => tag.remove(), 1200);
   }
@@ -145,8 +145,8 @@ const State = (() => {
       s.faculty = f; save(); SFX.click();
       const facDescs = {
         fasilkom: 'Jalur <strong>Fasilkom</strong> — Gradient Descent, Limit Kompleksitas & Turunan Numerik',
-        fmipa:    'Jalur <strong>FMIPA</strong> — Pembuktian ε-δ, MVT & Analisis Formal Ketat',
-        ft:       'Jalur <strong>Fak. Teknik</strong> — Laju Terkait, Optimasi Struktur & Kalkulus Vektor',
+        fmipa: 'Jalur <strong>FMIPA</strong> — Pembuktian ε-δ, MVT & Analisis Formal Ketat',
+        ft: 'Jalur <strong>Fak. Teknik</strong> — Laju Terkait, Optimasi Struktur & Kalkulus Vektor',
       };
       setText('tree-fac-desc', '');
       const el = document.getElementById('tree-fac-desc');
@@ -171,9 +171,9 @@ const Nav = (() => {
     go(page) {
       SFX.click();
       pages.forEach(p => {
-        const sec  = document.getElementById(`page-${p}`);
-        const btn  = document.getElementById(`bnav-${p}`);
-        const sbr  = null; // sidebar items don't have ids for pages
+        const sec = document.getElementById(`page-${p}`);
+        const btn = document.getElementById(`bnav-${p}`);
+        const sbr = null; // sidebar items don't have ids for pages
         if (sec) sec.classList.toggle('active', p === page);
         if (btn) btn.classList.toggle('active', p === page);
       });
@@ -185,7 +185,7 @@ const Nav = (() => {
    MASCOT — Archie the Axolotl reactive states
    ════════════════════════════════════════════════════════════════ */
 const Mascot = (() => {
-  const moods = ['idle','celebrate','thinking','comfort'];
+  const moods = ['idle', 'celebrate', 'thinking', 'comfort'];
   const quotes = [
     "Halo! Aku Archie, pemandumu taklukkan kalkulus! 🦎",
     "Tahukah kamu? dy/dx dibuat Leibniz, Newton pakai notasi titik ẏ!",
@@ -423,11 +423,11 @@ const LEVELS = {
    QUIZ ENGINE — Progressive hint system
    ════════════════════════════════════════════════════════════════ */
 const QuizEngine = (() => {
-  let nodeId   = null;
+  let nodeId = null;
   let questions = [];
-  let idx      = 0;
+  let idx = 0;
   let hintsUsed = 0;
-  let answered  = false;
+  let answered = false;
 
   function render() {
     const container = document.getElementById('quiz-container');
@@ -435,10 +435,10 @@ const QuizEngine = (() => {
 
     if (idx >= questions.length) { showComplete(); return; }
 
-    const q        = questions[idx];
+    const q = questions[idx];
     const progress = Math.round((idx / questions.length) * 100);
-    answered       = false;
-    hintsUsed      = 0;
+    answered = false;
+    hintsUsed = 0;
 
     container.innerHTML = `
       <div class="quiz-wrap">
@@ -446,7 +446,7 @@ const QuizEngine = (() => {
           <div class="quiz-progress-fill" id="qpf" style="width:${progress}%"></div>
         </div>
         <div class="quiz-meta">
-          <span class="quiz-num">Soal ${idx+1} dari ${questions.length}</span>
+          <span class="quiz-num">Soal ${idx + 1} dari ${questions.length}</span>
           <span class="quiz-diff-badge diff-${q.diff}">${diffLabel(q.diff)}</span>
         </div>
         <div class="quiz-prompt">${q.q}</div>
@@ -482,14 +482,14 @@ const QuizEngine = (() => {
   }
 
   function diffLabel(d) {
-    return { basic:'Dasar', medium:'Menengah', high:'Tinggi' }[d] || d;
+    return { basic: 'Dasar', medium: 'Menengah', high: 'Tinggi' }[d] || d;
   }
 
   return {
     init(nid) {
-      nodeId    = nid;
+      nodeId = nid;
       questions = (LEVELS[nid] || {}).quiz || [];
-      idx       = 0;
+      idx = 0;
       render();
     },
 
@@ -507,8 +507,8 @@ const QuizEngine = (() => {
       if (answered) return;
       const btn = document.getElementById('btn-submit');
       if (!btn || btn.disabled) return;
-      const sel     = parseInt(btn.dataset.sel);
-      const q       = questions[idx];
+      const sel = parseInt(btn.dataset.sel);
+      const q = questions[idx];
       const correct = q.correct;
       answered = true;
 
@@ -548,7 +548,7 @@ const QuizEngine = (() => {
       SFX.hint();
 
       const section = document.getElementById('hint-section');
-      const hint    = q.hints[hintsUsed];
+      const hint = q.hints[hintsUsed];
 
       const card = document.createElement('div');
       card.className = 'hint-card open';
@@ -622,8 +622,8 @@ const Drawer = (() => {
 
   return {
     open(nodeId) {
-      const s     = State.get();
-      const isOk  = s.completedNodes.includes(nodeId) || s.activeNode === nodeId;
+      const s = State.get();
+      const isOk = s.completedNodes.includes(nodeId) || s.activeNode === nodeId;
 
       if (!isOk && nodeId !== 'node-boss') {
         SFX.wrong();
@@ -639,7 +639,7 @@ const Drawer = (() => {
 
       document.getElementById('drawer-badge').textContent = lv.badge || '';
       document.getElementById('drawer-title').textContent = lv.title || '';
-      document.getElementById('drawer-sub').textContent   = lv.sub   || '';
+      document.getElementById('drawer-sub').textContent = lv.sub || '';
       document.getElementById('drawer-lesson-content').innerHTML = lv.lesson || '';
 
       this.switchTab('materi');
@@ -672,7 +672,7 @@ const Drawer = (() => {
 })();
 
 // Expose nextQuestion on QuizEngine for feedback button
-QuizEngine.nextQuestion = QuizEngine.nextQuestion || function() {};
+QuizEngine.nextQuestion = QuizEngine.nextQuestion || function () { };
 
 /* ════════════════════════════════════════════════════════════════
    DIAGNOSTIC MODAL
@@ -680,21 +680,21 @@ QuizEngine.nextQuestion = QuizEngine.nextQuestion || function() {};
 const DIAG_QUESTIONS = {
   fasilkom: [
     {
-      level:'Dasar', diff:'basic',
+      level: 'Dasar', diff: 'basic',
       q: 'Sederhanakan untuk x ≠ 3: (x² - 9) / (x - 3)',
-      opts: ['x - 3','x + 3','3x','x² + 3'], correct: 1,
+      opts: ['x - 3', 'x + 3', '3x', 'x² + 3'], correct: 1,
       expl: 'x² - 9 = (x-3)(x+3). Dibagi (x-3) → x + 3.'
     },
     {
-      level:'Menengah', diff:'medium',
+      level: 'Menengah', diff: 'medium',
       q: 'lim_{x→2} (x² + x - 6) / (x - 2) = ?',
-      opts: ['0','5','4','Tak terdefinisi'], correct: 1,
+      opts: ['0', '5', '4', 'Tak terdefinisi'], correct: 1,
       expl: 'Faktorkan: (x+3)(x-2)/(x-2) = x+3. Substitusi x=2 → 5.'
     },
     {
-      level:'Tinggi', diff:'high',
+      level: 'Tinggi', diff: 'high',
       q: "f(x) = (3x² + 1)³ → f'(x) = ?",
-      opts: ['9(3x²+1)²','18x(3x²+1)²','6x(3x²+1)²','3(6x)²'], correct: 1,
+      opts: ['9(3x²+1)²', '18x(3x²+1)²', '6x(3x²+1)²', '3(6x)²'], correct: 1,
       expl: 'Chain Rule: 3(3x²+1)² · 6x = 18x(3x²+1)².'
     }
   ]
@@ -705,8 +705,8 @@ const DiagnosticModal = (() => {
 
   function render() {
     const fac = State.get().faculty;
-    const qs  = DIAG_QUESTIONS[fac] || DIAG_QUESTIONS.fasilkom;
-    const q   = qs[step];
+    const qs = DIAG_QUESTIONS[fac] || DIAG_QUESTIONS.fasilkom;
+    const q = qs[step];
     const pct = Math.round((step / qs.length) * 100);
     const container = document.getElementById('diag-content');
     if (!container) return;
@@ -714,14 +714,14 @@ const DiagnosticModal = (() => {
     container.innerHTML = `
       <h3 style="font-family:var(--font-head);font-size:1.3rem;margin-bottom:.5rem;">🧪 Tes Diagnostik</h3>
       <p style="font-size:.88rem;color:var(--clr-text-sec);margin-bottom:1.25rem;">
-        Soal ${step+1} dari ${qs.length}  •  <span class="quiz-diff-badge diff-${q.diff}" style="display:inline;">${q.level}</span>
+        Soal ${step + 1} dari ${qs.length}  •  <span class="quiz-diff-badge diff-${q.diff}" style="display:inline;">${q.level}</span>
       </p>
       <div class="quiz-progress-bar" style="margin-bottom:1.5rem;">
         <div class="quiz-progress-fill" style="width:${pct}%;"></div>
       </div>
       <div class="quiz-prompt">${q.q}</div>
       <div class="options-list" id="diag-opts">
-        ${q.opts.map((o,i) => `
+        ${q.opts.map((o, i) => `
           <button class="option-btn" id="dopt-${i}" onclick="DiagnosticModal.select(${i})">
             <span class="opt-letter">${'ABCD'[i]}</span>${o}
           </button>`).join('')}
@@ -747,7 +747,7 @@ const DiagnosticModal = (() => {
     },
     select(i) {
       SFX.click();
-      document.querySelectorAll('.option-btn[id^=dopt]').forEach((b,j) => {
+      document.querySelectorAll('.option-btn[id^=dopt]').forEach((b, j) => {
         b.classList.toggle('selected', j === i);
       });
       const sb = document.getElementById('diag-submit');
@@ -755,8 +755,8 @@ const DiagnosticModal = (() => {
     },
     submit() {
       const fac = State.get().faculty;
-      const qs  = DIAG_QUESTIONS[fac] || DIAG_QUESTIONS.fasilkom;
-      const sb  = document.getElementById('diag-submit');
+      const qs = DIAG_QUESTIONS[fac] || DIAG_QUESTIONS.fasilkom;
+      const sb = document.getElementById('diag-submit');
       if (!sb || sb.disabled) return;
       const sel = parseInt(sb.dataset.sel);
       answers.push({ diff: qs[step].diff, correct: sel === qs[step].correct });
@@ -764,8 +764,8 @@ const DiagnosticModal = (() => {
       if (step < qs.length) { render(); return; }
 
       // Evaluate
-      const basicOk  = answers.find(a => a.diff==='basic')?.correct  ?? false;
-      const highOk   = answers.find(a => a.diff==='high')?.correct   ?? false;
+      const basicOk = answers.find(a => a.diff === 'basic')?.correct ?? false;
+      const highOk = answers.find(a => a.diff === 'high')?.correct ?? false;
       let rec = 'node-limit', msg = '', cls = 'ready';
 
       if (!basicOk) {
@@ -795,7 +795,7 @@ const DiagnosticModal = (() => {
             <p>${msg}</p>
           </div>
           <div style="margin-top:.5rem;padding:.6rem;background:var(--clr-cream);border-radius:var(--radius-md);font-size:.85rem;color:var(--clr-text-sec);">
-            ${answers.map((a,i) => `<div>${qs[i].level}: <strong style="color:${a.correct?'var(--clr-growth)':'var(--clr-danger)'}">${a.correct?'✅ Benar':'❌ Salah'}</strong> — ${qs[i].expl}</div>`).join('')}
+            ${answers.map((a, i) => `<div>${qs[i].level}: <strong style="color:${a.correct ? 'var(--clr-growth)' : 'var(--clr-danger)'}">${a.correct ? '✅ Benar' : '❌ Salah'}</strong> — ${qs[i].expl}</div>`).join('')}
           </div>
           <button class="btn btn-primary btn-lg" style="margin-top:1.25rem;" onclick="DiagnosticModal.close(); Nav.go('levelup');">
             Lihat Peta Belajar 🗺️
@@ -813,33 +813,33 @@ const Confetti = (() => ({
     const canvas = document.getElementById('confetti-canvas');
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
-    canvas.width  = window.innerWidth;
+    canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
 
-    const colors = ['#2563EB','#16A34A','#F97316','#D97706','#EC4899','#38BDF8'];
-    const pts    = Array.from({length: 80}, () => ({
-      x: canvas.width/2, y: canvas.height/2,
-      vx: (Math.random()-.5)*14,
-      vy: (Math.random()-.9)*15,
-      r: Math.random()*6+3,
-      color: colors[Math.floor(Math.random()*colors.length)],
-      angle: Math.random()*6,
+    const colors = ['#2563EB', '#16A34A', '#F97316', '#D97706', '#EC4899', '#38BDF8'];
+    const pts = Array.from({ length: 80 }, () => ({
+      x: canvas.width / 2, y: canvas.height / 2,
+      vx: (Math.random() - .5) * 14,
+      vy: (Math.random() - .9) * 15,
+      r: Math.random() * 6 + 3,
+      color: colors[Math.floor(Math.random() * colors.length)],
+      angle: Math.random() * 6,
     }));
 
     let f = 0;
     function draw() {
-      ctx.clearRect(0,0,canvas.width,canvas.height);
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
       pts.forEach(p => {
         p.vy += .35; p.x += p.vx; p.y += p.vy; p.angle += .08;
         ctx.save();
         ctx.translate(p.x, p.y);
         ctx.rotate(p.angle);
         ctx.fillStyle = p.color;
-        ctx.fillRect(-p.r/2, -p.r/2, p.r, p.r*.5);
+        ctx.fillRect(-p.r / 2, -p.r / 2, p.r, p.r * .5);
         ctx.restore();
       });
       if (++f < 110) requestAnimationFrame(draw);
-      else ctx.clearRect(0,0,canvas.width,canvas.height);
+      else ctx.clearRect(0, 0, canvas.width, canvas.height);
     }
     draw();
   }
