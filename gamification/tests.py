@@ -85,11 +85,11 @@ class ContentSeedTests(TestCase):
         self.assertEqual(counts["soal-fmipa"], 9)
         self.assertEqual(counts["soal-fasilkom"], 9)
 
-    def test_faculty_questions_live_in_faculty_nodes(self):
-        for q in Question.objects.exclude(faculty=None).select_related("node", "faculty"):
-            self.assertEqual(q.node.faculty_id, q.faculty_id, q.code)
-        for q in Question.objects.filter(faculty=None).select_related("node"):
-            self.assertIsNone(q.node.faculty_id, q.code)
+    def test_faculty_questions_live_in_matching_sessions(self):
+        """Soal fakultas menjadi soal tetap sesi di topik umum atau topik jalur fakultasnya sendiri."""
+        for q in Question.objects.exclude(faculty=None).select_related("session__topic__node", "faculty"):
+            self.assertIsNotNone(q.session, q.code)
+            self.assertIn(q.session.topic.node.faculty_id, (None, q.faculty_id), q.code)
 
     def test_every_question_has_one_correct_option_and_pembahasan(self):
         for q in Question.objects.prefetch_related("options"):
@@ -134,8 +134,9 @@ class GamificationApiTests(TestCase):
         slugs = [n["slug"] for n in data["tree"]]
         self.assertEqual(slugs[0], "pre-sistem-bilangan-fungsi")   # Level Utama 1: PreCalculus
         self.assertEqual(slugs[1:5], ["kd-limit-kekontinuan", "kd-turunan", "kd-aplikasi-turunan", "kd-integral"])  # Level 2
-        self.assertEqual(slugs[5:7], ["umum-deret", "umum-dua-variabel"])
-        self.assertEqual(slugs[7:], ["ft-konsep", "ft-terapan", "ft-ujian"])
+        self.assertEqual(slugs[5:10], ["km-teknik-integral", "km-aplikasi-integral", "km-pd-orde-satu", "km-kerucut-kutub", "km-barisan-deret"])  # Level 3
+        self.assertEqual(slugs[10:], ["kl-ft-peubah-banyak", "kl-ft-turunan-parsial", "kl-ft-integral-lipat",
+                                      "kl-ft-kalkulus-vektor", "kl-ft-fungsi-khusus"])                                   # Level 4 jalur FT
         self.assertEqual([m["slug"] for m in data["main_levels"]],
                          ["precalculus", "kalkulus-dasar", "kalkulus-menengah", "kalkulus-lanjut"])
 
@@ -184,7 +185,7 @@ class GamificationApiTests(TestCase):
     def test_diagnostic_mastery_goes_to_faculty_track(self):
         data = self._submit("fmipa", {"U-D1": True, "FM-S1": True, "FM-H3": True})
         self.assertEqual(data["evaluation"], "mastery")
-        self.assertEqual(data["recommended_node"], "fmipa-konsep")
+        self.assertEqual(data["recommended_node"], "km-teknik-integral")
 
     def test_diagnostic_rejects_bad_payload(self):
         response = self.client.post('/api/diagnostic/submit/', data="{}", content_type='application/json')
@@ -278,8 +279,8 @@ class AuthOnboardingTests(TestCase):
         user = User.objects.get(username="budi")
         profile = user.gamification_profile
         self.assertTrue(profile.diagnostic_completed)
-        self.assertEqual(profile.recommended_node.slug, "fmipa-konsep")
-        self.assertEqual(UserProgress.objects.get(user=user, node__slug="fmipa-konsep").status, "active")
+        self.assertEqual(profile.recommended_node.slug, "km-teknik-integral")
+        self.assertEqual(UserProgress.objects.get(user=user, node__slug="km-teknik-integral").status, "active")
         self.assertEqual(UserProgress.objects.get(user=user, node__slug="kd-limit-kekontinuan").status, "completed")
 
         result = self.client.get("/auth/tes-awal/hasil/")
@@ -315,6 +316,7 @@ class AuthOnboardingTests(TestCase):
 # ─────────────────────────────────────────────────────────────────────────────
 from . import generators  # noqa: E402
 from .content import levels  # noqa: E402
+from . import services  # noqa: E402
 from .models import MainLevel, Topic, PracticeSession, UserSessionProgress  # noqa: E402
 
 
@@ -341,7 +343,7 @@ class GeneratorTests(TestCase):
 
     def test_each_topic_has_generators_for_all_five_sessions(self):
         topics = [t["slug"] for m in levels.LEVEL_MODULES for sub in m.SUBLEVELS for t in sub["topics"]]
-        self.assertEqual(len(topics), 9 + 20)
+        self.assertEqual(len(topics), 9 + 20 + 20 + 45)
         for slug in topics:
             for tier in range(1, 6):
                 with self.subTest(topic=slug, tier=tier):
@@ -366,16 +368,44 @@ class CurriculumLevelTests(TestCase):
 
     def test_legacy_nodes_are_placed_in_main_levels(self):
         self.assertFalse(SkillNode.objects.filter(kind="lesson", main_level__isnull=True).exists())
-        self.assertEqual(SkillNode.objects.get(slug="umum-deret").main_level.slug, "kalkulus-menengah")
+        legacy = ["umum-deret", "umum-dua-variabel", "ft-konsep", "fmipa-terapan", "fasilkom-ujian"]
+        self.assertFalse(SkillNode.objects.filter(slug__in=legacy).exists())      # semua diserap ke level 2–4
 
     def test_legacy_limit_turunan_integral_absorbed_into_level_two(self):
         self.assertFalse(SkillNode.objects.filter(slug__in=["umum-limit", "umum-turunan", "umum-integral"]).exists())
         q = Question.objects.get(code="U-D1")
         self.assertEqual((q.session.topic.slug, q.session.number), ("kd-lim-aljabar", 1))
         self.assertTrue(q.is_diagnostic)
-        self.assertEqual(Question.objects.get(code="U-S4").node.slug, "kd-integral")   # Bank Soal saja
+        q4 = Question.objects.get(code="U-S4")   # integral parsial → Level 3
+        self.assertEqual((q4.session.topic.slug, q4.session.number), ("km-tek-parsial", 3))
         moved = LessonSection.objects.filter(topic__slug="kd-lim-konsep", source_document__slug="materi-umum")
         self.assertEqual(moved.count(), 1)
+
+    def test_level_four_separate_faculty_tracks(self):
+        for fac in ("ft", "fmipa", "fasilkom"):
+            nodes = SkillNode.objects.filter(main_level__slug="kalkulus-lanjut", faculty__slug=fac)
+            self.assertEqual(nodes.count(), 5, fac)
+            for node in nodes:
+                self.assertEqual(node.topics.count(), 3)
+        # materi lama fakultas pindah ke topik terapan fakultasnya; materi dua variabel disalin ke 3 jalur
+        self.assertTrue(LessonSection.objects.filter(topic__slug="kl-fk-gd", heading="Sigmoid dan turunannya").exists())
+        for fac in ("ft", "fm", "fk"):
+            self.assertTrue(LessonSection.objects.filter(topic__slug=f"kl-{fac}-tp-parsial", heading="Kesalahan yang sering terjadi").exists())
+        q = Question.objects.get(code="FT-S1")
+        self.assertEqual((q.session.topic.slug, q.faculty.slug), ("kd-apl-laju", "ft"))
+
+    def test_faculty_tracks_hidden_from_other_faculties(self):
+        tree = services.build_curriculum(Faculty.objects.get(slug="fasilkom"))["tree"]
+        slugs = [n["slug"] for n in tree]
+        self.assertIn("kl-fk-turunan-parsial", slugs)
+        self.assertNotIn("kl-ft-turunan-parsial", slugs)
+
+    def test_level_three_structure(self):
+        nodes = SkillNode.objects.filter(main_level__slug="kalkulus-menengah", kind="lesson")
+        self.assertEqual(nodes.count(), 5)
+        for node in nodes:
+            self.assertEqual(node.topics.count(), 4)
+        self.assertTrue(LessonSection.objects.filter(topic__slug="km-der-uji", source_document__slug="materi-umum").exists())
 
     def test_level_two_structure(self):
         for slug in ["kd-limit-kekontinuan", "kd-turunan", "kd-aplikasi-turunan", "kd-integral"]:
@@ -498,6 +528,24 @@ class PracticeSessionApiTests(TestCase):
         self.assertEqual(Client().get(f"/api/session/{self.s1.id}/").status_code, 302)
 
     def test_legacy_node_completion_saved(self):
-        res = self.client.post("/api/progress/node/", data=json.dumps({"slug": "umum-deret"}), content_type="application/json")
+        res = self.client.post("/api/progress/node/", data=json.dumps({"slug": "kd-turunan"}), content_type="application/json")
         self.assertEqual(res.status_code, 200)
-        self.assertEqual(UserProgress.objects.get(user=self.user, node__slug="umum-deret").status, "completed")
+        self.assertEqual(UserProgress.objects.get(user=self.user, node__slug="kd-turunan").status, "completed")
+
+
+class FacultyFixedQuestionTests(TestCase):
+    """Soal tetap milik fakultas (mis. FT-S1) hanya diundi untuk user fakultas itu."""
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_gamification", stdout=io.StringIO())
+
+    def _codes(self, faculty_slug):
+        from .sessions import _pool
+        session = PracticeSession.objects.get(topic__slug="kd-apl-laju", number=2)
+        fac = Faculty.objects.get(slug=faculty_slug)
+        return {key for kind, key, _ in _pool(session, fac.id) if kind == "q"}
+
+    def test_ft_question_only_for_ft(self):
+        self.assertIn("FT-S1", self._codes("ft"))
+        self.assertNotIn("FT-S1", self._codes("fasilkom"))

@@ -13,26 +13,22 @@ konten lama (7 PDF) ditempatkan sementara lewat LEGACY_PLACEMENT dan akan
 digabungkan ke sub-level baru saat level itu dikerjakan (lihat docs/kurikulum/PROGRESS.md).
 """
 
-from . import l1_precalculus, l2_kalkulus_dasar
+from . import l1_precalculus, l2_kalkulus_dasar, l3_kalkulus_menengah, l4_kalkulus_lanjut
 
 # Modul level yang sudah dikembangkan (berurutan).
-LEVEL_MODULES = [l1_precalculus, l2_kalkulus_dasar]
+LEVEL_MODULES = [l1_precalculus, l2_kalkulus_dasar, l3_kalkulus_menengah, l4_kalkulus_lanjut]
 
 MAIN_LEVELS = [
     l1_precalculus.MAIN_LEVEL,
     l2_kalkulus_dasar.MAIN_LEVEL,
-    {"slug": "kalkulus-menengah", "order": 3, "title": "Kalkulus Tingkat Menengah",
-     "subtitle": "Teknik & aplikasi integral, PD orde satu, koordinat kutub, deret", "icon": "🌀"},
-    {"slug": "kalkulus-lanjut", "order": 4, "title": "Kalkulus Tingkat Lanjut",
-     "subtitle": "Peubah banyak, turunan parsial, integral lipat, kalkulus vektor", "icon": "🛰️"},
+    l3_kalkulus_menengah.MAIN_LEVEL,
+    l4_kalkulus_lanjut.MAIN_LEVEL,
 ]
 
 # Node lama (berkas 1–7) → level utama sementara, urutan relatif dipertahankan.
-# (umum-limit/turunan/integral sudah diserap ke Level 2 — lihat l2_kalkulus_dasar.ABSORB_NODES)
-LEGACY_PLACEMENT = {
-    "umum-deret": "kalkulus-menengah",
-    "umum-dua-variabel": "kalkulus-lanjut",
-}
+# Semua node lama sudah diserap ke level 2–4 (lihat ABSORB_NODES tiap modul). Node lama baru
+# yang belum dipetakan akan ditaruh di LEGACY_DEFAULT_LEVEL.
+LEGACY_PLACEMENT = {}
 LEGACY_DEFAULT_LEVEL = "kalkulus-lanjut"   # node khusus fakultas (Tahap 6–8)
 
 # Lima sesi latihan berlapis per sub-topik.

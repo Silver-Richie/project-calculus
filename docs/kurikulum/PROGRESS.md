@@ -43,9 +43,41 @@ Langkah:
 - [x] 3. Gabung konten lama: node umum-limit/turunan/integral → topik baru (section + soal U-* sebagai soal tetap sesi); hapus dari LEGACY_PLACEMENT
 - [x] 4. Seed + tes (51 tes OK) (perbarui ekspektasi diagnostik: ready → kd-limit-kekontinuan)
 - [x] 5. Verifikasi headless + screenshot (0 error JS, 211 grafik generator tanpa NaN)
-- [ ] 6. Minta persetujuan user untuk Level 3  ← **SEDANG MENUNGGU USER** (belum commit)
-## Level Utama 3 — Kalkulus Tingkat Menengah  (belum dimulai)
-## Level Utama 4 — Kalkulus Tingkat Lanjut  (belum dimulai)
+- [x] 6. User menyetujui lanjut ke Level 3 (2026-11-07)
+## Level Utama 3 — Kalkulus Tingkat Menengah  (DISETUJUI; branch sama, belum commit)
+Sub-level & topik (4 topik per sub-level):
+- km-teknik-integral: km-tek-parsial, km-tek-trig, km-tek-pecahan, km-tek-takwajar
+- km-aplikasi-integral: km-apl-luas, km-apl-volume, km-apl-panjang, km-apl-fisika
+- km-pd-orde-satu: km-pd-konsep, km-pd-terpisah, km-pd-linear, km-pd-model
+- km-kerucut-kutub: km-ker-parabola, km-ker-elips, km-kut-koordinat, km-kut-kalkulus
+- km-barisan-deret: km-der-barisan, km-der-geometri, km-der-uji, km-der-pangkat
+Gabung: node umum-deret (2 bagian) → km-der-uji / km-der-pangkat; soal U-S4 → km-tek-parsial sesi 3.
+Langkah:
+- [x] 1. Generator `gamification/generators/menengah/` (89 generator, lulus fuzz 300 seed; tidy() kini dijalankan sebelum buang duplikat)
+- [x] 2. Materi `content/levels/l3_kalkulus_menengah.py` (+ ABSORB, MOVE_QUESTIONS U-S4)
+- [x] 3. Seed + tes (52 tes OK)
+- [x] 4. Verifikasi headless + screenshot (0 error JS, 276 grafik generator tanpa NaN)
+- [x] 5. User menyetujui Level 4 — format: JALUR TERPISAH PER FAKULTAS
+## Level Utama 4 — Kalkulus Tingkat Lanjut  (DISETUJUI: jalur terpisah per fakultas; branch sama, belum commit)
+Struktur: tiap fakultas (ft, fm = FMIPA, fk = Fasilkom) punya 5 sub-level `kl-<fak>-<sub>`:
+peubah-banyak, turunan-parsial, integral-lipat, kalkulus-vektor, fungsi-khusus (FMIPA: "& Analisis Real").
+Tiap sub-level 3 topik: 2 topik INTI (generator & materi dipakai bersama 3 fakultas, register(topic=tuple))
++ 1 topik TERAPAN khusus fakultas. Slug topik: `kl-<fak>-<kunci>`.
+Inti: pb-fungsi, pb-limit | tp-parsial, tp-gradien | il-ganda, il-koordinat | kv-medan, kv-garis | fk-gamma, fk-analisis
+Terapan FT : ft-galat, ft-lagrange, ft-massa, ft-fluks, ft-laplace
+Terapan FM : fm-kuadrik, fm-hessian, fm-jacobian, fm-potensial, fm-seragam
+Terapan FK : fk-norma, fk-gd, fk-peluang, fk-simulasi, fk-asimtotik
+Gabung: node fakultas lama (ft/fmipa/fasilkom-konsep/terapan/ujian) → bagian materi ke topik terapan fakultasnya;
+soal FT-/FM-/FK- → soal tetap di topik Level 2/3 yang cocok, hanya diundi untuk fakultasnya (sessions._pool).
+umum-dua-variabel → topik inti tp-parsial (bagian disalin ke 3 fakultas), U-S6 → kl-ft-tp-parsial.
+Diagnostik "mastery" → awal Kalkulus Menengah (bukan lagi tahap fakultas).
+Langkah:
+- [x] 1. Mesin: register(topic=tuple), filter soal tetap per fakultas, sub-level berfakultas (skrip engine_l4.py)
+- [x] 2. Generator `gamification/generators/lanjut/` (104 generator; total 363 lulus fuzz 300 seed)
+- [x] 3. Materi `content/levels/l4_kalkulus_lanjut.py` + ABSORB (semua node lama terserap)
+- [x] 4. Seed + tes (55 tes OK; 94 topik, 470 sesi)
+- [x] 5. Verifikasi headless 3 fakultas (0 error JS, 296 grafik tanpa NaN)
+- [x] 6. Laporan akhir ke user — SEMUA LEVEL SELESAI. Belum commit (menunggu instruksi user).
 
 ## Catatan sesi
 - 2026-11-07: Level 1 selesai dikembangkan. Revisi: tiap topik = node sendiri di jalur zig-zag (Practice.pathHTML),

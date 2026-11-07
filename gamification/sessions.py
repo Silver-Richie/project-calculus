@@ -20,6 +20,7 @@ import math
 import random
 
 from django.db import transaction
+from django.db.models import Q
 from django.utils import timezone
 
 from . import generators
@@ -29,11 +30,21 @@ REQUIRED_SESSIONS = 3          # Sesi I–III wajib; IV–V tantangan opsional (
 
 
 # ── pengundian ──────────────────────────────────────────────────────────────
-def _pool(session):
-    """Daftar butir yang bisa diundi: ('g', key, weight) dan ('q', code, 1)."""
+def _pool(session, faculty_id=None):
+    """
+    Daftar butir yang bisa diundi: ('g', key, weight) dan ('q', code, 1).
+
+    Soal tetap milik fakultas tertentu (mis. FT-S1) hanya ikut diundi untuk user
+    fakultas itu; soal umum (faculty kosong) untuk semua.
+    """
     items = [("g", t.key, t.weight) for t in session.templates.all() if t.key in generators.REGISTRY]
-    items += [("q", q.code, 1) for q in session.fixed_questions.all() if q.code]
+    items += [("q", q.code, 1) for q in session.fixed_questions.all()
+              if q.code and (q.faculty_id is None or q.faculty_id == faculty_id)]
     return items
+
+
+def _user_faculty_id(user_id):
+    return UserProfile.objects.filter(user_id=user_id).values_list("faculty_id", flat=True).first()
 
 
 def _draw(session, user_id, attempt):
@@ -42,7 +53,7 @@ def _draw(session, user_id, attempt):
     sehingga 10 soal tersebar ke semua jenis generator sebelum ada yang berulang.
     """
     rng = random.Random(f"{user_id}:{session.id}:{attempt}")
-    pool = _pool(session)
+    pool = _pool(session, _user_faculty_id(user_id))
     if not pool:
         return []
     bag = [(kind, key) for kind, key, w in pool for _ in range(max(1, w))]
@@ -197,8 +208,9 @@ def submit_session(user, session, attempt, answers):
     completed_node = _complete_node_if_done(user, node) if newly_passed else None
     next_node = None
     if completed_node:
-        nxt = (SkillNode.objects.filter(kind="lesson", order__gt=node.order, faculty__isnull=True)
-               .order_by("order").first())
+        fac_id = _user_faculty_id(user.id)
+        nxt = (SkillNode.objects.filter(kind="lesson", order__gt=node.order)
+               .filter(Q(faculty__isnull=True) | Q(faculty_id=fac_id)).order_by("order").first())
         if nxt:
             np_, _ = UserProgress.objects.get_or_create(user=user, node=nxt)
             if np_.status == "locked":
