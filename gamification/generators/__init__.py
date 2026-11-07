@@ -36,28 +36,40 @@ OPTION_COUNT = 4
 @dataclass
 class Generator:
     key: str
-    topic: str
+    topics: tuple
     tiers: tuple
     func: callable = field(repr=False)
     weight: int = 1
+
+    @property
+    def topic(self):
+        """Topik utama (pertama) — untuk laporan/kompatibilitas."""
+        return self.topics[0]
 
 
 REGISTRY: dict[str, Generator] = {}
 
 
 def register(key, topic, tiers, weight=1):
-    """Dekorator: daftarkan generator untuk `topic` pada sesi-sesi `tiers`."""
+    """
+    Dekorator: daftarkan generator untuk `topic` pada sesi-sesi `tiers`.
+
+    `topic` boleh berupa satu slug atau tuple slug (generator yang sama dipakai
+    beberapa topik, mis. topik inti Level 4 milik FT, FMIPA, dan Fasilkom).
+    """
+    topics = (topic,) if isinstance(topic, str) else tuple(topic)
+
     def deco(func):
         if key in REGISTRY:
             raise ValueError(f"Generator ganda: {key}")
-        REGISTRY[key] = Generator(key, topic, tuple(tiers), func, weight)
+        REGISTRY[key] = Generator(key, topics, tuple(tiers), func, weight)
         return func
     return deco
 
 
 def for_topic(topic, tier):
     """Generator yang tersedia untuk satu topik pada satu tingkat sesi."""
-    return [g for g in REGISTRY.values() if g.topic == topic and tier in g.tiers]
+    return [g for g in REGISTRY.values() if topic in g.topics and tier in g.tiers]
 
 
 def _numeric_neighbours(text):
@@ -117,7 +129,8 @@ def _options(rng, correct, distractors):
     return opts
 
 
-_ONE = re.compile(r"(?<![\d.,/\w])1(?=x|√|e|π| ?(?:sin|cos|tan|ln|log))")
+_ONE = re.compile(r"(?<![\d.,/\w])1(?=[xyzt]|√|e|π)")
+_ONE_FUNC = re.compile(r"(?<![\d.,/\w])1 ?(?=(?:sin|cos|tan|ln|log))")
 
 
 def tidy(text):
@@ -125,6 +138,7 @@ def tidy(text):
     if not isinstance(text, str):
         return text
     text = re.sub(r"−1 (?=sin|cos|tan|ln|log)", "−", text)
+    text = _ONE_FUNC.sub("", text)
     return _ONE.sub("", text).replace("+ −", "− ").replace("+ -", "− ")
 
 
@@ -133,14 +147,15 @@ def generate(key, seed, tier):
     gen = REGISTRY[key]
     rng = random.Random(f"{key}|{seed}|{tier}")
     raw = gen.func(rng, tier)
-    options = _options(rng, raw["correct"], raw["distractors"])
+    # Rapikan teks dulu, baru buang duplikat (mis. "1e²" dan "e²" menjadi sama setelah dirapikan).
+    options = _options(rng, tidy(raw["correct"]), [tidy(d) for d in raw["distractors"]])
     return {
         "key": key,
         "seed": seed,
         "tier": tier,
         "difficulty": TIER_DIFFICULTY[tier],
         "prompt": tidy(raw["prompt"]),
-        "options": [{"id": i, "text": tidy(t), "is_correct": ok} for i, (t, ok) in enumerate(options)],
+        "options": [{"id": i, "text": t, "is_correct": ok} for i, (t, ok) in enumerate(options)],
         "steps": [tidy(st) for st in raw.get("steps", [])],
         "answer": tidy(raw.get("answer", raw["correct"])),
         "explanation": raw.get("explanation", ""),
@@ -149,4 +164,4 @@ def generate(key, seed, tier):
 
 
 # Daftarkan semua modul generator (import memicu @register).
-from . import precalc, dasar  # noqa: E402,F401
+from . import precalc, dasar, menengah, lanjut  # noqa: E402,F401

@@ -91,7 +91,8 @@ def trig_eksp(rng, tier):
     else:
         correct = f"{n(Fr(-a, c))} cos({c}x) + C"
         prompt = f"Tentukan ∫ {n(a)} sin({c}x) dx."
-        wrong = [f"{n(Fr(a, c))} cos({c}x) + C", f"{n(-a * c)} cos({c}x) + C", f"{n(Fr(a, c))} sin({c}x) + C", f"{n(-a)} cos({c}x) + C"]
+        wrong = [f"{n(Fr(a, c))} cos({c}x) + C", f"{n(-a * c)} cos({c}x) + C", f"{n(Fr(a, c))} sin({c}x) + C", f"{n(-a)} cos({c}x) + C",
+                 f"{n(Fr(-a, c) * 2)} cos({c}x) + C", f"{n(Fr(-a, c))} sin({c}x) + C", f"{n(Fr(-a, c))} cos({c + 1}x) + C"]
         steps = ["∫ sin(kx) dx = −cos(kx)/k + C (cek: turunan −cos(kx)/k adalah sin(kx)).", f"<b>{correct}</b>."]
     return {"prompt": prompt, "correct": correct, "distractors": wrong, "steps": steps, "explanation": "Tabel integral dasar = tabel turunan dibaca terbalik."}
 

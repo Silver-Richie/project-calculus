@@ -248,7 +248,7 @@ def evaluate_diagnostic(faculty, answers):
     Decision logic (lulus = proporsi benar >= PASS_RATIO tingkat itu):
       - Mudah tidak lulus                → 'weak_foundation'    → mulai PreCalculus (fundamental)
       - Mudah lulus, Sedang/Sulit tidak  → 'ready_for_calculus' → mulai Kalkulus Dasar (jalur standar)
-      - Semua tingkat lulus              → 'mastery'            → langsung ke materi khusus fakultas
+      - Semua tingkat lulus              → 'mastery'            → lanjut ke Kalkulus Tingkat Menengah
     """
     results = grade_answers(answers)
 
@@ -283,9 +283,9 @@ def evaluate_diagnostic(faculty, answers):
         message = "Fondasi aman. Lanjutkan jalur standar mulai Kalkulus Dasar: Limit dan Kekontinuan."
     else:
         evaluation = "mastery"
-        recommended = slug_at(specific, 0) or slug_at(general, 0)
+        recommended = first_of_level("kalkulus-menengah", slug_at(specific, 0) or slug_at(general, 0))
         fac_name = faculty.short_name if faculty else ""
-        message = f"Penguasaan tinggi! Langsung ke materi khusus {fac_name}."
+        message = (f"Penguasaan tinggi! Lanjut ke Kalkulus Tingkat Menengah, lalu jalur Kalkulus Lanjut khusus {fac_name}.")
 
     return {
         "evaluation": evaluation,

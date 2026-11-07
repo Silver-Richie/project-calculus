@@ -175,8 +175,9 @@ class Command(BaseCommand):
             lvl = main[module.MAIN_LEVEL["slug"]]
             for i, sub in enumerate(module.SUBLEVELS, start=1):
                 node, _ = SkillNode.objects.update_or_create(slug=sub["slug"], defaults={
-                    "main_level": lvl, "faculty": None, "source_document": None, "kind": "lesson",
-                    "stage_number": lvl.order, "order": lvl.order * 100 + i, "title": sub["title"],
+                    "main_level": lvl, "faculty": Faculty.objects.get(slug=sub["faculty"]) if sub.get("faculty") else None,
+                    "source_document": None, "kind": "lesson",
+                    "stage_number": lvl.order, "order": lvl.order * 100 + sub.get("order", i), "title": sub["title"],
                     "subtitle": sub.get("subtitle", ""), "icon": sub.get("icon", "📘"),
                     "badge_label": sub.get("badge_label", lvl.title), "summary_html": sub.get("summary_html", ""),
                     "is_boss": False,
@@ -239,11 +240,19 @@ class Command(BaseCommand):
                     continue
                 target = SkillNode.objects.get(slug=target_slug)
                 for sec in legacy.sections.order_by("order"):
-                    topic_slug = module.ABSORB_SECTIONS.get((legacy_slug, sec.heading))
-                    topic = Topic.objects.get(slug=topic_slug) if topic_slug else target.topics.order_by("order").first()
-                    sec.order = (topic.sections.aggregate(m=Max("order"))["m"] or 0) + 1
-                    sec.node, sec.topic = None, topic
-                    sec.save()
+                    dest = module.ABSORB_SECTIONS.get((legacy_slug, sec.heading))
+                    # Tujuan boleh berupa daftar topik: bagian dipindah ke yang pertama dan disalin ke sisanya
+                    # (mis. materi umum dua variabel → topik inti ketiga jalur fakultas).
+                    dests = dest if isinstance(dest, (list, tuple)) else [dest]
+                    topics = [Topic.objects.get(slug=d) if d else target.topics.order_by("order").first() for d in dests]
+                    for k, topic in enumerate(topics):
+                        order = (topic.sections.aggregate(m=Max("order"))["m"] or 0) + 1
+                        if k == 0:
+                            sec.order, sec.node, sec.topic = order, None, topic
+                            sec.save()
+                        else:
+                            LessonSection.objects.create(topic=topic, order=order, heading=sec.heading, body_html=sec.body_html,
+                                                         graphs=sec.graphs, source_document=sec.source_document)
                 for q in legacy.questions.all():
                     spec = module.FIXED_QUESTIONS.get(q.code)
                     if spec:
@@ -254,3 +263,7 @@ class Command(BaseCommand):
                     q.save(update_fields=["session", "node"])
                 legacy.delete()
                 self.stdout.write(f"    [Gabung] {legacy_slug} → {target_slug}")
+            # Soal yang sudah dipindah oleh level sebelumnya dapat dipindah lagi ke topik yang lebih tepat.
+            for code, (topic_slug, number) in getattr(module, "MOVE_QUESTIONS", {}).items():
+                session = PracticeSession.objects.get(topic__slug=topic_slug, number=number)
+                Question.objects.filter(code=code).update(session=session, node=session.topic.node)

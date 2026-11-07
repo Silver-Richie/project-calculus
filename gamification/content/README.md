@@ -90,3 +90,8 @@ UserSessionProgress (user × sesi: attempts, best_score, passed)
 * Generator mengembalikan `prompt`, `correct`, `distractors`, `steps` (pembahasan), `graphs` (spec GraphLab di atas).
 * Sesi I–III wajib (topik tuntas), Sesi IV–V bonus. Sesi n terbuka setelah sesi n−1 lulus.
 * Tes `GeneratorTests` menjalankan setiap generator di setiap tingkat untuk 40 seed.
+* Level 4 berupa **jalur terpisah per fakultas** (`SkillNode.faculty` diisi). Topik inti dipakai bersama:
+  satu generator didaftarkan ke beberapa topik (`@register(key, ("kl-ft-x", "kl-fm-x", "kl-fk-x"), tiers)`).
+* Soal lama milik fakultas (FT-/FM-/FK-) menjadi soal tetap sesi dan hanya diundi untuk user fakultas itu (`sessions._pool`).
+* Penggabungan konten lama diatur per modul level: `ABSORB_NODES`, `ABSORB_SECTIONS` (boleh daftar topik → disalin),
+  `FIXED_QUESTIONS`, `MOVE_QUESTIONS`.

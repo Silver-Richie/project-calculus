@@ -103,6 +103,25 @@ def poly_in(coeffs, token):
     return re.sub(r"(\d)u", lambda m: f"{m.group(1)}·{token}", s).replace("u", token)
 
 
+def terms(pairs, const=0):
+    """
+    Jumlah suku rapi dari [(koef, monomial), …]: suku berkoefisien 0 dibuang,
+    koefisien ±1 tidak ditulis. terms([(3, 'x²'), (-1, 'xy'), (0, 'y')], 2) → '3x² − xy + 2'.
+    """
+    out = ""
+    for c, mono in list(pairs) + [(const, "")]:
+        if c == 0:
+            continue
+        c = Fr(c)
+        mag = abs(c)
+        body = (n(mag) if mag != 1 or not mono else "") + mono
+        if out == "":
+            out = (MINUS if c < 0 else "") + body
+        else:
+            out += f" {MINUS} {body}" if c < 0 else f" + {body}"
+    return out or "0"
+
+
 def signed(c):
     """' + 3' atau ' − 3' (untuk menyambung ekspresi)."""
     return term(c, "", 0)
