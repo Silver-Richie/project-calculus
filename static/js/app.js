@@ -12,10 +12,27 @@
  *   SkillTree       – Peta belajar (Level Up)
  *   Catalogue       – Halaman Lesson, dikelompokkan per berkas sumber
  *   QuizEngine      – Kuis hint bertahap + pembahasan dengan grafik slider (GraphLab)
- *   Drawer          – Panel materi/kuis/bank soal
+ *   Drawer          – Panel materi/kuis/bank soal (node bertopik diteruskan ke Practice, static/js/practice.js)
  *   DiagnosticModal – Tes diagnostik adaptif (dinilai di server)
  *   Confetti        – Canvas particle burst
  */
+
+/** Token CSRF Django dari cookie (untuk fetch POST). */
+function csrfToken() {
+  return document.cookie.split('; ').find((c) => c.startsWith('csrftoken='))?.split('=')[1] || '';
+}
+
+/** POST JSON ke API Django; mengembalikan objek JSON (atau melempar Error). */
+async function postJSON(url, body) {
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken() },
+    body: JSON.stringify(body || {}),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.message || `HTTP ${res.status}`);
+  return data;
+}
 
 /* ════════════════════════════════════════════════════════════════
    SFX — Minimal Web Audio synthesizer (no external files needed)
@@ -104,12 +121,7 @@ const State = (() => {
   /** Simpan pilihan fakultas ke akun (UserProfile) di server. */
   function syncFaculty(f) {
     if (!SERVER) return;
-    const csrf = document.cookie.split('; ').find((c) => c.startsWith('csrftoken='))?.split('=')[1] || '';
-    fetch('/api/profile/faculty/', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf },
-      body: JSON.stringify({ faculty: f }),
-    }).catch(() => {});
+    postJSON('/api/profile/faculty/', { faculty: f }).catch(() => {});
   }
 
   function prog() {
@@ -186,6 +198,7 @@ const State = (() => {
     completeNode(slug, nextSlug) {
       const p = prog();
       if (!p.completed.includes(slug)) p.completed.push(slug);
+      if (SERVER) postJSON('/api/progress/node/', { slug }).catch(() => {});
       if (nextSlug && !p.completed.includes(nextSlug)) p.active = nextSlug;
       else if (!nextSlug) p.active = null;
       save();
@@ -270,7 +283,7 @@ const Mascot = (() => {
    CURRICULUM — data materi & soal dari database (/api/curriculum/)
    ════════════════════════════════════════════════════════════════ */
 const Curriculum = (() => {
-  let data = { tree: [], documents: [], references: [], faculties: [] };
+  let data = { tree: [], documents: [], references: [], faculties: [], main_levels: [], session_progress: {} };
   const FAC_DESC = {
     fasilkom: 'Jalur <strong>Fasilkom</strong> — Kalkulus untuk Komputasi dan AI',
     fmipa: 'Jalur <strong>FMIPA</strong> — Analisis dan Ketelitian Konsep',
@@ -298,6 +311,19 @@ const Curriculum = (() => {
   return {
     load,
     get tree() { return data.tree || []; },
+    get mainLevels() { return data.main_levels || []; },
+    get requiredSessions() { return data.required_sessions || 3; },
+    /** Progres sesi user: { [sessionId]: { attempts, best, last, passed } } */
+    sessionProgress(id) { return (data.session_progress || {})[id] || null; },
+    setSessionProgress(id, p) { (data.session_progress || (data.session_progress = {}))[id] = p; },
+    /** Cari topik beserta node induknya. */
+    topic(slug) {
+      for (const n of data.tree || []) {
+        const t = (n.topics || []).find((x) => x.slug === slug);
+        if (t) return { topic: t, node: n };
+      }
+      return null;
+    },
     get documents() { return data.documents || []; },
     node(slug) { return (data.tree || []).find((n) => n.slug === slug) || (data.references || []).find((n) => n.slug === slug); },
     question(code) {
@@ -325,14 +351,23 @@ const SkillTree = (() => {
     const wrap = document.getElementById('skill-tree');
     if (!wrap) return;
     const tree = Curriculum.tree;
+    const levels = Object.fromEntries(Curriculum.mainLevels.map((m) => [m.slug, m]));
     let lastGroup = null;
     wrap.innerHTML = tree.map((n, i) => {
-      const group = n.faculty ? 'khusus' : 'umum';
+      // Level utama hanya tampil sebagai judul pengelompokan.
+      const group = n.main_level || (n.faculty ? 'khusus' : 'umum');
+      const connector0 = i < tree.length - 1 ? '<div class="tree-connector"></div>' : '';
+      // Sub-level bertopik: banner (level + sub-level) lalu satu node per topik (Practice.pathHTML).
+      if ((n.topics || []).length) {
+        lastGroup = group;
+        return Practice.pathHTML(n, levels[group]) + connector0;
+      }
       let header = '';
       if (group !== lastGroup) {
-        header = `<div class="tree-group-label">${group === 'umum'
-          ? '📘 Materi Umum · semua fakultas'
-          : `🎓 Materi Khusus ${(n.badge_label || '').split('·')[0].replace('Khusus', '').trim()}`}</div>`;
+        const lvl = levels[group];
+        header = lvl
+          ? `<div class="tree-level-label"><span>${lvl.icon}</span> Level Utama ${lvl.order}: ${lvl.title}</div>`
+          : `<div class="tree-group-label">${group === 'umum' ? '📘 Materi Umum' : '🎓 Materi Khusus'}</div>`;
         lastGroup = group;
       }
       const connector = i < tree.length - 1 ? '<div class="tree-connector"></div>' : '';
@@ -341,7 +376,7 @@ const SkillTree = (() => {
         <div class="tree-node${n.is_boss ? ' node-boss' : ''} ${zig}" id="node-${n.slug}" data-slug="${n.slug}"
              onclick="Drawer.open('${n.slug}')">
           <button class="node-btn" title="${n.title}">${n.icon}</button>
-          <span class="node-label">${n.title.replace(/^Tahap \d+:\s*/, `Tahap ${n.stage_number}: `)}</span>
+          <span class="node-label">${n.title.replace(/^Tahap \d+:\s*/, '')}${(n.topics || []).length ? `<small>${n.topics.length} topik</small>` : ''}</span>
         </div>${connector}`;
     }).join('');
     refreshStates();
@@ -357,6 +392,7 @@ const SkillTree = (() => {
       const n = Curriculum.node(el.dataset.slug);
       if (btn && n) btn.textContent = st === 'completed' ? '✓' : st === 'locked' ? '🔒' : n.icon;
     });
+    if (typeof Practice !== 'undefined') Practice.refreshPath();
     if (typeof Catalogue !== 'undefined') Catalogue.refreshStates();
   }
 
@@ -376,7 +412,9 @@ const Catalogue = (() => {
         <div class="lesson-card-title">${n.title}</div>
         <div class="lesson-card-desc">${n.subtitle || ''}</div>
         <div class="lesson-card-meta">
-          ${n.kind === 'reference' ? 'Bacaan referensi' : `${(n.sections || []).length} bagian · ${(n.questions || []).length} soal`}
+          ${n.kind === 'reference' ? 'Bacaan referensi' : (n.topics || []).length
+            ? `${n.topics.length} topik · ${n.topics.length * 5} sesi latihan`
+            : `${(n.sections || []).length} bagian · ${(n.questions || []).length} soal`}
           <span class="lesson-card-status" data-status-for="${n.slug}"></span>
         </div>
       </div>`;
@@ -399,7 +437,20 @@ const Catalogue = (() => {
   function render() {
     const box = document.getElementById('lesson-catalogue');
     if (!box) return;
-    box.innerHTML = Curriculum.documents.map((doc) => `
+    const levelNodes = Curriculum.tree.filter((n) => (n.topics || []).length);
+    const levelsHTML = levelNodes.length ? `
+      <section class="doc-section">
+        <header class="doc-header">
+          <span class="doc-icon">🏔️</span>
+          <div>
+            <div class="doc-filename">Kurikulum 4 Level · Whitman · MIT (Strang) · Stewart</div>
+            <h3 class="doc-title">Level Utama → Sub-level → Topik → 5 Sesi Latihan</h3>
+            <p class="doc-sub">Soal tiap sesi diacak khusus untuk akunmu, lengkap dengan pembahasan &amp; grafik slider.</p>
+          </div>
+        </header>
+        <div class="lesson-grid">${levelNodes.map(nodeCard).join('')}</div>
+      </section>` : '';
+    box.innerHTML = levelsHTML + Curriculum.documents.map((doc) => `
       <section class="doc-section">
         <header class="doc-header">
           <span class="doc-icon">${CAT_ICON[doc.category] || '📄'}</span>
@@ -441,7 +492,7 @@ function renderSections(container, node) {
   (node.sections || []).forEach((sec) => {
     const block = document.createElement('div');
     block.className = 'lesson-block';
-    block.innerHTML = `<h4>${sec.heading}</h4><div class="lesson-body">${sec.body_html}</div>`;
+    block.innerHTML = `<h4>${sec.heading}</h4>${sec.source ? `<div class="source-tag">📄 Dari berkas: ${sec.source}</div>` : ''}<div class="lesson-body">${sec.body_html}</div>`;
     container.appendChild(block);
     if ((sec.graphs || []).length) {
       const g = document.createElement('div');
@@ -463,7 +514,8 @@ const QuizEngine = (() => {
   let idx = 0;
   let hintsUsed = 0;
   let answered = false;
-  let mode = 'level';
+  let mode = 'level';      // 'level' | 'practice' | 'session'
+  let answers = [];        // mode session: [{ id, option }] dikirim ke server di akhir sesi
 
   /** Hint = langkah pembahasan kecuali langkah terakhir (agar jawaban tidak langsung bocor). */
   function hintsOf(q) {
@@ -484,7 +536,7 @@ const QuizEngine = (() => {
             <p class="graph-hint">🎛️ Geser slider untuk memanipulasi variabel. Grafik soal tetap tampil sebagai bayangan abu-abu,
             dan tombol <b>📌 Pin</b> menyimpan kondisi untuk dibandingkan.</p>
           </div>` : ''}
-        <div class="source-tag">📄 ${q.source} · ${q.code}</div>
+        <div class="source-tag">📄 ${q.source || 'Soal acak khusus akunmu'} · ${q.code}</div>
       </div>`;
   }
 
@@ -502,7 +554,11 @@ const QuizEngine = (() => {
         </div>`;
       return;
     }
-    if (idx >= questions.length) { showComplete(); return; }
+    if (idx >= questions.length) {
+      if (mode === 'session') { Practice.finish(answers); return; }
+      showComplete();
+      return;
+    }
 
     const q = questions[idx];
     const hints = hintsOf(q);
@@ -512,10 +568,10 @@ const QuizEngine = (() => {
 
     container.innerHTML = `
       <div class="quiz-wrap">
-        ${mode === 'level' ? `<div class="quiz-progress-bar"><div class="quiz-progress-fill" style="width:${progress}%"></div></div>` : ''}
+        ${mode !== 'practice' ? `<div class="quiz-progress-bar"><div class="quiz-progress-fill" style="width:${progress}%"></div></div>` : ''}
         <div class="quiz-meta">
-          <span class="quiz-num">${mode === 'level' ? `Soal ${idx + 1} dari ${questions.length} · ` : ''}${q.code}</span>
-          <span class="quiz-diff-badge diff-${q.difficulty}">${DIFF_LABEL[q.difficulty] || q.difficulty}</span>
+          <span class="quiz-num">${mode !== 'practice' ? `Soal ${idx + 1} dari ${questions.length} · ` : ''}${q.code}</span>
+          <span class="quiz-diff-badge diff-${q.difficulty}">${q.difficulty_label || DIFF_LABEL[q.difficulty] || q.difficulty}</span>
         </div>
         <div class="quiz-prompt">${q.prompt}</div>
 
@@ -578,6 +634,7 @@ const QuizEngine = (() => {
       questions = qs || [];
       mode = m;
       idx = 0;
+      answers = [];
       render();
     },
 
@@ -597,6 +654,7 @@ const QuizEngine = (() => {
       const q = questions[idx];
       const correct = q.options.findIndex((o) => o.is_correct);
       answered = true;
+      if (mode === 'session') answers.push({ id: q.id, option: q.options[sel].id });
       btn.disabled = true;
       const hintBtn = document.getElementById('btn-hint');
       if (hintBtn) hintBtn.disabled = true;
@@ -618,9 +676,9 @@ const QuizEngine = (() => {
           `Jawaban: ${q.answer}`, actionLabel);
       } else {
         SFX.wrong();
-        if (mode === 'level') State.loseHeart();
+        if (mode !== 'practice') State.loseHeart();
         Mascot.setMood('comfort', 'Jangan menyerah! Baca pembahasannya ya.');
-        showFeedback(false, mode === 'level' ? 'Belum tepat (−1 Nyawa)' : 'Belum tepat',
+        showFeedback(false, mode !== 'practice' ? 'Belum tepat (−1 Nyawa)' : 'Belum tepat',
           'Baca pembahasan langkah demi langkah di atas.', actionLabel);
       }
     },
@@ -717,9 +775,14 @@ const Drawer = (() => {
   }
 
   return {
+    /** Dipakai modul Practice (practice.js) untuk mengisi header/tab drawer. */
+    ui: { setHeader, setTabs, show },
+    setMode(m) { quizMode = m; },
+
     /**
      * Membuka node. Dari skill tree node terkunci ditolak; dari katalog (browse)
      * materi selalu bisa dibaca, tetapi kuis tetap terkunci.
+     * Node kurikulum baru (punya topik) ditangani Practice.openNode().
      */
     open(slug, opts = {}) {
       const node = Curriculum.node(slug);
@@ -737,6 +800,11 @@ const Drawer = (() => {
 
       current = slug;
       practiceCode = null;
+      if ((node.topics || []).length) {
+        quizMode = 'topic';
+        Practice.openNode(node, { locked: status === 'locked' });
+        return;
+      }
       quizMode = isRef ? 'none' : status === 'locked' ? 'locked' : 'level';
       SFX.click();
       setHeader(node.badge_label, node.title, node.subtitle);
@@ -778,7 +846,9 @@ const Drawer = (() => {
 
       const node = Curriculum.node(current);
       const container = document.getElementById('quiz-container');
-      if (quizMode === 'practice') {
+      if (quizMode === 'topic') {
+        Practice.renderSessions();
+      } else if (quizMode === 'practice') {
         const { q } = Curriculum.question(practiceCode);
         QuizEngine.start(current, [q], 'practice');
         const actions = container.querySelector('.quiz-actions');

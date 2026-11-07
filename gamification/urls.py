@@ -7,6 +7,7 @@ from django.urls import path
 from . import auth_views
 from .views import (
     landing_page, get_curriculum_api, get_diagnostic_api, submit_diagnostic_api, set_faculty_api,
+    session_api, submit_session_api, complete_node_api,
 )
 
 app_name = 'gamification'
@@ -29,4 +30,7 @@ urlpatterns = [
     path('api/diagnostic/', get_diagnostic_api, name='diagnostic_api'),
     path('api/diagnostic/submit/', submit_diagnostic_api, name='submit_diagnostic_api'),
     path('api/profile/faculty/', set_faculty_api, name='set_faculty_api'),
+    path('api/session/<int:session_id>/', session_api, name='session_api'),
+    path('api/session/<int:session_id>/submit/', submit_session_api, name='submit_session_api'),
+    path('api/progress/node/', complete_node_api, name='complete_node_api'),
 ]

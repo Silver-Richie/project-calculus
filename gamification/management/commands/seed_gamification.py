@@ -11,7 +11,10 @@ Mechanism:
        - upsert SourceDocument (kunci: slug),
        - upsert SkillNode (kunci: slug) lalu tulis ulang LessonSection-nya,
        - upsert Question (kunci: code) lalu tulis ulang Option-nya.
-    3. Hapus node & soal lama yang tidak lagi ada di konten (kecuali --keep-stale),
+    3. Muat kurikulum 4 level utama (content/levels): MainLevel, sub-level (SkillNode),
+       Topic + materi, 5 PracticeSession per topik + QuestionTemplate dari registry generator.
+       Node lama ditempatkan ke level utama lewat LEGACY_PLACEMENT.
+    4. Hapus node & soal lama yang tidak lagi ada di konten (kecuali --keep-stale),
        sehingga database selalu sama dengan berkas konten.
 Semua langkah berjalan dalam satu transaksi: jika validasi gagal, tidak ada yang berubah.
 """
@@ -20,10 +23,13 @@ from collections import defaultdict
 
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
+from django.db.models import Max
 
-from gamification import content
+from gamification import content, generators
+from gamification.content import levels
 from gamification.models import (
     Faculty, SourceDocument, SkillNode, LessonSection, Question, Option,
+    MainLevel, Topic, PracticeSession, QuestionTemplate,
 )
 
 
@@ -51,6 +57,8 @@ class Command(BaseCommand):
                 node_slugs.add(self._seed_node(node_data, doc, faculties).slug)
             for q_data in getattr(module, "QUESTIONS", []):
                 question_codes.add(self._seed_question(q_data, doc).code)
+
+        node_slugs |= self._seed_levels()
 
         if not options["keep_stale"]:
             stale_nodes = SkillNode.objects.exclude(slug__in=node_slugs)
@@ -144,3 +152,105 @@ class Command(BaseCommand):
             for i, (text, ok) in enumerate(options)
         ])
         return question
+
+    # ── kurikulum 4 level ──────────────────────────────────────────────────
+    def _seed_levels(self):
+        """
+        Mechanism: level utama di-upsert (kunci slug); setiap sub-level menjadi SkillNode
+        dengan order = level.order × 100 + urutan, sehingga skill tree terurut per level.
+        Setiap topik mendapat 5 sesi; template sesi diambil otomatis dari registry
+        generator (topik + tier), jadi menambah generator baru cukup dengan @register.
+        """
+        main = {}
+        for data in levels.MAIN_LEVELS:
+            lvl, _ = MainLevel.objects.update_or_create(slug=data["slug"], defaults={k: v for k, v in data.items() if k != "slug"})
+            main[lvl.slug] = lvl
+        MainLevel.objects.exclude(slug__in=main).delete()
+        for book in levels.BOOKS:
+            SourceDocument.objects.update_or_create(slug=book["slug"], defaults={k: v for k, v in book.items() if k != "slug"})
+
+        slugs, topic_slugs = set(), set()
+        n_sessions = n_templates = 0
+        for module in levels.LEVEL_MODULES:
+            lvl = main[module.MAIN_LEVEL["slug"]]
+            for i, sub in enumerate(module.SUBLEVELS, start=1):
+                node, _ = SkillNode.objects.update_or_create(slug=sub["slug"], defaults={
+                    "main_level": lvl, "faculty": None, "source_document": None, "kind": "lesson",
+                    "stage_number": lvl.order, "order": lvl.order * 100 + i, "title": sub["title"],
+                    "subtitle": sub.get("subtitle", ""), "icon": sub.get("icon", "📘"),
+                    "badge_label": sub.get("badge_label", lvl.title), "summary_html": sub.get("summary_html", ""),
+                    "is_boss": False,
+                })
+                node.sections.all().delete()
+                slugs.add(node.slug)
+                for t_order, t in enumerate(sub["topics"], start=1):
+                    topic, _ = Topic.objects.update_or_create(slug=t["slug"], defaults={
+                        "node": node, "order": t_order, "title": t["title"], "icon": t.get("icon", "📗"),
+                        "summary": t.get("summary", ""), "references": t.get("references", ""),
+                    })
+                    topic_slugs.add(topic.slug)
+                    topic.sections.all().delete()
+                    LessonSection.objects.bulk_create([
+                        LessonSection(topic=topic, order=k, heading=sec["heading"],
+                                      body_html=sec.get("body_html", "").strip(), graphs=sec.get("graphs", []))
+                        for k, sec in enumerate(t.get("sections", []), start=1)
+                    ])
+                    for number, tier, title, ratio, xp in levels.SESSION_PLAN:
+                        gens = generators.for_topic(topic.slug, number)
+                        if not gens:
+                            raise CommandError(f"Topik {topic.slug} sesi {number} tidak punya generator soal.")
+                        session, _ = PracticeSession.objects.update_or_create(topic=topic, number=number, defaults={
+                            "tier": tier, "title": title, "pass_ratio": ratio, "xp_per_question": xp,
+                            "question_count": levels.QUESTIONS_PER_SESSION,
+                        })
+                        session.templates.exclude(key__in=[g.key for g in gens]).delete()
+                        for gen in gens:
+                            QuestionTemplate.objects.update_or_create(session=session, key=gen.key, defaults={"weight": gen.weight})
+                        n_sessions += 1
+                        n_templates += len(gens)
+                    PracticeSession.objects.filter(topic=topic).exclude(number__in=[p[0] for p in levels.SESSION_PLAN]).delete()
+                self.stdout.write(f"    [Sub-level] {node.slug}: {len(sub['topics'])} topik")
+        Topic.objects.exclude(slug__in=topic_slugs).delete()
+        self._absorb_legacy()
+
+        # Node lama: pasang ke level utama, urutan relatif dipertahankan.
+        for node in SkillNode.objects.filter(kind="lesson").exclude(slug__in=slugs).order_by("order", "stage_number", "id"):
+            lvl = main[levels.LEGACY_PLACEMENT.get(node.slug, levels.LEGACY_DEFAULT_LEVEL)]
+            node.main_level = lvl
+            node.order = lvl.order * 100 + 50 + node.order
+            node.save(update_fields=["main_level", "order"])
+        self.stdout.write(f"  [OK] {len(main)} level utama, {len(topic_slugs)} topik, {n_sessions} sesi, {n_templates} template soal")
+        return slugs
+
+    def _absorb_legacy(self):
+        """
+        Gabungkan node lama (berkas 1–7) ke topik kurikulum baru.
+
+        Mechanism: tiap modul level boleh mendefinisikan ABSORB_NODES (node lama → sub-level),
+        ABSORB_SECTIONS ((node, judul bagian) → topik) dan FIXED_QUESTIONS (kode soal → (topik, sesi)).
+        Bagian materi dipindah ke topik (sumber berkas tetap tercatat), soal lama menjadi soal tetap
+        yang ikut diundi di sesi itu (atau hanya di Bank Soal bila None), lalu node lama dihapus.
+        Karena berkas lama di-seed ulang setiap kali, langkah ini idempoten.
+        """
+        for module in levels.LEVEL_MODULES:
+            for legacy_slug, target_slug in getattr(module, "ABSORB_NODES", {}).items():
+                legacy = SkillNode.objects.filter(slug=legacy_slug).first()
+                if not legacy:
+                    continue
+                target = SkillNode.objects.get(slug=target_slug)
+                for sec in legacy.sections.order_by("order"):
+                    topic_slug = module.ABSORB_SECTIONS.get((legacy_slug, sec.heading))
+                    topic = Topic.objects.get(slug=topic_slug) if topic_slug else target.topics.order_by("order").first()
+                    sec.order = (topic.sections.aggregate(m=Max("order"))["m"] or 0) + 1
+                    sec.node, sec.topic = None, topic
+                    sec.save()
+                for q in legacy.questions.all():
+                    spec = module.FIXED_QUESTIONS.get(q.code)
+                    if spec:
+                        q.session = PracticeSession.objects.get(topic__slug=spec[0], number=spec[1])
+                        q.node = q.session.topic.node
+                    else:
+                        q.session, q.node = None, target
+                    q.save(update_fields=["session", "node"])
+                legacy.delete()
+                self.stdout.write(f"    [Gabung] {legacy_slug} → {target_slug}")

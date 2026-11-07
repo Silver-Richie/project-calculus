@@ -69,11 +69,14 @@ class ContentSeedTests(TestCase):
         call_command("seed_gamification", stdout=io.StringIO())
 
     def test_one_document_per_source_file(self):
-        self.assertEqual(SourceDocument.objects.count(), 7)
+        pdfs = SourceDocument.objects.exclude(category="buku")
+        self.assertEqual(pdfs.count(), 7)
         self.assertEqual(
-            list(SourceDocument.objects.values_list("filename", flat=True)),
+            list(pdfs.values_list("filename", flat=True)),
             [m.DOCUMENT["filename"] for m in content.SOURCES],
         )
+        # tiga buku rujukan kurikulum 4 level
+        self.assertEqual(SourceDocument.objects.filter(category="buku").count(), 3)
 
     def test_question_counts_per_file(self):
         counts = {d.slug: d.questions.count() for d in SourceDocument.objects.all()}
@@ -129,8 +132,12 @@ class GamificationApiTests(TestCase):
         self.assertEqual(data["status"], "success")
         self.assertEqual(len(data["faculties"]), 3)
         slugs = [n["slug"] for n in data["tree"]]
-        self.assertEqual(slugs[:5], ["umum-limit", "umum-turunan", "umum-integral", "umum-deret", "umum-dua-variabel"])
-        self.assertEqual(slugs[5:], ["ft-konsep", "ft-terapan", "ft-ujian"])
+        self.assertEqual(slugs[0], "pre-sistem-bilangan-fungsi")   # Level Utama 1: PreCalculus
+        self.assertEqual(slugs[1:5], ["kd-limit-kekontinuan", "kd-turunan", "kd-aplikasi-turunan", "kd-integral"])  # Level 2
+        self.assertEqual(slugs[5:7], ["umum-deret", "umum-dua-variabel"])
+        self.assertEqual(slugs[7:], ["ft-konsep", "ft-terapan", "ft-ujian"])
+        self.assertEqual([m["slug"] for m in data["main_levels"]],
+                         ["precalculus", "kalkulus-dasar", "kalkulus-menengah", "kalkulus-lanjut"])
 
     def test_curriculum_hides_other_faculty_files(self):
         files = [d["filename"] for d in self._curriculum("fmipa")["documents"]]
@@ -167,12 +174,12 @@ class GamificationApiTests(TestCase):
     def test_diagnostic_weak_foundation(self):
         data = self._submit("ft", {"U-D1": False, "FT-S1": True, "FT-H3": False})
         self.assertEqual(data["evaluation"], "weak_foundation")
-        self.assertEqual(data["recommended_node"], "umum-limit")
+        self.assertEqual(data["recommended_node"], "pre-sistem-bilangan-fungsi")
 
     def test_diagnostic_ready_for_calculus(self):
         data = self._submit("ft", {"U-D1": True, "FT-S1": True, "FT-H3": False})
         self.assertEqual(data["evaluation"], "ready_for_calculus")
-        self.assertEqual(data["recommended_node"], "umum-turunan")
+        self.assertEqual(data["recommended_node"], "kd-limit-kekontinuan")     # awal Kalkulus Dasar
 
     def test_diagnostic_mastery_goes_to_faculty_track(self):
         data = self._submit("fmipa", {"U-D1": True, "FM-S1": True, "FM-H3": True})
@@ -273,7 +280,7 @@ class AuthOnboardingTests(TestCase):
         self.assertTrue(profile.diagnostic_completed)
         self.assertEqual(profile.recommended_node.slug, "fmipa-konsep")
         self.assertEqual(UserProgress.objects.get(user=user, node__slug="fmipa-konsep").status, "active")
-        self.assertEqual(UserProgress.objects.get(user=user, node__slug="umum-limit").status, "completed")
+        self.assertEqual(UserProgress.objects.get(user=user, node__slug="kd-limit-kekontinuan").status, "completed")
 
         result = self.client.get("/auth/tes-awal/hasil/")
         self.assertContains(result, "10<small>/10</small>")
@@ -285,7 +292,7 @@ class AuthOnboardingTests(TestCase):
         data = {f"q_{q.code}": q.options.filter(is_correct=False).first().id for q in questions}
         self.client.post("/auth/tes-awal/mulai/", data)
         profile = User.objects.get(username="budi").gamification_profile
-        self.assertEqual(profile.recommended_node.slug, "umum-limit")
+        self.assertEqual(profile.recommended_node.slug, "pre-sistem-bilangan-fungsi")
 
     def test_diagnostic_incomplete_answers_rejected(self):
         self._register()
@@ -301,3 +308,196 @@ class AuthOnboardingTests(TestCase):
         r = self.client.post("/api/profile/faculty/", json.dumps({"faculty": "fasilkom"}), content_type="application/json")
         self.assertEqual(r.status_code, 200)
         self.assertEqual(User.objects.get(username="budi").gamification_profile.faculty.slug, "fasilkom")
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Kurikulum 4 level: generator soal, struktur level, dan sesi latihan berlapis
+# ─────────────────────────────────────────────────────────────────────────────
+from . import generators  # noqa: E402
+from .content import levels  # noqa: E402
+from .models import MainLevel, Topic, PracticeSession, UserSessionProgress  # noqa: E402
+
+
+class GeneratorTests(TestCase):
+    """Setiap generator, pada setiap tingkat sesinya, harus menghasilkan soal valid & deterministik."""
+
+    SEEDS = range(25)
+
+    def test_every_generator_produces_valid_questions(self):
+        for key, gen in generators.REGISTRY.items():
+            for tier in gen.tiers:
+                for seed in self.SEEDS:
+                    with self.subTest(key=key, tier=tier, seed=seed):
+                        q = generators.generate(key, seed, tier)
+                        self.assertEqual(len(q["options"]), 4)
+                        self.assertEqual(sum(o["is_correct"] for o in q["options"]), 1)
+                        self.assertEqual(len({o["text"] for o in q["options"]}), 4)
+                        self.assertTrue(q["prompt"] and q["steps"])
+                        json.dumps(q)
+
+    def test_generation_is_deterministic(self):
+        for key, gen in generators.REGISTRY.items():
+            self.assertEqual(generators.generate(key, 123, gen.tiers[0]), generators.generate(key, 123, gen.tiers[0]))
+
+    def test_each_topic_has_generators_for_all_five_sessions(self):
+        topics = [t["slug"] for m in levels.LEVEL_MODULES for sub in m.SUBLEVELS for t in sub["topics"]]
+        self.assertEqual(len(topics), 9 + 20)
+        for slug in topics:
+            for tier in range(1, 6):
+                with self.subTest(topic=slug, tier=tier):
+                    self.assertGreaterEqual(len(generators.for_topic(slug, tier)), 2)
+
+
+class CurriculumLevelTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_gamification", stdout=io.StringIO())
+
+    def test_main_levels_and_precalc_structure(self):
+        self.assertEqual(MainLevel.objects.count(), 4)
+        node = SkillNode.objects.get(slug="pre-sistem-bilangan-fungsi")
+        self.assertEqual(node.main_level.slug, "precalculus")
+        self.assertEqual(node.topics.count(), 9)
+        for topic in node.topics.all():
+            self.assertTrue(topic.sections.exists(), topic.slug)
+            self.assertEqual(list(topic.sessions.values_list("number", flat=True)), [1, 2, 3, 4, 5])
+            for session in topic.sessions.all():
+                self.assertTrue(session.templates.exists())
+
+    def test_legacy_nodes_are_placed_in_main_levels(self):
+        self.assertFalse(SkillNode.objects.filter(kind="lesson", main_level__isnull=True).exists())
+        self.assertEqual(SkillNode.objects.get(slug="umum-deret").main_level.slug, "kalkulus-menengah")
+
+    def test_legacy_limit_turunan_integral_absorbed_into_level_two(self):
+        self.assertFalse(SkillNode.objects.filter(slug__in=["umum-limit", "umum-turunan", "umum-integral"]).exists())
+        q = Question.objects.get(code="U-D1")
+        self.assertEqual((q.session.topic.slug, q.session.number), ("kd-lim-aljabar", 1))
+        self.assertTrue(q.is_diagnostic)
+        self.assertEqual(Question.objects.get(code="U-S4").node.slug, "kd-integral")   # Bank Soal saja
+        moved = LessonSection.objects.filter(topic__slug="kd-lim-konsep", source_document__slug="materi-umum")
+        self.assertEqual(moved.count(), 1)
+
+    def test_level_two_structure(self):
+        for slug in ["kd-limit-kekontinuan", "kd-turunan", "kd-aplikasi-turunan", "kd-integral"]:
+            node = SkillNode.objects.get(slug=slug)
+            self.assertEqual(node.main_level.slug, "kalkulus-dasar")
+            self.assertEqual(node.topics.count(), 5)
+
+    def test_reseed_is_idempotent(self):
+        before = (Topic.objects.count(), PracticeSession.objects.count(), LessonSection.objects.count())
+        call_command("seed_gamification", stdout=io.StringIO())
+        self.assertEqual(before, (Topic.objects.count(), PracticeSession.objects.count(), LessonSection.objects.count()))
+
+
+class PracticeSessionApiTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_gamification", stdout=io.StringIO())
+        cls.s1 = PracticeSession.objects.get(topic__slug="pre-bilangan-real", number=1)
+        cls.s2 = PracticeSession.objects.get(topic__slug="pre-bilangan-real", number=2)
+
+    def setUp(self):
+        self.user = User.objects.create_user("sinta", password="rahasia-123")
+        self.client = Client()
+        self.client.force_login(self.user)
+
+    def _open(self, session, client=None):
+        return (client or self.client).get(f"/api/session/{session.id}/")
+
+    def _answers(self, data, correct=True):
+        return [{"id": q["id"], "option": next(o["id"] for o in q["options"] if o["is_correct"] == correct)}
+                for q in data["questions"]]
+
+    def _submit(self, session, attempt, answers):
+        return self.client.post(f"/api/session/{session.id}/submit/",
+                                data=json.dumps({"attempt": attempt, "answers": answers}),
+                                content_type="application/json")
+
+    def test_session_returns_ten_questions_with_explanations(self):
+        data = self._open(self.s1).json()
+        self.assertEqual(len(data["questions"]), 10)
+        q = data["questions"][0]
+        self.assertTrue(q["steps"])
+        self.assertEqual(sum(o["is_correct"] for o in q["options"]), 1)
+
+    def test_questions_are_randomised_per_user(self):
+        other = User.objects.create_user("tono", password="rahasia-123")
+        c2 = Client()
+        c2.force_login(other)
+        mine = [q["prompt"] for q in self._open(self.s1).json()["questions"]]
+        theirs = [q["prompt"] for q in self._open(self.s1, c2).json()["questions"]]
+        self.assertNotEqual(mine, theirs)
+
+    def test_reopening_without_submit_keeps_same_questions(self):
+        a = self._open(self.s1).json()["questions"]
+        b = self._open(self.s1).json()["questions"]
+        self.assertEqual([q["id"] for q in a], [q["id"] for q in b])
+
+    def test_session_two_locked_until_session_one_passed(self):
+        self.assertEqual(self._open(self.s2).status_code, 403)
+        data = self._open(self.s1).json()
+        res = self._submit(self.s1, data["attempt"], self._answers(data)).json()
+        self.assertTrue(res["passed"])
+        self.assertEqual(res["score"], 10)
+        self.assertEqual(self._open(self.s2).status_code, 200)
+
+    def test_failed_attempt_and_new_numbers_on_retry(self):
+        data = self._open(self.s1).json()
+        res = self._submit(self.s1, data["attempt"], self._answers(data, correct=False)).json()
+        self.assertFalse(res["passed"])
+        self.assertEqual(res["score"], 0)
+        retry = self._open(self.s1).json()
+        self.assertEqual(retry["attempt"], 1)
+        self.assertNotEqual([q["id"] for q in retry["questions"]], [q["id"] for q in data["questions"]])
+
+    def test_xp_only_for_improvement(self):
+        data = self._open(self.s1).json()
+        first = self._submit(self.s1, data["attempt"], self._answers(data)).json()
+        self.assertEqual(first["xp_awarded"], 10 * self.s1.xp_per_question)
+        data = self._open(self.s1).json()
+        again = self._submit(self.s1, data["attempt"], self._answers(data)).json()
+        self.assertEqual(again["xp_awarded"], 0)
+        self.assertEqual(UserProfile.objects.get(user=self.user).xp, 10 * self.s1.xp_per_question)
+
+    def test_stale_attempt_rejected(self):
+        data = self._open(self.s1).json()
+        self._submit(self.s1, data["attempt"], self._answers(data))
+        self.assertEqual(self._submit(self.s1, data["attempt"], self._answers(data)).status_code, 409)
+
+    def test_completing_all_topics_completes_sublevel(self):
+        node = SkillNode.objects.get(slug="pre-sistem-bilangan-fungsi")
+        for topic in node.topics.all():
+            for number in (1, 2, 3):
+                session = topic.sessions.get(number=number)
+                data = self._open(session).json()
+                res = self._submit(session, data["attempt"], self._answers(data)).json()
+        self.assertEqual(res["node_completed"], "pre-sistem-bilangan-fungsi")
+        self.assertEqual(res["next_node"], "kd-limit-kekontinuan")
+        self.assertEqual(UserProgress.objects.get(user=self.user, node=node).status, "completed")
+        self.assertEqual(UserProgress.objects.get(user=self.user, node__slug="kd-limit-kekontinuan").status, "active")
+
+    def test_curriculum_includes_session_progress(self):
+        data = self._open(self.s1).json()
+        self._submit(self.s1, data["attempt"], self._answers(data))
+        cur = self.client.get("/api/curriculum/?faculty=ft").json()
+        self.assertTrue(cur["session_progress"][str(self.s1.id)]["passed"])
+        node = cur["tree"][0]
+        self.assertEqual(len(node["topics"]), 9)
+        self.assertEqual(len(node["topics"][0]["sessions"]), 5)
+
+    def test_topics_unlock_in_order(self):
+        topic2 = PracticeSession.objects.get(topic__slug="pre-pertidaksamaan", number=1)
+        self.assertEqual(self._open(topic2).status_code, 403)
+        for number in (1, 2, 3):
+            session = PracticeSession.objects.get(topic__slug="pre-bilangan-real", number=number)
+            data = self._open(session).json()
+            self._submit(session, data["attempt"], self._answers(data))
+        self.assertEqual(self._open(topic2).status_code, 200)
+
+    def test_session_api_requires_login(self):
+        self.assertEqual(Client().get(f"/api/session/{self.s1.id}/").status_code, 302)
+
+    def test_legacy_node_completion_saved(self):
+        res = self.client.post("/api/progress/node/", data=json.dumps({"slug": "umum-deret"}), content_type="application/json")
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(UserProgress.objects.get(user=self.user, node__slug="umum-deret").status, "completed")

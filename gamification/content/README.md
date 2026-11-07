@@ -71,3 +71,22 @@ Ekspresi memakai sintaks JavaScript: `x**2`, `sin`, `cos`, `exp`, `ln`, `sqrt`, 
 `fact(n)`, `sum(a, b, k => ...)`, `sigmoid(z)`, `min`, `max`. Hasil elemen ber-`id`
 (`riemann`, `iter`) bisa dipakai di readout, mis. `"R"` atau `"G.x"`.
 Hindari nama parameter `x`, `t`, `u`, `v` karena dipakai sebagai variabel kurva.
+
+## Kurikulum 4 level (`content/levels/`) + generator soal (`gamification/generators/`)
+
+```
+MainLevel (judul saja: PreCalculus, Kalkulus Dasar, Menengah, Lanjut)
+  └─ SkillNode = sub-level ─< Topic ─┬─< LessonSection (materi + grafik slider)
+                                     └─< PracticeSession ×5 ─< QuestionTemplate (key generator)
+UserSessionProgress (user × sesi: attempts, best_score, passed)
+```
+
+* Materi level ditulis di `levels/lN_*.py` (`MAIN_LEVEL`, `SUBLEVELS` → `topics` → `sections`).
+* Soal sesi **tidak disimpan**: tiap sesi menunjuk generator (`@register(key, topic, tiers)`) di
+  `generators/<level>/<topik>.py`. Server mengundi 10 soal dengan seed `user:sesi:percobaan`,
+  sehingga tiap user mendapat angka berbeda dan penilaian bisa diulang di server (`gamification/sessions.py`).
+* Menambah variasi soal cukup dengan menulis generator baru + `@register(...)`, lalu jalankan seed:
+  template sesi diperbarui otomatis.
+* Generator mengembalikan `prompt`, `correct`, `distractors`, `steps` (pembahasan), `graphs` (spec GraphLab di atas).
+* Sesi I–III wajib (topik tuntas), Sesi IV–V bonus. Sesi n terbuka setelah sesi n−1 lulus.
+* Tes `GeneratorTests` menjalankan setiap generator di setiap tingkat untuk 40 seed.

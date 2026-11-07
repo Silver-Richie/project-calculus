@@ -42,6 +42,7 @@ class SourceDocument(models.Model):
         ('materi', 'Materi'),
         ('soal', 'Soal & Pembahasan'),
         ('lampiran', 'Lampiran'),
+        ('buku', 'Buku Referensi'),
     ]
 
     slug = models.SlugField(max_length=80, unique=True, help_text="mis. 'materi-umum'")
@@ -66,11 +67,39 @@ class SourceDocument(models.Model):
         return self.filename
 
 
+class MainLevel(models.Model):
+    """
+    Level utama kurikulum (PreCalculus, Kalkulus Dasar, Menengah, Lanjut).
+
+    Mechanism: level utama hanya berupa judul pengelompokan di skill tree.
+    Isi belajarnya ada di SkillNode (sub-level) yang menunjuk ke level ini.
+    """
+    slug = models.SlugField(max_length=60, unique=True)
+    order = models.PositiveIntegerField(default=1)
+    title = models.CharField(max_length=120)
+    subtitle = models.CharField(max_length=255, blank=True)
+    icon = models.CharField(max_length=10, default="🏔️")
+
+    class Meta:
+        ordering = ['order']
+
+    def __str__(self):
+        return self.title
+
+
 class SkillNode(models.Model):
     """
     Represents an individual node along the Duolingo-style Skill Tree roadmap.
     Nodes can be faculty-specific or universal.
     """
+    main_level = models.ForeignKey(
+        MainLevel,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="sublevels",
+        help_text="Level utama tempat sub-level ini berada",
+    )
     faculty = models.ForeignKey(
         Faculty,
         on_delete=models.SET_NULL,
@@ -114,6 +143,65 @@ class SkillNode(models.Model):
         return f"Stage {self.stage_number}: {self.title}"
 
 
+class Topic(models.Model):
+    """
+    Sub-topik di dalam sub-level (mis. "Pertidaksamaan" di "Sistem Bilangan dan Fungsi").
+
+    Mechanism: setiap topik punya materi sendiri (LessonSection.topic) dan
+    5 sesi latihan berlapis (PracticeSession). Sub-level dianggap tuntas bila
+    semua topiknya lulus sesi wajib (lihat sessions.REQUIRED_SESSIONS).
+    """
+    node = models.ForeignKey(SkillNode, on_delete=models.CASCADE, related_name="topics")
+    slug = models.SlugField(max_length=100, unique=True)
+    order = models.PositiveIntegerField(default=1)
+    title = models.CharField(max_length=200)
+    icon = models.CharField(max_length=10, default="📗")
+    summary = models.CharField(max_length=300, blank=True)
+    references = models.CharField(max_length=300, blank=True,
+                                  help_text="Rujukan bab buku, mis. 'Stewart Lamp. A; Whitman 1.1'")
+
+    class Meta:
+        ordering = ['node', 'order']
+
+    def __str__(self):
+        return f"{self.node.slug} › {self.title}"
+
+
+class PracticeSession(models.Model):
+    """
+    Satu sesi latihan berlapis dalam sebuah topik (Sesi I Mudah … Sesi V Olimpiade).
+
+    Mechanism: soal sesi TIDAK disimpan satu per satu. Sesi menyimpan kumpulan
+    QuestionTemplate (generator berparameter) dan boleh juga soal tetap
+    (Question.session). Saat user memulai sesi, server mengundi `question_count`
+    soal dari kumpulan itu memakai seed (user, sesi, percobaan) sehingga setiap
+    user mendapat angka berbeda, tetapi penilaian tetap bisa diulang di server.
+    """
+    TIER_CHOICES = [
+        ('mudah', 'Mudah'),
+        ('sedang', 'Sedang'),
+        ('sulit', 'Sulit'),
+        ('tantangan', 'Tantangan'),
+        ('olimpiade', 'Olimpiade'),
+    ]
+    topic = models.ForeignKey(Topic, on_delete=models.CASCADE, related_name="sessions")
+    number = models.PositiveSmallIntegerField(help_text="1–5")
+    tier = models.CharField(max_length=20, choices=TIER_CHOICES)
+    title = models.CharField(max_length=120)
+    question_count = models.PositiveSmallIntegerField(default=10)
+    pass_ratio = models.FloatField(default=0.7)
+    xp_per_question = models.PositiveSmallIntegerField(default=10)
+
+    class Meta:
+        ordering = ['topic', 'number']
+        constraints = [
+            models.UniqueConstraint(fields=['topic', 'number'], name='unique_session_number_per_topic')
+        ]
+
+    def __str__(self):
+        return f"{self.topic.slug} · Sesi {self.number} ({self.tier})"
+
+
 class LessonSection(models.Model):
     """
     Satu bagian materi di dalam SkillNode (mis. "Tabel turunan dasar").
@@ -122,7 +210,10 @@ class LessonSection(models.Model):
     Setiap bagian berisi HTML dan daftar grafik interaktif (`graphs`) yang
     dirender oleh static/js/graphlab.js dengan slider parameter.
     """
-    node = models.ForeignKey(SkillNode, on_delete=models.CASCADE, related_name="sections")
+    node = models.ForeignKey(SkillNode, on_delete=models.CASCADE, related_name="sections",
+                             null=True, blank=True)
+    topic = models.ForeignKey(Topic, on_delete=models.CASCADE, related_name="sections",
+                              null=True, blank=True, help_text="Diisi bila bagian ini materi sebuah topik")
     source_document = models.ForeignKey(
         SourceDocument,
         on_delete=models.SET_NULL,
@@ -138,11 +229,18 @@ class LessonSection(models.Model):
     class Meta:
         ordering = ['node', 'order']
         constraints = [
-            models.UniqueConstraint(fields=['node', 'order'], name='unique_section_order_per_node')
+            models.UniqueConstraint(fields=['node', 'order'], name='unique_section_order_per_node'),
+            models.UniqueConstraint(fields=['topic', 'order'], name='unique_section_order_per_topic'),
+            models.CheckConstraint(
+                condition=(models.Q(node__isnull=False, topic__isnull=True)
+                           | models.Q(node__isnull=True, topic__isnull=False)),
+                name='section_belongs_to_node_xor_topic',
+            ),
         ]
 
     def __str__(self):
-        return f"{self.node.slug} #{self.order}: {self.heading}"
+        owner = self.topic.slug if self.topic_id else self.node.slug
+        return f"{owner} #{self.order}: {self.heading}"
 
 
 class Question(models.Model):
@@ -178,6 +276,14 @@ class Question(models.Model):
         blank=True,
         related_name="questions",
         help_text="Skill node this question belongs to; null for standalone diagnostic questions"
+    )
+    session = models.ForeignKey(
+        PracticeSession,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="fixed_questions",
+        help_text="Soal tetap yang ikut diundi dalam kumpulan soal sebuah sesi latihan",
     )
     faculty = models.ForeignKey(
         Faculty,
@@ -327,3 +433,52 @@ class UserProgress(models.Model):
         self.score = earned_score
         self.completed_at = timezone.now()
         self.save(update_fields=['status', 'score', 'completed_at', 'updated_at'])
+
+
+class QuestionTemplate(models.Model):
+    """
+    Penghubung sesi latihan dengan generator soal berparameter.
+
+    Mechanism: `key` adalah nama generator di gamification/generators (registry).
+    Generator menerima rng + nomor sesi dan menghasilkan soal lengkap (prompt,
+    opsi, langkah pembahasan, grafik slider). `weight` menentukan peluang
+    generator ini terpilih saat soal sesi diundi.
+    """
+    session = models.ForeignKey(PracticeSession, on_delete=models.CASCADE, related_name="templates")
+    key = models.CharField(max_length=80)
+    weight = models.PositiveSmallIntegerField(default=1)
+
+    class Meta:
+        ordering = ['session', 'id']
+        constraints = [
+            models.UniqueConstraint(fields=['session', 'key'], name='unique_template_key_per_session')
+        ]
+
+    def __str__(self):
+        return f"{self.session} ← {self.key}"
+
+
+class UserSessionProgress(models.Model):
+    """
+    Progres user pada satu sesi latihan.
+
+    Mechanism: `attempts` ikut menentukan seed soal, jadi setiap percobaan ulang
+    memberi angka baru. Sesi berikutnya terbuka bila `passed` = True.
+    """
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
+                             related_name="session_progress")
+    session = models.ForeignKey(PracticeSession, on_delete=models.CASCADE, related_name="user_progress")
+    attempts = models.PositiveIntegerField(default=0)
+    last_score = models.PositiveSmallIntegerField(default=0)
+    best_score = models.PositiveSmallIntegerField(default=0)
+    passed = models.BooleanField(default=False)
+    passed_at = models.DateTimeField(null=True, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=['user', 'session'], name='unique_user_session_progress')
+        ]
+
+    def __str__(self):
+        return f"{self.user.username} · {self.session} · {self.best_score}"

@@ -69,7 +69,9 @@ const GraphLab = (() => {
     try {
       // `with` tidak boleh di strict mode, tetapi Function() selalu non-strict.
       // eslint-disable-next-line no-new-func
-      f = new Function('S', `with (S) { return (${expr}); }`);
+      // Angka negatif hasil generator (mis. "x-" + "-3") → "x- -3" agar tidak terbaca sebagai operator --.
+      const src = String(expr).replace(/--/g, '- -');
+      f = new Function('S', `with (S) { return (${src}); }`);
     } catch (err) {
       console.warn('[GraphLab] ekspresi tidak valid:', expr, err);
       f = () => NaN;
