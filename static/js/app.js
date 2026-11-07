@@ -343,6 +343,24 @@ const Curriculum = (() => {
 
 const DIFF_LABEL = { basic: 'Dasar / Mudah', medium: 'Sedang', high: 'Sulit' };
 
+/**
+ * Papan tulis kuis. Saat soal tampil, drawer menjadi layar penuh (kelas .quiz-mode):
+ * kiri soal & jawaban, kanan papan tulis. Setiap soal memakai papan sendiri
+ * (kunci = id/kode soal), jadi soal baru selalu kosong dan coretan lama kembali
+ * bila soal yang sama dibuka lagi.
+ */
+const QuizBoard = {
+  show(key) {
+    const drawer = document.getElementById('lesson-drawer');
+    if (!drawer || typeof Whiteboard === 'undefined') return;
+    drawer.classList.add('quiz-mode');
+    Whiteboard.mount(document.getElementById('quiz-board'))?.load(`quiz:${key}`);
+  },
+  hide() {
+    document.getElementById('lesson-drawer')?.classList.remove('quiz-mode');
+  },
+};
+
 /* ════════════════════════════════════════════════════════════════
    SKILL TREE — Peta belajar (halaman Level Up)
    ════════════════════════════════════════════════════════════════ */
@@ -545,6 +563,7 @@ const QuizEngine = (() => {
     if (!container) return;
 
     if (!questions.length) {
+      QuizBoard.hide();
       container.innerHTML = `
         <div class="level-complete">
           <div class="trophy-anim">📖</div>
@@ -555,6 +574,7 @@ const QuizEngine = (() => {
       return;
     }
     if (idx >= questions.length) {
+      QuizBoard.hide();
       if (mode === 'session') { Practice.finish(answers); return; }
       showComplete();
       return;
@@ -594,6 +614,7 @@ const QuizEngine = (() => {
       </div>`;
 
     hideFeedback();
+    QuizBoard.show(q.id || q.code);
   }
 
   function revealPembahasan(q) {
@@ -833,6 +854,7 @@ const Drawer = (() => {
     },
 
     close() {
+      QuizBoard.hide();
       document.getElementById('lesson-drawer').classList.remove('open');
       hideFeedback();
       SFX.click();
@@ -842,6 +864,7 @@ const Drawer = (() => {
       document.querySelectorAll('.drawer-tab').forEach((t) => t.classList.toggle('active', t.dataset.tab === tab));
       document.querySelectorAll('.tab-pane').forEach((p) => p.classList.toggle('active', p.id === `tab-${tab}`));
       hideFeedback();
+      QuizBoard.hide();
       if (tab !== 'kuis') return;
 
       const node = Curriculum.node(current);
