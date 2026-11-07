@@ -8,12 +8,12 @@ import json
 
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
-from django.shortcuts import redirect, render
+from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_POST
 
-from . import services
-from .models import Faculty, UserProfile
+from . import services, sessions
+from .models import Faculty, PracticeSession, SkillNode, UserProfile
 
 
 def landing_page(request):
@@ -73,7 +73,7 @@ def get_curriculum_api(request):
         }
         for f in Faculty.objects.all()
     ]
-    curriculum = services.build_curriculum(faculty)
+    curriculum = services.build_curriculum(faculty, request.user)
     return JsonResponse({
         "status": "success",
         "faculties": faculties,
@@ -116,3 +116,53 @@ def submit_diagnostic_api(request):
     faculty = services.get_faculty(data.get("faculty", services.DEFAULT_FACULTY))
     result = services.evaluate_diagnostic(faculty, answers)
     return JsonResponse({"status": "success", **result})
+
+
+def _json_body(request):
+    try:
+        return json.loads(request.body or b"{}")
+    except json.JSONDecodeError:
+        return {}
+
+
+@login_required
+@require_GET
+def session_api(request, session_id):
+    """
+    GET /api/session/<id>/ — 10 soal acak (khusus user ini) untuk percobaan berjalan.
+
+    Soal memuat kunci & pembahasan agar umpan balik bisa langsung ditampilkan;
+    skor resmi tetap dihitung ulang di server saat dikirim.
+    """
+    session = get_object_or_404(PracticeSession.objects.select_related("topic"), pk=session_id)
+    try:
+        data = sessions.open_session(request.user, session)
+    except PermissionError as err:
+        return JsonResponse({"status": "locked", "message": str(err)}, status=403)
+    return JsonResponse({"status": "success", **data})
+
+
+@login_required
+@require_POST
+def submit_session_api(request, session_id):
+    """POST /api/session/<id>/submit/ {"attempt": 0, "answers": [{"id": "g:key:seed", "option": 2}]}"""
+    session = get_object_or_404(PracticeSession.objects.select_related("topic__node"), pk=session_id)
+    body = _json_body(request)
+    try:
+        result = sessions.submit_session(request.user, session, int(body.get("attempt", -1)), body.get("answers") or [])
+    except PermissionError as err:
+        return JsonResponse({"status": "locked", "message": str(err)}, status=403)
+    except ValueError as err:
+        return JsonResponse({"status": "error", "message": str(err)}, status=409)
+    return JsonResponse({"status": "success", **result})
+
+
+@login_required
+@require_POST
+def complete_node_api(request):
+    """POST /api/progress/node/ {"slug": "umum-limit"} — simpan penyelesaian node (kuis lama) ke database."""
+    node = SkillNode.objects.filter(slug=_json_body(request).get("slug"), kind="lesson").first()
+    if not node:
+        return JsonResponse({"status": "error", "message": "Node tidak dikenal."}, status=400)
+    sessions.mark_node_completed(request.user, node)
+    return JsonResponse({"status": "success", "slug": node.slug})

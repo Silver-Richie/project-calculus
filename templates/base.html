@@ -1,4 +1,4 @@
-{% load static %}
+{% load static assets %}
 <!DOCTYPE html>
 <html lang="id">
 <head>
@@ -10,7 +10,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="{% static 'css/style.css' %}">
+  <link rel="stylesheet" href="{% asset 'css/style.css' %}">
+  <link rel="stylesheet" href="{% asset 'css/practice.css' %}">
   {% block extra_css %}{% endblock %}
 </head>
 <body class="{% block body_class %}{% endblock %}">
@@ -21,8 +22,9 @@
   </div>
 
   {% block app_js %}
-  <script src="{% static 'js/graphlab.js' %}"></script>
-  <script src="{% static 'js/app.js' %}"></script>
+  <script src="{% asset 'js/graphlab.js' %}"></script>
+  <script src="{% asset 'js/app.js' %}"></script>
+  <script src="{% asset 'js/practice.js' %}"></script>
   {% endblock %}
   {% block extra_js %}{% endblock %}
 </body>

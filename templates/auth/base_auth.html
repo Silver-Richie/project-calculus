@@ -1,5 +1,5 @@
 {% extends 'base.html' %}
-{% load static %}
+{% load static assets %}
 {% comment %}
   LAYOUT: Halaman autentikasi & onboarding
   Branch : feat/auth-onboarding
@@ -32,5 +32,5 @@
 {% endblock %}
 
 {% block app_js %}
-<script src="{% static 'js/auth.js' %}"></script>
+<script src="{% asset 'js/auth.js' %}"></script>
 {% endblock %}

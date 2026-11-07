@@ -19,6 +19,11 @@
   <h2 class="page-heading">Peta Belajar Kalkulus</h2>
   <p class="page-subheading" id="tree-fac-desc"></p>
 
+  <!-- Archie pendamping jalur: dipindahkan ke samping topik aktif oleh Practice.refreshPath() -->
+  <div id="path-archie" class="path-archie" hidden onclick="Mascot.randomQuote()" title="Klik Archie!">
+    {% include 'components/mascot.html' with svg_id="path-archie-svg" svg_class="mascot-idle" size=78 %}
+  </div>
+
   <!-- Skill Tree Nodes: dirender oleh SkillTree.render() dari /api/curriculum/ -->
   <div class="skill-tree-wrap" id="skill-tree">
     <p class="loading-text">Memuat peta belajar…</p>

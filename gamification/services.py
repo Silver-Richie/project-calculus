@@ -7,7 +7,9 @@ pemilihan jalur belajar dan evaluasi diagnostik mudah diuji secara terpisah.
 
 from django.db.models import F, Prefetch, Q
 
-from .models import Faculty, SourceDocument, SkillNode, LessonSection, Question, Option
+from .models import (
+    Faculty, SourceDocument, SkillNode, LessonSection, Question, Option, MainLevel, Topic, PracticeSession,
+)
 
 DEFAULT_FACULTY = "fasilkom"
 
@@ -26,16 +28,21 @@ def tree_nodes(faculty):
     """
     Node skill tree untuk satu fakultas, berurutan.
 
-    Mechanism: Tahap 1–5 (materi umum, faculty = NULL) dipakai semua fakultas,
-    lalu Tahap 6–8 hanya milik fakultas yang dipilih. Node bertipe 'reference'
-    (lampiran) tidak masuk skill tree.
+    Mechanism: node diurutkan per level utama (order = level × 100 + urutan).
+    Node umum (faculty = NULL) dipakai semua fakultas; node khusus hanya milik
+    fakultas yang dipilih. Node bertipe 'reference' (lampiran) tidak masuk skill tree.
+    Sub-level kurikulum baru membawa Topic → materi + 5 PracticeSession.
     """
     return (
         SkillNode.objects.filter(kind="lesson")
         .filter(_visible_to(faculty))
-        .select_related("source_document", "faculty")
+        .select_related("source_document", "faculty", "main_level")
         .prefetch_related(
             Prefetch("sections", queryset=LessonSection.objects.order_by("order")),
+            Prefetch("topics", queryset=Topic.objects.order_by("order").prefetch_related(
+                Prefetch("sections", queryset=LessonSection.objects.select_related("source_document").order_by("order")),
+                Prefetch("sessions", queryset=PracticeSession.objects.order_by("number")),
+            )),
             Prefetch(
                 "questions",
                 queryset=Question.objects.select_related("source_document")
@@ -84,6 +91,7 @@ def serialize_node(node, with_content=True):
         "subtitle": node.subtitle,
         "summary": node.summary_html,
         "faculty": node.faculty.slug if node.faculty else None,
+        "main_level": node.main_level.slug if node.main_level_id else None,
         "source": {
             "slug": node.source_document.slug,
             "filename": node.source_document.filename,
@@ -96,10 +104,27 @@ def serialize_node(node, with_content=True):
             for s in node.sections.all()
         ]
         data["questions"] = [serialize_question(q) for q in node.questions.all()]
+        data["topics"] = [serialize_topic(t) for t in node.topics.all()]
     return data
 
 
-def build_curriculum(faculty):
+def serialize_topic(topic):
+    """Topik + materi + metadata 5 sesi (soal sesi diambil terpisah lewat /api/session/<id>/)."""
+    from .sessions import session_meta
+    return {
+        "slug": topic.slug,
+        "title": topic.title,
+        "icon": topic.icon,
+        "summary": topic.summary,
+        "references": topic.references,
+        "sections": [{"heading": s.heading, "body_html": s.body_html, "graphs": s.graphs,
+                      "source": s.source_document.filename if s.source_document_id else ""}
+                     for s in topic.sections.all()],
+        "sessions": [session_meta(s) for s in topic.sessions.all()],
+    }
+
+
+def build_curriculum(faculty, user=None):
     """
     Kurikulum lengkap satu fakultas untuk frontend.
 
@@ -132,8 +157,15 @@ def build_curriculum(faculty):
                 "items": items,
             })
 
+    from .sessions import progress_map, REQUIRED_SESSIONS
     return {
         "faculty": faculty.slug if faculty else None,
+        "main_levels": [
+            {"slug": m.slug, "title": m.title, "subtitle": m.subtitle, "icon": m.icon, "order": m.order}
+            for m in MainLevel.objects.order_by("order")
+        ],
+        "required_sessions": REQUIRED_SESSIONS,
+        "session_progress": progress_map(user) if user is not None else {},
         "tree": [serialize_node(n) for n in nodes],
         "documents": documents,
         "references": [serialize_node(r) | {"questions": []} for r in references],
@@ -214,9 +246,9 @@ def evaluate_diagnostic(faculty, answers):
     Menilai jawaban diagnostik dan menentukan titik mulai skill tree.
 
     Decision logic (lulus = proporsi benar >= PASS_RATIO tingkat itu):
-      - Mudah tidak lulus                → 'weak_foundation'    → mulai Tahap 1 (fundamental)
-      - Mudah lulus, Sedang/Sulit tidak  → 'ready_for_calculus' → mulai Tahap 2 (jalur standar)
-      - Semua tingkat lulus              → 'mastery'            → langsung ke tahap khusus fakultas
+      - Mudah tidak lulus                → 'weak_foundation'    → mulai PreCalculus (fundamental)
+      - Mudah lulus, Sedang/Sulit tidak  → 'ready_for_calculus' → mulai Kalkulus Dasar (jalur standar)
+      - Semua tingkat lulus              → 'mastery'            → langsung ke materi khusus fakultas
     """
     results = grade_answers(answers)
 
@@ -228,7 +260,8 @@ def evaluate_diagnostic(faculty, answers):
 
     levels = {lvl: summary(lvl) for lvl, _ in DIAGNOSTIC_PLAN}
     nodes = list(
-        SkillNode.objects.filter(kind="lesson").filter(_visible_to(faculty)).order_by("order", "stage_number")
+        SkillNode.objects.filter(kind="lesson").filter(_visible_to(faculty))
+        .select_related("main_level").order_by("order", "stage_number")
     )
     general = [n for n in nodes if n.faculty_id is None]
     specific = [n for n in nodes if n.faculty_id is not None]
@@ -236,14 +269,18 @@ def evaluate_diagnostic(faculty, answers):
     def slug_at(seq, i):
         return seq[min(i, len(seq) - 1)].slug if seq else None
 
+    def first_of_level(level_slug, fallback):
+        node = next((n for n in general if n.main_level and n.main_level.slug == level_slug), None)
+        return node.slug if node else fallback
+
     if not levels["basic"]["passed"]:
         evaluation = "weak_foundation"
-        recommended = slug_at(general, 0)
-        message = "Fondasi limit dan aljabar perlu diperkuat. Mulai dari Tahap 1: Fungsi dan Limit."
+        recommended = first_of_level("precalculus", slug_at(general, 0))
+        message = "Fondasi aljabar dan fungsi perlu diperkuat. Mulai dari PreCalculus: Sistem Bilangan dan Fungsi."
     elif not (levels["medium"]["passed"] and levels["high"]["passed"]):
         evaluation = "ready_for_calculus"
-        recommended = slug_at(general, 1)
-        message = "Fondasi aman. Lanjutkan jalur standar mulai Tahap 2: Turunan dan Aplikasinya."
+        recommended = first_of_level("kalkulus-dasar", slug_at(general, 1))
+        message = "Fondasi aman. Lanjutkan jalur standar mulai Kalkulus Dasar: Limit dan Kekontinuan."
     else:
         evaluation = "mastery"
         recommended = slug_at(specific, 0) or slug_at(general, 0)

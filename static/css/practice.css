@@ -1,0 +1,180 @@
+/* ════════════════════════════════════════════════════════════════
+   PRACTICE — Kurikulum 4 level: label level utama, kartu topik, sesi berlapis.
+   Dipisah dari style.css agar fitur ini bisa dikembangkan tanpa konflik merge.
+   ════════════════════════════════════════════════════════════════ */
+
+/* Judul level utama di skill tree (level utama = judul saja) */
+.tree-level-label {
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: .5rem;
+  margin: 1.25rem 0 .75rem;
+  padding: .6rem 1rem;
+  font-size: .9rem;
+  font-weight: 800;
+  letter-spacing: .03em;
+  color: #fff;
+  background: linear-gradient(90deg, var(--clr-sidebar), var(--clr-primary));
+  border-radius: var(--radius-full, 999px);
+  box-shadow: 0 3px 0 rgba(0, 0, 0, .12);
+}
+.tree-level-label:first-child { margin-top: 0; }
+.node-label small {
+  display: block;
+  font-size: .7rem;
+  font-weight: 600;
+  color: var(--clr-muted);
+}
+
+/* Kartu topik */
+.topic-progress {
+  margin: .25rem 0 1rem;
+  font-weight: 700;
+}
+.topic-progress small { font-weight: 500; color: var(--clr-muted); }
+.topic-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: .75rem;
+}
+.topic-card {
+  display: flex;
+  gap: .75rem;
+  align-items: flex-start;
+  text-align: left;
+  padding: .85rem;
+  background: var(--clr-surface);
+  border: 2px solid var(--clr-border);
+  border-bottom-width: 4px;
+  border-radius: 14px;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+  transition: transform .12s, border-color .12s;
+}
+.topic-card:hover { transform: translateY(-2px); border-color: var(--clr-primary); }
+.topic-card.done { border-color: var(--clr-growth); background: var(--clr-growth-l); }
+.topic-icon { font-size: 1.6rem; line-height: 1; }
+.topic-body { display: flex; flex-direction: column; gap: .2rem; min-width: 0; }
+.topic-num { font-size: .7rem; font-weight: 700; text-transform: uppercase; color: var(--clr-muted); }
+.topic-title { font-weight: 800; }
+.topic-sum { font-size: .8rem; color: var(--clr-text-sec); }
+.topic-dots { display: flex; gap: .3rem; margin-top: .3rem; }
+.topic-dots .dot { width: .7rem; height: .7rem; border-radius: 50%; background: var(--clr-cream); border: 1px solid var(--clr-border); }
+.topic-dots .dot-open { background: var(--clr-primary-l); border-color: var(--clr-primary); }
+.topic-dots .dot-passed { background: var(--clr-growth); border-color: var(--clr-growth-d); }
+.topic-pick { display: flex; flex-wrap: wrap; gap: .4rem; justify-content: center; margin-top: .75rem; }
+
+.btn-back { margin-bottom: .75rem; }
+.book-ref { font-size: .82rem; color: var(--clr-text-sec); border-left: 3px solid var(--clr-gold); padding-left: .6rem; }
+.lesson-note { background: var(--clr-accent-l); border-radius: 10px; padding: .6rem .8rem; font-size: .88rem; }
+.frac { display: inline-flex; flex-direction: column; vertical-align: middle; text-align: center; font-size: .85em; line-height: 1; }
+
+/* Daftar sesi */
+.session-head { display: flex; align-items: center; gap: .75rem; margin-bottom: 1rem; flex-wrap: wrap; }
+.session-list { display: flex; flex-direction: column; gap: .6rem; }
+.session-row {
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+  padding: .75rem .9rem;
+  border: 2px solid var(--clr-border);
+  border-radius: 14px;
+  background: var(--clr-surface);
+}
+.session-row.session-passed { border-color: var(--clr-growth); background: var(--clr-growth-l); }
+.session-row.session-open { border-color: var(--clr-primary); }
+.session-row.session-locked { opacity: .6; }
+.session-icon { font-size: 1.5rem; }
+.session-info { flex: 1; display: flex; flex-direction: column; gap: .15rem; min-width: 0; }
+.session-info small { color: var(--clr-text-sec); font-size: .78rem; }
+.session-result.pass h3 { color: var(--clr-growth-d); }
+.session-result.fail h3 { color: var(--clr-accent-d); }
+.session-result .offer-actions { display: flex; flex-wrap: wrap; gap: .5rem; justify-content: center; margin-top: 1rem; }
+
+@media (max-width: 560px) {
+  .session-row { flex-wrap: wrap; }
+  .session-row .btn { width: 100%; }
+}
+
+/* ════════════════════════════════════════════════════════════════
+   JALUR TOPIK (skill tree): banner sub-level + node bulat zig-zag per topik
+   ════════════════════════════════════════════════════════════════ */
+.unit-banner {
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: .35rem;
+  margin: .5rem 0 1.5rem;
+}
+.unit-banner span {
+  background: var(--clr-surface);
+  border: 2px solid var(--clr-border);
+  border-radius: 12px;
+  padding: .3rem 1rem;
+  font-weight: 800;
+  box-shadow: 0 3px 0 var(--clr-border);
+}
+.unit-level { font-size: .85rem; color: var(--clr-text-sec); }
+.unit-title { font-size: 1.15rem; color: var(--clr-text); }
+
+.unit-path { align-self: stretch; display: flex; flex-direction: column; gap: 1.6rem; padding: .5rem 0 1rem; }
+.topic-node { position: relative; display: flex; justify-content: center; }
+.topic-node-inner { position: relative; transform: translateX(var(--dx)); display: flex; flex-direction: column; align-items: center; }
+
+.topic-node-btn {
+  width: 78px;
+  height: 72px;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  background: var(--clr-accent);
+  box-shadow: 0 7px 0 var(--clr-accent-d), inset 0 -6px 0 rgba(0, 0, 0, .08);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform .12s, box-shadow .12s;
+}
+.topic-node-btn:active { transform: translateY(5px); box-shadow: 0 2px 0 var(--clr-accent-d); }
+.topic-node-icon { font-size: 2rem; filter: drop-shadow(0 2px 0 rgba(0, 0, 0, .15)); }
+.topic-active .topic-node-btn { outline: 4px solid var(--clr-accent-l); outline-offset: 5px; animation: topicPulse 1.8s ease-in-out infinite; }
+.topic-done .topic-node-btn { background: var(--clr-gold); box-shadow: 0 7px 0 #B45309; }
+.topic-locked .topic-node-btn { background: var(--clr-cream); box-shadow: 0 7px 0 var(--clr-border); cursor: not-allowed; }
+@keyframes topicPulse { 50% { outline-color: rgba(249, 115, 22, .35); } }
+
+.topic-node-label {
+  position: absolute;
+  top: 18px;
+  white-space: nowrap;
+  max-width: 240px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  background: var(--clr-surface);
+  border-radius: 10px;
+  padding: .3rem .7rem;
+  font-weight: 700;
+  font-size: .9rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, .12);
+}
+.topic-node-label.label-left { right: calc(100% + 14px); }
+.topic-node-label.label-right { left: calc(100% + 14px); }
+.topic-locked .topic-node-label { color: var(--clr-muted); }
+
+.topic-node-dots { display: flex; gap: 4px; margin-top: 12px; }
+.topic-node-dots i { width: 9px; height: 9px; border-radius: 50%; background: var(--clr-cream); border: 1px solid var(--clr-border); }
+.topic-node-dots i.on { background: var(--clr-growth); border-color: var(--clr-growth-d); }
+
+/* Archie di samping topik aktif (sisi tanpa label) */
+.path-archie { position: absolute; top: -14px; left: calc(50% + var(--dx, 0px) + 60px); cursor: pointer; animation: archieBob 2.4s ease-in-out infinite; }
+.path-archie.archie-left { left: auto; right: calc(50% - var(--dx, 0px) + 60px); }
+@keyframes archieBob { 50% { transform: translateY(-6px); } }
+.topic-card.locked { opacity: .7; }
+
+@media (max-width: 560px) {
+  .topic-node-inner { transform: translateX(calc(var(--dx) * .55)); }
+  .topic-node-label { max-width: 120px; font-size: .78rem; }
+  .path-archie { display: none; }
+}
