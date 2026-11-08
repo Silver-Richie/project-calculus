@@ -162,13 +162,16 @@ class Command(BaseCommand):
 
     def _seed_bank(self):
         """
-        Muat bank soal buku referensi (content/bank).
+        Muat bank soal buku referensi & soal tim (content/bank).
 
-        Mechanism: setiap soal menunjuk slug topik; node = sub-level topik itu dan
+        Mechanism: setiap soal menunjuk slug topik dan slug sumber; node = sub-level topik
+        itu (faculty ikut sub-level, jadi soal jalur fakultas hanya tampil di jalurnya) dan
         session = sesi topik dengan nomor TIER_OF[difficulty] (basic → I, medium → II,
         high → III). Soal ber-is_diagnostic ikut kumpulan tes diagnostik.
         """
-        doc = SourceDocument.objects.get(slug=bank.BOOK_SLUG)
+        for data in bank.DOCUMENTS:
+            SourceDocument.objects.update_or_create(slug=data["slug"], defaults={k: v for k, v in data.items() if k != "slug"})
+        docs = {d.slug: d for d in SourceDocument.objects.all()}
         topics = {t.slug: t for t in Topic.objects.select_related("node")}
         sessions = {(s.topic_id, s.number): s for s in PracticeSession.objects.all()}
         codes = set()
@@ -177,6 +180,8 @@ class Command(BaseCommand):
             topic = topics.get(data["topic"])
             if topic is None:
                 raise CommandError(f"Soal {code} menunjuk topik '{data['topic']}' yang tidak ada.")
+            if data["source"] not in docs:
+                raise CommandError(f"Soal {code} menunjuk sumber '{data['source']}' yang tidak ada.")
             if code in codes:
                 raise CommandError(f"Kode soal ganda: {code}")
             if sum(1 for _, ok in data["options"] if ok) != 1:
@@ -185,8 +190,8 @@ class Command(BaseCommand):
             self._save_question(code, {
                 "node": topic.node,
                 "session": sessions[(topic.id, bank.TIER_OF[data["difficulty"]])],
-                "source_document": doc,
-                "faculty": None,
+                "source_document": docs[data["source"]],
+                "faculty": topic.node.faculty,          # soal Kalkulus Lanjut hanya untuk jalur fakultasnya
                 "difficulty": data["difficulty"],
                 "is_diagnostic": data["is_diagnostic"],
                 "prompt": data["prompt"],
@@ -199,7 +204,7 @@ class Command(BaseCommand):
             }, data["options"])
             codes.add(code)
         n_diag = sum(1 for d in bank.QUESTIONS if d["is_diagnostic"])
-        self.stdout.write(f"  [OK] Bank soal {doc.title}: {len(codes)} soal ({n_diag} untuk diagnostik)")
+        self.stdout.write(f"  [OK] Bank soal buku & tim: {len(codes)} soal ({n_diag} untuk diagnostik)")
         return codes
 
     # ── kurikulum 4 level ──────────────────────────────────────────────────

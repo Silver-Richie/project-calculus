@@ -109,6 +109,13 @@ diterjemahkan, dijadikan 4 opsi, dan diberi pembahasan bertahap (buku hanya memu
 | `whitman_aplikasi_turunan.py` | Level 2: garis singgung, laju terkait, ekstrem, kecekungan, optimasi |
 | `whitman_integral.py` | Level 2: antiturunan, Riemann, integral tentu, TDK, substitusi |
 | `whitman_menengah.py` | Level 3: teknik integral, aplikasi integral, kutub, deret |
+| `mit_pd_parabola.py` | Level 3: PD orde satu & model, parabola (Strang 3.5, 6.3, 6.5) |
+| `mit_lanjut.py` | Level 4: multivariabel (Strang bab 11–15) + soal tim `CB-` untuk Laplace, Gamma, analisis, asimtotik |
+
+Kode `ST-<subbab>-<n>` (Strang/MIT, CC BY-NC-SA): `<n>` adalah nomor urut adaptasi, bukan nomor
+latihan buku. Kode `CB-…` adalah soal susunan tim (sumber `bank-tim`).
+Topik Kalkulus Lanjut yang sama di tiga jalur ditulis sekali dengan `kl("tp-parsial")`; saat dimuat
+soal disalin per fakultas dengan akhiran kode T/M/K dan hanya tampil di jalur fakultasnya.
 
 * Tulis soal dengan `q(code, topic, difficulty, prompt, correct, wrong, steps, explanation, diag)`
   (`_q.py`). `topic` = slug topik kurikulum; `difficulty` menentukan sesi:

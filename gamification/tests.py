@@ -10,6 +10,7 @@ from django.core.management import call_command
 from django.test import TestCase, Client
 
 from . import content
+from .content import bank
 from .models import (
     Faculty, SourceDocument, SkillNode, LessonSection, Question, UserProfile, UserProgress,
 )
@@ -69,7 +70,7 @@ class ContentSeedTests(TestCase):
         call_command("seed_gamification", stdout=io.StringIO())
 
     def test_one_document_per_source_file(self):
-        pdfs = SourceDocument.objects.exclude(category="buku")
+        pdfs = SourceDocument.objects.exclude(category="buku").exclude(slug__in=[d["slug"] for d in bank.DOCUMENTS])
         self.assertEqual(pdfs.count(), 7)
         self.assertEqual(
             list(pdfs.values_list("filename", flat=True)),
@@ -96,7 +97,7 @@ class ContentSeedTests(TestCase):
             self.assertEqual(sum(o.is_correct for o in q.options.all()), 1, q.code)
             self.assertTrue(q.steps, q.code)
             self.assertTrue(q.answer, q.code)
-            if not q.code.startswith("WH-"):   # bank soal buku (content/bank) belum memakai grafik
+            if not q.code.startswith(("WH-", "ST-", "CB-")):   # bank soal (content/bank) belum memakai grafik
                 self.assertTrue(q.graphs, f"{q.code} belum punya grafik slider")
 
     def test_graph_specs_have_valid_params(self):
@@ -631,8 +632,6 @@ class ShuffleTests(TestCase):
         self.assertEqual([(q["id"], q["options"]) for q in a], [(q["id"], q["options"]) for q in b])
 
 
-from gamification.content import bank  # noqa: E402
-
 
 class BookBankTests(TestCase):
     """Bank soal buku referensi (content/bank) termuat dan terpasang ke sesi yang benar."""
@@ -667,3 +666,21 @@ class BookBankTests(TestCase):
             for attempt in range(10):
                 seen |= {q["id"] for q in sessions.build_quiz(session, user.id, attempt) if q["id"].startswith("q:WH-")}
         self.assertGreater(len(seen), 5)
+
+
+class BankFacultyTests(TestCase):
+    """Soal Kalkulus Lanjut bersama disalin ke tiga jalur dan hanya terlihat oleh fakultasnya."""
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_gamification", stdout=io.StringIO())
+
+    def test_shared_topic_copied_per_faculty(self):
+        codes = set(Question.objects.filter(code__startswith="ST-13.2-6").values_list("code", "faculty__slug"))
+        self.assertEqual(codes, {("ST-13.2-6T", "ft"), ("ST-13.2-6M", "fmipa"), ("ST-13.2-6K", "fasilkom")})
+
+    def test_curriculum_lists_only_own_faculty_bank_questions(self):
+        data = services.build_curriculum(Faculty.objects.get(slug="ft"))
+        codes = {c for d in data["documents"] for c in d["items"] if isinstance(c, str) and c.startswith("ST-")}
+        self.assertTrue(codes)
+        self.assertFalse(any(c.endswith(("M", "K")) for c in codes))
