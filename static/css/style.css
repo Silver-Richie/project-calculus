@@ -2247,3 +2247,104 @@ form:not(.stepper-on) .dq-nav [data-step=next] { display: none; }
 .hearts-note {
   color: var(--clr-danger);
 }
+
+/* ── Latihan Bebas ─────────────────────────────────────────────────────── */
+.fp-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.fp-chip {
+  padding: 4px 12px;
+  border-radius: var(--radius-full);
+  background: var(--clr-primary-l);
+  color: var(--clr-primary-d);
+  font-size: .85rem;
+}
+
+.fp-step {
+  margin-bottom: 14px;
+  padding: 16px;
+  border: 1px solid var(--clr-border);
+  border-radius: var(--radius-md);
+  background: var(--clr-surface);
+}
+
+.fp-step-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.fp-step-title {
+  margin: 0 0 10px;
+  font-size: 1rem;
+}
+
+.fp-step-title small {
+  color: var(--clr-muted);
+  font-weight: 400;
+}
+
+.fp-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.fp-topics {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 8px;
+}
+
+.fp-topic {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 10px 12px;
+  border: 1px solid var(--clr-border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: .9rem;
+}
+
+.fp-topic.on {
+  border-color: var(--clr-primary);
+  background: var(--clr-primary-l);
+}
+
+.fp-range {
+  width: 100%;
+  accent-color: var(--clr-primary);
+}
+
+.fp-range-scale {
+  display: flex;
+  justify-content: space-between;
+  color: var(--clr-muted);
+  font-size: .8rem;
+}
+
+.fp-start {
+  width: 100%;
+}
+
+.fp-summary {
+  max-width: 420px;
+  margin: 12px auto;
+  padding: 0;
+  list-style: none;
+  text-align: left;
+}
+
+.fp-summary li {
+  display: flex;
+  justify-content: space-between;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--clr-border);
+}

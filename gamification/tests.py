@@ -779,3 +779,57 @@ class HeartsTests(TestCase):
         profile.lose_heart(t0)
         profile.lose_heart(t0 + timedelta(hours=5))
         self.assertEqual(profile.hearts_lost_at, t0)
+
+
+from . import free_practice  # noqa: E402
+
+
+class FreePracticeTests(TestCase):
+    """Latihan Bebas: pilih topik & jumlah soal, soal acak, tanpa nyawa dan tanpa XP."""
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_gamification", stdout=io.StringIO())
+
+    def setUp(self):
+        self.user = User.objects.create_user("bebas", password="rahasia-123")
+        self.client = Client()
+        self.client.force_login(self.user)
+        self.fk = Faculty.objects.get(slug="fasilkom")
+
+    def test_catalog_lists_levels_and_only_own_faculty_topics(self):
+        data = self.client.get("/api/latihan-bebas/?faculty=fasilkom").json()
+        slugs = [t["slug"] for lvl in data["levels"] for t in lvl["topics"]]
+        self.assertEqual([lvl["slug"] for lvl in data["levels"]][0], "precalculus")
+        self.assertIn("kl-fk-gd", slugs)
+        self.assertFalse(any(s.startswith(("kl-ft-", "kl-fm-")) for s in slugs))
+
+    def test_quiz_respects_count_and_mixes_chosen_topics(self):
+        topics = ["pre-fungsi-eksponensial", "pre-bilangan-real"]
+        r = self.client.post("/api/latihan-bebas/mulai/", json.dumps({"faculty": "fasilkom", "topics": topics, "count": 15}),
+                             content_type="application/json").json()
+        qs = r["questions"]
+        self.assertEqual(len(qs), 15)
+        self.assertEqual(len({q["topic"] for q in qs}), 2)
+        self.assertTrue(all(sum(o["is_correct"] for o in q["options"]) == 1 for q in qs))
+
+    def test_count_is_clamped_and_other_faculty_topics_rejected(self):
+        self.assertEqual(len(free_practice.build_quiz(self.fk, ["pre-bilangan-real"], 99)), free_practice.MAX_QUESTIONS)
+        r = self.client.post("/api/latihan-bebas/mulai/", json.dumps({"faculty": "fasilkom", "topics": ["kl-ft-laplace"], "count": 5}),
+                             content_type="application/json")
+        self.assertEqual(r.status_code, 400)
+
+    def test_does_not_touch_hearts_or_xp(self):
+        profile = UserProfile.objects.get_or_create(user=self.user)[0]
+        profile.hearts, profile.hearts_lost_at = 0, timezone.now()
+        profile.save()
+        r = self.client.post("/api/latihan-bebas/mulai/", json.dumps({"faculty": "fasilkom", "topics": ["kd-tur-rantai"], "count": 5}),
+                             content_type="application/json")
+        self.assertEqual(r.status_code, 200)          # nyawa 0 tetap boleh latihan bebas
+        profile.refresh_from_db()
+        self.assertEqual((profile.hearts, profile.xp), (0, 0))
+
+    def test_questions_differ_between_requests(self):
+        a = free_practice.build_quiz(self.fk, ["kd-tur-rantai"], 10)
+        b = free_practice.build_quiz(self.fk, ["kd-tur-rantai"], 10)
+        self.assertNotEqual([q["prompt"] for q in a], [q["prompt"] for q in b])

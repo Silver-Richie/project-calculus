@@ -255,7 +255,7 @@ const State = (() => {
    NAV — Bottom navigation + page routing
    ════════════════════════════════════════════════════════════════ */
 const Nav = (() => {
-  const pages = ['levelup', 'lesson', 'rank', 'user'];
+  const pages = ['levelup', 'lesson', 'free', 'rank', 'user'];
 
   return {
     go(page) {
@@ -267,6 +267,7 @@ const Nav = (() => {
         if (sec) sec.classList.toggle('active', p === page);
         if (btn) btn.classList.toggle('active', p === page);
       });
+      if (page === 'free' && typeof FreePractice !== 'undefined') FreePractice.render();
     },
   };
 })();
@@ -626,6 +627,7 @@ const QuizEngine = (() => {
     if (idx >= questions.length) {
       QuizBoard.hide();
       if (mode === 'session') { Practice.finish(answers); return; }
+      if (mode === 'free') { FreePractice.finish(answers); return; }
       showComplete();
       return;
     }
@@ -729,6 +731,7 @@ const QuizEngine = (() => {
       const correct = q.options.findIndex((o) => o.is_correct);
       answered = true;
       if (mode === 'session') answers.push({ id: q.id, option: q.options[sel].id });
+      if (mode === 'free') answers.push({ id: q.id, topic: q.topic, correct: sel === correct });
       btn.disabled = true;
       const hintBtn = document.getElementById('btn-hint');
       if (hintBtn) hintBtn.disabled = true;
@@ -924,6 +927,8 @@ const Drawer = (() => {
       const container = document.getElementById('quiz-container');
       if (quizMode === 'topic') {
         Practice.renderSessions();
+      } else if (quizMode === 'free') {
+        FreePractice.renderQuiz();
       } else if (quizMode === 'practice') {
         const { q } = Curriculum.question(practiceCode);
         QuizEngine.start(current, [q], 'practice');
