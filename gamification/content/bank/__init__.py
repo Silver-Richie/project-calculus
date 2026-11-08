@@ -27,6 +27,7 @@ lalu disalin per fakultas oleh ``expand``.
 
 from . import (
     mit_lanjut, mit_pd_parabola, tambahan_lanjut, tambahan_menengah, tambahan_precalc_dasar,
+    tambahan3_menengah_lanjut, tambahan3_precalc_dasar,
     whitman_aplikasi_turunan, whitman_integral, whitman_limit_turunan, whitman_menengah, whitman_precalc,
 )
 from ._q import expand
@@ -51,4 +52,6 @@ QUESTIONS = expand([
     *tambahan_precalc_dasar.QUESTIONS,     # putaran 2: menutup kekurangan per topik
     *tambahan_menengah.QUESTIONS,
     *tambahan_lanjut.QUESTIONS,
+    *tambahan3_precalc_dasar.QUESTIONS,    # putaran 3: tambahan tiap level + sumber tes diagnostik
+    *tambahan3_menengah_lanjut.QUESTIONS,
 ])
