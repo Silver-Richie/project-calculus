@@ -159,10 +159,36 @@ const Practice = (() => {
     if (startBtn) { startBtn.hidden = false; startBtn.textContent = 'Lanjut ke Latihan Bertahap ➔'; }
   }
 
+  /* ── nyawa ─────────────────────────────────────────────────────────── */
+  /** Panel nyawa habis: sesi terkunci sampai nyawa terisi ulang (materi tetap bisa dibaca). */
+  function noHeartsHTML() {
+    return `
+      <div class="level-complete hearts-out">
+        <div class="trophy-anim">💔</div>
+        <h3>Nyawamu habis</h3>
+        <p>Nyawa berkurang setiap kali gagal lulus sesi. Semua ${State.get().maxHearts} nyawa penuh kembali dalam
+          <strong>${State.refillText()}</strong>.</p>
+        <p class="lesson-note">Sambil menunggu, kamu tetap bisa membaca materi dan berlatih di Bank Soal (tanpa nyawa).</p>
+        <div class="offer-actions">
+          <button class="btn btn-outline" onclick="Drawer.switchTab('materi')">📖 Baca materi</button>
+          <button class="btn btn-outline" onclick="Practice.renderSessions()">Daftar sesi</button>
+        </div>
+      </div>`;
+  }
+
+  function showNoHearts(hearts) {
+    if (hearts) State.setHearts(hearts);
+    QuizBoard.hide();
+    document.getElementById('quiz-container').innerHTML = noHeartsHTML();
+    SFX.wrong();
+    Mascot.setMood('comfort', `💔 Nyawa habis. Istirahat dulu, nyawa penuh lagi dalam ${State.refillText()}.`);
+  }
+
   /* ── tampilan sesi ───────────────────────────────────────────────── */
   function renderSessions() {
     const box = document.getElementById('quiz-container');
     if (!box) return;
+    QuizBoard.hide();
     if (!topic) {
       box.innerHTML = `
         <div class="level-complete">
@@ -175,7 +201,9 @@ const Practice = (() => {
         </div>`;
       return;
     }
+    const noHearts = !State.hasHearts();
     box.innerHTML = `
+      ${noHearts ? `<div class="hearts-banner">💔 Nyawa habis: sesi terkunci. Penuh lagi dalam <b>${State.refillText()}</b>.</div>` : ''}
       <div class="session-head">
         <button class="btn btn-outline btn-sm" onclick="Practice.backToTopics()">← Topik</button>
         <span>${topic.icon} <b>${topic.title}</b></span>
@@ -193,22 +221,24 @@ const Practice = (() => {
                 <small>${s.question_count} soal · lulus ≥ ${s.pass_score} · ${s.xp_per_question} XP/soal · ${req ? 'wajib' : 'bonus'}</small>
                 ${p ? `<small>Skor terbaik ${p.best}/${s.question_count} · ${p.attempts}× dicoba</small>` : ''}
               </span>
-              <button class="btn ${st === 'passed' ? 'btn-outline' : 'btn-primary'} btn-sm" ${st === 'locked' ? 'disabled' : ''}
+              <button class="btn ${st === 'passed' ? 'btn-outline' : 'btn-primary'} btn-sm" ${st === 'locked' || noHearts ? 'disabled' : ''}
                       onclick="Practice.start(${s.id})">${st === 'passed' ? 'Ulangi (soal baru)' : st === 'open' ? 'Mulai ➔' : 'Terkunci'}</button>
             </div>`;
         }).join('')}
       </div>
       <p class="graph-hint">🎲 Soal setiap sesi diacak khusus untuk akunmu. Mengulang sesi memberi angka baru;
-        XP hanya bertambah bila skor terbaikmu naik.</p>`;
+        XP hanya bertambah bila skor terbaikmu naik. ❤️ Gagal lulus sesi mengurangi 1 nyawa.</p>`;
   }
 
   async function start(sessionId) {
     const box = document.getElementById('quiz-container');
+    if (!State.hasHearts()) { showNoHearts(); return; }
     box.innerHTML = '<p class="loading-text">Menyiapkan soal acak untukmu…</p>';
     SFX.click();
     try {
       const res = await fetch(`/api/session/${sessionId}/`);
       const data = await res.json();
+      if (data.status === 'no_hearts') { showNoHearts(data.hearts); return; }
       if (!res.ok) throw new Error(data.message || `HTTP ${res.status}`);
       running = { session: data.session, attempt: data.attempt };
       QuizEngine.start(node.slug, data.questions, 'session');
@@ -225,6 +255,7 @@ const Practice = (() => {
     try {
       r = await postJSON(`/api/session/${running.session.id}/submit/`, { attempt: running.attempt, answers });
     } catch (err) {
+      if (err.data?.status === 'no_hearts') { showNoHearts(err.data.hearts); return; }
       box.innerHTML = `<div class="level-complete"><div class="trophy-anim">⚠️</div><h3>Gagal menilai</h3>
         <p>${err.message}</p><button class="btn btn-primary" onclick="Practice.renderSessions()">Kembali</button></div>`;
       return;
@@ -232,10 +263,13 @@ const Practice = (() => {
     const s = running.session;
     Curriculum.setSessionProgress(s.id, { attempts: r.attempts, best: r.best, last: r.score, passed: r.passed || !!Curriculum.sessionProgress(s.id)?.passed });
     if (r.xp_awarded) State.addXP(r.xp_awarded);
+    if (r.hearts) State.setHearts(r.hearts);
     if (r.passed) { SFX.fanfare(); Confetti.burst(); } else SFX.wrong();
     if (r.node_completed) State.completeNode(node.slug, r.next_node || Curriculum.nextOf(node.slug));
     Mascot.setMood(r.passed ? 'celebrate' : 'comfort',
-      r.passed ? '🏆 Sesi lulus! Sesi berikutnya terbuka.' : 'Hampir! Baca lagi pembahasannya lalu coba dengan soal baru.');
+      r.passed ? '🏆 Sesi lulus! Sesi berikutnya terbuka.'
+        : !State.hasHearts() ? `💔 Nyawa habis. Nyawa penuh lagi dalam ${State.refillText()}.`
+        : 'Hampir! Baca lagi pembahasannya lalu coba dengan soal baru.');
 
     const next = topic.sessions.find((x) => x.number === s.number + 1);
     box.innerHTML = `
@@ -244,10 +278,12 @@ const Practice = (() => {
         <h3>${s.title}: ${r.score}/${r.total}</h3>
         <p>${r.passed ? 'Lulus!' : `Belum lulus — perlu minimal ${r.pass_score} benar.`}
            ${r.xp_awarded ? ` <strong>+${r.xp_awarded} XP</strong>` : ''}</p>
+        ${r.heart_lost ? `<p class="lesson-note hearts-note">💔 −1 Nyawa · sisa ${State.get().hearts}/${State.get().maxHearts}${
+          State.hasHearts() ? '' : `. Nyawa habis, penuh lagi dalam ${State.refillText()}.`}</p>` : ''}
         ${r.node_completed ? '<p class="lesson-note">🎉 Semua topik sub-level ini tuntas! Sub-level berikutnya terbuka di Peta Belajar.</p>'
           : r.topic_done && s.number === Curriculum.requiredSessions ? '<p class="lesson-note">✅ Topik tuntas! Sesi IV–V tersedia sebagai tantangan bonus.</p>' : ''}
         <div class="offer-actions">
-          <button class="btn btn-outline" onclick="Practice.start(${s.id})">🔁 Ulangi (soal baru)</button>
+          ${State.hasHearts() ? `<button class="btn btn-outline" onclick="Practice.start(${s.id})">🔁 Ulangi (soal baru)</button>` : ''}
           ${r.passed && next ? `<button class="btn btn-primary" onclick="Practice.start(${next.id})">Lanjut ${next.title} ➔</button>` : ''}
           <button class="btn btn-outline" onclick="Practice.renderSessions()">Daftar sesi</button>
         </div>
