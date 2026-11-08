@@ -96,7 +96,8 @@ class ContentSeedTests(TestCase):
             self.assertEqual(sum(o.is_correct for o in q.options.all()), 1, q.code)
             self.assertTrue(q.steps, q.code)
             self.assertTrue(q.answer, q.code)
-            self.assertTrue(q.graphs, f"{q.code} belum punya grafik slider")
+            if not q.code.startswith("WH-"):   # bank soal buku (content/bank) belum memakai grafik
+                self.assertTrue(q.graphs, f"{q.code} belum punya grafik slider")
 
     def test_graph_specs_have_valid_params(self):
         specs = [g for q in Question.objects.all() for g in q.graphs]
@@ -152,7 +153,7 @@ class GamificationApiTests(TestCase):
         self.assertEqual(len(codes), 10)
         levels = [q["difficulty"] for q in data["questions"]]
         self.assertEqual((levels.count("basic"), levels.count("medium"), levels.count("high")), (5, 3, 2))
-        self.assertTrue(all(c.startswith(("FK-", "U-")) for c in codes))
+        self.assertTrue(all(c.startswith(("FK-", "U-", "WH-")) for c in codes))
         for q in data["questions"]:
             self.assertNotIn("steps", q)
             for o in q["options"]:
@@ -298,9 +299,19 @@ class AuthOnboardingTests(TestCase):
     def test_diagnostic_incomplete_answers_rejected(self):
         self._register()
         self.client.post("/auth/fakultas/", {"faculty": "ft"})
+        shown = [q.code for q in self.client.get("/auth/tes-awal/mulai/").context["questions"]]
         response = self.client.post("/auth/tes-awal/mulai/", {})
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Jawab semua soal")
+        # Soal yang sama ditampilkan ulang, bukan undian baru.
+        self.assertEqual([q.code for q in response.context["questions"]], shown)
+
+    def test_diagnostic_post_without_shown_questions_draws_new_set(self):
+        self._register()
+        self.client.post("/auth/fakultas/", {"faculty": "ft"})
+        response = self.client.post("/auth/tes-awal/mulai/", {})
+        self.assertContains(response, "Sesi tes kedaluwarsa")
+        self.assertEqual(len(response.context["questions"]), 10)
 
     def test_set_faculty_api_requires_login_and_saves(self):
         self.assertEqual(self.client.post("/api/profile/faculty/", "{}", content_type="application/json").status_code, 302)
@@ -566,14 +577,19 @@ class ShuffleTests(TestCase):
         cls.faculty = Faculty.objects.get(slug="ft")
         cls.user = User.objects.create_user("acak", password="x")
 
-    def test_diagnostic_keeps_same_plan_but_varies_order(self):
-        base = sorted(q.code for q in services.diagnostic_questions(self.faculty, random.Random(0)))
-        orders = set()
+    def test_diagnostic_keeps_plan_but_varies_questions(self):
+        """Komposisi 5/3/2 tetap, tetapi isi dan urutan soal berganti antar-percobaan."""
+        sets, orders = set(), set()
         for s in range(20):
             qs = services.diagnostic_questions(self.faculty, random.Random(s))
-            self.assertEqual(sorted(q.code for q in qs), base)   # komposisi 5/3/2 tetap
+            counts = {lvl: sum(q.difficulty == lvl for q in qs) for lvl, _ in services.DIAGNOSTIC_PLAN}
+            self.assertEqual(counts, dict(services.DIAGNOSTIC_PLAN))
+            self.assertEqual(len({q.code for q in qs}), len(qs))      # tidak ada soal ganda
+            self.assertTrue(any(q.faculty_id == self.faculty.id for q in qs))  # konteks prodi tetap ada
+            sets.add(frozenset(q.code for q in qs))
             orders.add(tuple(q.code for q in qs))
-        self.assertGreater(len(orders), 1)
+        self.assertGreater(len(sets), 10)
+        self.assertGreater(len(orders), 10)
 
     def test_diagnostic_grading_unaffected_by_shuffle(self):
         qs = services.diagnostic_questions(self.faculty, random.Random(7))
@@ -613,3 +629,41 @@ class ShuffleTests(TestCase):
         a = sessions.build_quiz(session, self.user.id, 5)
         b = sessions.build_quiz(session, self.user.id, 5)
         self.assertEqual([(q["id"], q["options"]) for q in a], [(q["id"], q["options"]) for q in b])
+
+
+from gamification.content import bank  # noqa: E402
+
+
+class BookBankTests(TestCase):
+    """Bank soal buku referensi (content/bank) termuat dan terpasang ke sesi yang benar."""
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_gamification", stdout=io.StringIO())
+
+    def test_all_bank_questions_seeded_to_matching_session(self):
+        codes = [d["code"] for d in bank.QUESTIONS]
+        self.assertEqual(len(codes), len(set(codes)))
+        qs = {q.code: q for q in Question.objects.filter(code__in=codes).select_related("session__topic", "node")}
+        self.assertEqual(len(qs), len(codes))
+        for d in bank.QUESTIONS:
+            q = qs[d["code"]]
+            self.assertEqual(q.session.topic.slug, d["topic"])
+            self.assertEqual(q.session.number, bank.TIER_OF[d["difficulty"]])
+            self.assertEqual(q.node_id, q.session.topic.node_id)
+            self.assertEqual(q.options.filter(is_correct=True).count(), 1)
+            self.assertEqual(q.options.count(), 4)
+
+    def test_every_bank_difficulty_has_diagnostic_questions(self):
+        for level, count in services.DIAGNOSTIC_PLAN:
+            n = sum(1 for d in bank.QUESTIONS if d["is_diagnostic"] and d["difficulty"] == level)
+            self.assertGreaterEqual(n, count, level)
+
+    def test_bank_questions_appear_in_sessions(self):
+        """Soal buku muncul di sesi latihan (lewat soal tetap sesi maupun bank tambahan sub-level)."""
+        user = User.objects.create_user("bank", password="x")
+        seen = set()
+        for session in PracticeSession.objects.filter(topic__slug="kd-tur-rantai"):
+            for attempt in range(10):
+                seen |= {q["id"] for q in sessions.build_quiz(session, user.id, attempt) if q["id"].startswith("q:WH-")}
+        self.assertGreater(len(seen), 5)

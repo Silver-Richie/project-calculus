@@ -14,7 +14,9 @@ Mechanism:
     3. Muat kurikulum 4 level utama (content/levels): MainLevel, sub-level (SkillNode),
        Topic + materi, 5 PracticeSession per topik + QuestionTemplate dari registry generator.
        Node lama ditempatkan ke level utama lewat LEGACY_PLACEMENT.
-    4. Hapus node & soal lama yang tidak lagi ada di konten (kecuali --keep-stale),
+    4. Muat bank soal buku referensi (content/bank): tiap soal menunjuk topik, lalu
+       dipasang ke sub-level & sesi sesuai tingkat kesulitan (lihat content/bank/__init__.py).
+    5. Hapus node & soal lama yang tidak lagi ada di konten (kecuali --keep-stale),
        sehingga database selalu sama dengan berkas konten.
 Semua langkah berjalan dalam satu transaksi: jika validasi gagal, tidak ada yang berubah.
 """
@@ -26,7 +28,7 @@ from django.db import transaction
 from django.db.models import Max
 
 from gamification import content, generators
-from gamification.content import levels
+from gamification.content import bank, levels
 from gamification.models import (
     Faculty, SourceDocument, SkillNode, LessonSection, Question, Option,
     MainLevel, Topic, PracticeSession, QuestionTemplate,
@@ -59,6 +61,7 @@ class Command(BaseCommand):
                 question_codes.add(self._seed_question(q_data, doc).code)
 
         node_slugs |= self._seed_levels()
+        question_codes |= self._seed_bank()
 
         if not options["keep_stale"]:
             stale_nodes = SkillNode.objects.exclude(slug__in=node_slugs)
@@ -144,7 +147,11 @@ class Command(BaseCommand):
         }
         if data:
             raise CommandError(f"Soal {code}: field tidak dikenal {sorted(data)}")
+        return self._save_question(code, defaults, options)
 
+    @staticmethod
+    def _save_question(code, defaults, options):
+        """Upsert soal (kunci: code) lalu tulis ulang opsinya."""
         question, _ = Question.objects.update_or_create(code=code, defaults=defaults)
         question.options.all().delete()
         Option.objects.bulk_create([
@@ -152,6 +159,48 @@ class Command(BaseCommand):
             for i, (text, ok) in enumerate(options)
         ])
         return question
+
+    def _seed_bank(self):
+        """
+        Muat bank soal buku referensi (content/bank).
+
+        Mechanism: setiap soal menunjuk slug topik; node = sub-level topik itu dan
+        session = sesi topik dengan nomor TIER_OF[difficulty] (basic → I, medium → II,
+        high → III). Soal ber-is_diagnostic ikut kumpulan tes diagnostik.
+        """
+        doc = SourceDocument.objects.get(slug=bank.BOOK_SLUG)
+        topics = {t.slug: t for t in Topic.objects.select_related("node")}
+        sessions = {(s.topic_id, s.number): s for s in PracticeSession.objects.all()}
+        codes = set()
+        for data in bank.QUESTIONS:
+            code = data["code"]
+            topic = topics.get(data["topic"])
+            if topic is None:
+                raise CommandError(f"Soal {code} menunjuk topik '{data['topic']}' yang tidak ada.")
+            if code in codes:
+                raise CommandError(f"Kode soal ganda: {code}")
+            if sum(1 for _, ok in data["options"] if ok) != 1:
+                raise CommandError(f"Soal {code} harus punya tepat satu opsi benar.")
+            self._question_order[topic.node.slug] += 1
+            self._save_question(code, {
+                "node": topic.node,
+                "session": sessions[(topic.id, bank.TIER_OF[data["difficulty"]])],
+                "source_document": doc,
+                "faculty": None,
+                "difficulty": data["difficulty"],
+                "is_diagnostic": data["is_diagnostic"],
+                "prompt": data["prompt"],
+                "steps": data["steps"],
+                "answer": data["answer"],
+                "explanation": data["explanation"],
+                "graphs": [],
+                "xp_reward": 20,
+                "order": self._question_order[topic.node.slug],
+            }, data["options"])
+            codes.add(code)
+        n_diag = sum(1 for d in bank.QUESTIONS if d["is_diagnostic"])
+        self.stdout.write(f"  [OK] Bank soal {doc.title}: {len(codes)} soal ({n_diag} untuk diagnostik)")
+        return codes
 
     # ── kurikulum 4 level ──────────────────────────────────────────────────
     def _seed_levels(self):

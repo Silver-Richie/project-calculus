@@ -149,7 +149,7 @@ def build_curriculum(faculty, user=None):
 
     documents = []
     for doc in SourceDocument.objects.filter(_visible_to(faculty)).order_by("order"):
-        if doc.category == "soal":
+        if doc.category in ("soal", "buku"):
             items = [q.code for n in nodes for q in n.questions.all() if q.source_document_id == doc.id]
         else:
             items = [n.slug for n in nodes if n.source_document_id == doc.id]
@@ -197,9 +197,10 @@ def diagnostic_questions(faculty, rng=None):
     """
     Soal tes diagnostik sesuai DIAGNOSTIC_PLAN (5 mudah, 3 sedang, 2 sulit), diacak.
 
-    Mechanism: untuk tiap tingkat, soal bertanda is_diagnostic dikumpulkan (soal
-    fakultas pengguna diutamakan, lalu soal umum). Bila stok lebih banyak dari
-    kuota, kandidat diambil acak dari kelompok yang sama prioritasnya. Lalu urutan
+    Mechanism: untuk tiap tingkat, kumpulan soal bertanda is_diagnostic dibagi dua:
+    soal fakultas pengguna dan soal umum (termasuk bank soal buku referensi).
+    Sekitar separuh kuota (count // 2) diambil acak dari soal fakultas agar tes tetap
+    menguji konteks prodi; sisanya diundi dari semua soal yang tersisa. Lalu urutan
     10 soal dan urutan opsi tiap soal dikocok Fisher-Yates (`random.shuffle`).
     Penilaian memakai kode soal & id opsi database, jadi pengacakan tidak
     memengaruhi skor.
@@ -214,15 +215,45 @@ def diagnostic_questions(faculty, rng=None):
             .prefetch_related(Prefetch("options", queryset=Option.objects.order_by("order")))
         )
         own = [q for q in qs if q.faculty_id is not None]
-        general = [q for q in qs if q.faculty_id is None]
         rng.shuffle(own)
-        rng.shuffle(general)
-        picked.extend((own + general)[:count])
+        chosen = own[: count // 2]
+        rest = [q for q in qs if q not in chosen]
+        rng.shuffle(rest)
+        picked.extend(chosen + rest[: count - len(chosen)])
     rng.shuffle(picked)
     for q in picked:
         q.shuffled_options = list(q.options.all())
         rng.shuffle(q.shuffled_options)
     return picked
+
+
+def diagnostic_snapshot(questions):
+    """Urutan soal & opsi yang ditampilkan, dalam bentuk yang bisa disimpan di session."""
+    return [[q.code, [o.id for o in q.shuffled_options]] for q in questions]
+
+
+def diagnostic_from_snapshot(snapshot):
+    """
+    Bangun ulang soal diagnostik persis seperti saat ditampilkan (lihat diagnostic_snapshot).
+
+    Mechanism: pengundian bersifat acak, jadi formulir yang dikirim harus dinilai
+    terhadap soal yang benar-benar dilihat pengguna, bukan undian baru. Mengembalikan
+    None bila snapshot kosong atau tidak cocok lagi dengan database (mis. setelah seed ulang).
+    """
+    if not snapshot:
+        return None
+    codes = [code for code, _ in snapshot]
+    by_code = {q.code: q for q in Question.objects.filter(code__in=codes, is_diagnostic=True)
+               .select_related("source_document", "node").prefetch_related("options")}
+    out = []
+    for code, opt_ids in snapshot:
+        q = by_code.get(code)
+        opts = {o.id: o for o in q.options.all()} if q else {}
+        if not q or set(opts) != set(opt_ids):
+            return None
+        q.shuffled_options = [opts[i] for i in opt_ids]
+        out.append(q)
+    return out
 
 
 def grade_answers(answers):

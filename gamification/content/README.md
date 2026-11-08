@@ -95,3 +95,25 @@ UserSessionProgress (user × sesi: attempts, best_score, passed)
 * Soal lama milik fakultas (FT-/FM-/FK-) menjadi soal tetap sesi dan hanya diundi untuk user fakultas itu (`sessions._pool`).
 * Penggabungan konten lama diatur per modul level: `ABSORB_NODES`, `ABSORB_SECTIONS` (boleh daftar topik → disalin),
   `FIXED_QUESTIONS`, `MOVE_QUESTIONS`.
+
+## Bank soal buku referensi (`content/bank/`)
+
+Soal pilihan ganda yang diadaptasi dari **Whitman Calculus** (D. Guichard dkk., lisensi
+CC BY-NC-SA 4.0). Kode `WH-<bagian>-<nomor>` menunjuk latihan asli di buku; teks
+diterjemahkan, dijadikan 4 opsi, dan diberi pembahasan bertahap (buku hanya memuat kunci).
+
+| Berkas | Isi |
+|---|---|
+| `whitman_precalc.py` | Level 1: garis, lingkaran, domain, trigonometri, eksponen, logaritma |
+| `whitman_limit_turunan.py` | Level 2: limit, kekontinuan, aturan turunan, implisit |
+| `whitman_aplikasi_turunan.py` | Level 2: garis singgung, laju terkait, ekstrem, kecekungan, optimasi |
+| `whitman_integral.py` | Level 2: antiturunan, Riemann, integral tentu, TDK, substitusi |
+| `whitman_menengah.py` | Level 3: teknik integral, aplikasi integral, kutub, deret |
+
+* Tulis soal dengan `q(code, topic, difficulty, prompt, correct, wrong, steps, explanation, diag)`
+  (`_q.py`). `topic` = slug topik kurikulum; `difficulty` menentukan sesi:
+  `basic` → Sesi I, `medium` → Sesi II, `high` → Sesi III.
+* Soal juga ikut diundi di sesi lain pada sub-level yang sama dengan tingkat kesulitan cocok
+  (`sessions._extra_pool`), dan `diag=True` memasukkannya ke kumpulan tes diagnostik.
+* Opsi selalu diacak saat ditampilkan, jadi urutan penulisan opsi tidak penting.
+* Buku Stewart berhak cipta: jangan menyalin soalnya ke sini.

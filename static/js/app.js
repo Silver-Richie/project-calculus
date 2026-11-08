@@ -421,7 +421,7 @@ const SkillTree = (() => {
    CATALOGUE — Halaman Lesson, dikelompokkan per berkas sumber
    ════════════════════════════════════════════════════════════════ */
 const Catalogue = (() => {
-  const CAT_ICON = { materi: '📖', soal: '📝', lampiran: '📚' };
+  const CAT_ICON = { materi: '📖', soal: '📝', lampiran: '📚', buku: '📕' };
 
   function nodeCard(n) {
     return `
@@ -478,7 +478,7 @@ const Catalogue = (() => {
             ${doc.subtitle ? `<p class="doc-sub">${doc.subtitle}</p>` : ''}
           </div>
         </header>
-        ${doc.category === 'soal'
+        ${doc.category === 'soal' || doc.category === 'buku'
           ? `<div class="qbank-list">${doc.items.map(questionRow).join('')}</div>`
           : `<div class="lesson-grid">${doc.items.map((slug) => Curriculum.node(slug)).filter(Boolean).map(nodeCard).join('')}</div>`}
       </section>`).join('');
