@@ -272,7 +272,7 @@ const Practice = (() => {
         : 'Hampir! Baca lagi pembahasannya lalu coba dengan soal baru.');
 
     const next = topic.sessions.find((x) => x.number === s.number + 1);
-    box.innerHTML = `
+    box.innerHTML = Review.tabs(`
       <div class="level-complete session-result ${r.passed ? 'pass' : 'fail'}">
         <div class="trophy-anim">${r.passed ? '🏆' : '📚'}</div>
         <h3>${s.title}: ${r.score}/${r.total}</h3>
@@ -287,7 +287,7 @@ const Practice = (() => {
           ${r.passed && next ? `<button class="btn btn-primary" onclick="Practice.start(${next.id})">Lanjut ${next.title} ➔</button>` : ''}
           <button class="btn btn-outline" onclick="Practice.renderSessions()">Daftar sesi</button>
         </div>
-      </div>`;
+      </div>`, QuizEngine.history());
     SkillTree.refreshStates();
   }
 

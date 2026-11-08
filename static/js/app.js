@@ -585,6 +585,7 @@ const QuizEngine = (() => {
   let answered = false;
   let mode = 'level';      // 'level' | 'practice' | 'session'
   let answers = [];        // mode session: [{ id, option }] dikirim ke server di akhir sesi
+  let history = [];        // semua mode kecuali 'practice': [{ q, chosen }] untuk tab Pembahasan
 
   /** Hint = langkah pembahasan kecuali langkah terakhir (agar jawaban tidak langsung bocor). */
   function hintsOf(q) {
@@ -711,6 +712,7 @@ const QuizEngine = (() => {
       mode = m;
       idx = 0;
       answers = [];
+      history = [];
       render();
     },
 
@@ -731,6 +733,7 @@ const QuizEngine = (() => {
       const correct = q.options.findIndex((o) => o.is_correct);
       answered = true;
       if (mode === 'session') answers.push({ id: q.id, option: q.options[sel].id });
+      if (mode !== 'practice') history.push({ q, chosen: sel });
       if (mode === 'free') answers.push({ id: q.id, topic: q.topic, correct: sel === correct });
       btn.disabled = true;
       const hintBtn = document.getElementById('btn-hint');
@@ -801,6 +804,9 @@ const QuizEngine = (() => {
     },
 
     /** Mode latihan: tampilkan pembahasan tanpa menjawab. */
+    /** Soal yang sudah dijawab beserta pilihan pengguna (untuk tab Pembahasan di layar hasil). */
+    history: () => history.slice(),
+
     reveal() {
       const q = questions[idx];
       if (q) revealPembahasan(q);
@@ -948,6 +954,85 @@ const Drawer = (() => {
     },
 
     get current() { return current; },
+  };
+})();
+
+/* ════════════════════════════════════════════════════════════════
+   REVIEW — tab Ringkasan & Pembahasan di layar hasil (sesi Skill Tree
+   dan Latihan Bebas). Setiap soal bisa dibuka: jawabanmu, jawaban benar,
+   langkah pembahasan, catatan konsep, dan grafik slider (dimuat saat dibuka).
+   ════════════════════════════════════════════════════════════════ */
+const Review = (() => {
+  let items = [];
+
+  const rightIndex = (q) => q.options.findIndex((o) => o.is_correct);
+
+  function itemHTML({ q, chosen }, i) {
+    const right = rightIndex(q);
+    const ok = chosen === right;
+    return `
+      <details class="rv-item ${ok ? 'ok' : 'bad'}" data-i="${i}" ontoggle="Review.mountGraphs(this)">
+        <summary>
+          <span class="rv-num">${i + 1}</span>
+          <span class="rv-status">${ok ? '✅ Benar' : '❌ Salah'}</span>
+          ${q.topic ? `<span class="rv-topic">${q.topic}</span>` : ''}
+          <span class="rv-code">${q.code || ''}</span>
+        </summary>
+        <div class="quiz-prompt">${q.prompt}</div>
+        <ul class="rv-options">${q.options.map((o, j) => `
+          <li class="${j === right ? 'is-right' : ''} ${j === chosen && !ok ? 'is-wrong' : ''}">
+            <span class="opt-letter">${'ABCDEF'[j]}</span><span>${o.text}</span>
+            ${j === right ? '<b class="rv-tag">✓ Jawaban benar</b>' : ''}${j === chosen && !ok ? '<b class="rv-tag">✗ Jawabanmu</b>' : ''}
+          </li>`).join('')}
+        </ul>
+        <div class="pembahasan">
+          <h5>📚 Pembahasan</h5>
+          <ol class="steps-list">${(q.steps || []).map((st) => `<li>${st}</li>`).join('')}</ol>
+          <div class="answer-box"><strong>Jawaban:</strong> ${q.answer || ''}</div>
+          ${q.explanation ? `<p class="expl-note">💬 ${q.explanation}</p>` : ''}
+          ${(q.graphs || []).length ? '<div class="rv-graphs"></div>' : ''}
+        </div>
+      </details>`;
+  }
+
+  return {
+    /** Bungkus HTML ringkasan dengan tab Ringkasan & Pembahasan untuk soal-soal di `history`. */
+    tabs(summaryHTML, history) {
+      items = history || [];
+      const wrong = items.filter((h) => h.chosen !== rightIndex(h.q)).length;
+      if (!items.length) return summaryHTML;
+      return `
+        <div class="rv-tabs">
+          <button class="rv-tab active" data-pane="sum" onclick="Review.show('sum')">📊 Ringkasan</button>
+          <button class="rv-tab" data-pane="rev" onclick="Review.show('rev')">📚 Pembahasan (${items.length} soal${wrong ? `, ${wrong} salah` : ''})</button>
+        </div>
+        <div class="rv-pane active" id="rv-pane-sum">${summaryHTML}</div>
+        <div class="rv-pane" id="rv-pane-rev">
+          <div class="rv-toolbar">
+            <label><input type="checkbox" onchange="Review.onlyWrong(this.checked)"> Hanya soal yang salah</label>
+            <button class="btn btn-outline btn-sm" onclick="Review.openAll()">Buka semua</button>
+          </div>
+          ${items.map(itemHTML).join('')}
+        </div>`;
+    },
+    show(pane) {
+      document.querySelectorAll('.rv-tab').forEach((t) => t.classList.toggle('active', t.dataset.pane === pane));
+      document.querySelectorAll('.rv-pane').forEach((p) => p.classList.toggle('active', p.id === `rv-pane-${pane}`));
+      document.querySelector('.drawer-body')?.scrollTo({ top: 0 });
+      SFX.click();
+    },
+    onlyWrong(on) {
+      document.querySelectorAll('.rv-item.ok').forEach((el) => { el.hidden = on; });
+    },
+    openAll() {
+      document.querySelectorAll('.rv-item').forEach((el) => { if (!el.hidden) el.open = true; });
+    },
+    /** Grafik slider baru dibuat saat soal dibuka, agar daftar panjang tetap ringan. */
+    mountGraphs(el) {
+      if (!el.open) return;
+      const box = el.querySelector('.rv-graphs');
+      if (box && !box.childElementCount) GraphLab.mountList(box, items[+el.dataset.i].q.graphs);
+    },
   };
 })();
 

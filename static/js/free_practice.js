@@ -137,7 +137,7 @@ const FreePractice = (() => {
     if (pct >= 70) { SFX.fanfare(); Confetti.burst(); }
     Mascot.setMood(pct >= 70 ? 'celebrate' : 'comfort',
       pct >= 70 ? '🎉 Mantap! Latihan bebasmu keren.' : 'Tetap semangat! Ulangi dengan soal baru untuk memperkuat pemahaman.');
-    box.innerHTML = `
+    box.innerHTML = Review.tabs(`
       <div class="level-complete session-result ${pct >= 70 ? 'pass' : 'fail'}">
         <div class="trophy-anim">${pct >= 70 ? '🎯' : '📚'}</div>
         <h3>Benar ${right}/${total} (${pct}%)</h3>
@@ -149,7 +149,7 @@ const FreePractice = (() => {
           <button class="btn btn-primary" onclick="FreePractice.again()">🔁 Soal baru (pilihan sama)</button>
           <button class="btn btn-outline" onclick="FreePractice.change()">Ubah pilihan</button>
         </div>
-      </div>`;
+      </div>`, QuizEngine.history());
   }
 
   return {
