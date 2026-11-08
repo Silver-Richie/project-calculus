@@ -343,6 +343,24 @@ const Curriculum = (() => {
 
 const DIFF_LABEL = { basic: 'Dasar / Mudah', medium: 'Sedang', high: 'Sulit' };
 
+/**
+ * Papan tulis kuis. Saat soal tampil, drawer menjadi layar penuh (kelas .quiz-mode):
+ * kiri soal & jawaban, kanan papan tulis. Setiap soal memakai papan sendiri
+ * (kunci = id/kode soal), jadi soal baru selalu kosong dan coretan lama kembali
+ * bila soal yang sama dibuka lagi.
+ */
+const QuizBoard = {
+  show(key) {
+    const drawer = document.getElementById('lesson-drawer');
+    if (!drawer || typeof Whiteboard === 'undefined') return;
+    drawer.classList.add('quiz-mode');
+    Whiteboard.mount(document.getElementById('quiz-board'))?.load(`quiz:${key}`);
+  },
+  hide() {
+    document.getElementById('lesson-drawer')?.classList.remove('quiz-mode');
+  },
+};
+
 /* ════════════════════════════════════════════════════════════════
    SKILL TREE — Peta belajar (halaman Level Up)
    ════════════════════════════════════════════════════════════════ */
@@ -403,7 +421,7 @@ const SkillTree = (() => {
    CATALOGUE — Halaman Lesson, dikelompokkan per berkas sumber
    ════════════════════════════════════════════════════════════════ */
 const Catalogue = (() => {
-  const CAT_ICON = { materi: '📖', soal: '📝', lampiran: '📚' };
+  const CAT_ICON = { materi: '📖', soal: '📝', lampiran: '📚', buku: '📕' };
 
   function nodeCard(n) {
     return `
@@ -460,7 +478,7 @@ const Catalogue = (() => {
             ${doc.subtitle ? `<p class="doc-sub">${doc.subtitle}</p>` : ''}
           </div>
         </header>
-        ${doc.category === 'soal'
+        ${doc.category === 'soal' || doc.category === 'buku'
           ? `<div class="qbank-list">${doc.items.map(questionRow).join('')}</div>`
           : `<div class="lesson-grid">${doc.items.map((slug) => Curriculum.node(slug)).filter(Boolean).map(nodeCard).join('')}</div>`}
       </section>`).join('');
@@ -501,6 +519,20 @@ function renderSections(container, node) {
       GraphLab.mountList(g, sec.graphs);
     }
   });
+}
+
+/**
+ * Fisher-Yates shuffle: salinan acak dari `arr` (array asli tidak diubah).
+ * Mechanism: dari elemen terakhir ke depan, tukar elemen i dengan elemen acak j ∈ [0, i],
+ * sehingga setiap urutan punya peluang sama (O(n)).
+ */
+function shuffle(arr) {
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
 }
 
 /* ════════════════════════════════════════════════════════════════
@@ -545,6 +577,7 @@ const QuizEngine = (() => {
     if (!container) return;
 
     if (!questions.length) {
+      QuizBoard.hide();
       container.innerHTML = `
         <div class="level-complete">
           <div class="trophy-anim">📖</div>
@@ -555,6 +588,7 @@ const QuizEngine = (() => {
       return;
     }
     if (idx >= questions.length) {
+      QuizBoard.hide();
       if (mode === 'session') { Practice.finish(answers); return; }
       showComplete();
       return;
@@ -594,6 +628,7 @@ const QuizEngine = (() => {
       </div>`;
 
     hideFeedback();
+    QuizBoard.show(q.id || q.code);
   }
 
   function revealPembahasan(q) {
@@ -631,7 +666,10 @@ const QuizEngine = (() => {
   return {
     start(slug, qs, m = 'level') {
       nodeSlug = slug;
-      questions = qs || [];
+      // Mode session sudah diacak server (urutan harus sama saat dinilai), jadi tidak dikocok ulang.
+      // Mode lain: kocok urutan soal (level) dan opsi; benar/salah dicek lewat is_correct, bukan posisi.
+      questions = (qs || []).map((q) => (m === 'session' ? q : { ...q, options: shuffle(q.options || []) }));
+      if (m === 'level') questions = shuffle(questions);
       mode = m;
       idx = 0;
       answers = [];
@@ -833,6 +871,7 @@ const Drawer = (() => {
     },
 
     close() {
+      QuizBoard.hide();
       document.getElementById('lesson-drawer').classList.remove('open');
       hideFeedback();
       SFX.click();
@@ -842,6 +881,7 @@ const Drawer = (() => {
       document.querySelectorAll('.drawer-tab').forEach((t) => t.classList.toggle('active', t.dataset.tab === tab));
       document.querySelectorAll('.tab-pane').forEach((p) => p.classList.toggle('active', p.id === `tab-${tab}`));
       hideFeedback();
+      QuizBoard.hide();
       if (tab !== 'kuis') return;
 
       const node = Curriculum.node(current);

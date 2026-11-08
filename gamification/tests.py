@@ -10,6 +10,7 @@ from django.core.management import call_command
 from django.test import TestCase, Client
 
 from . import content
+from .content import bank
 from .models import (
     Faculty, SourceDocument, SkillNode, LessonSection, Question, UserProfile, UserProgress,
 )
@@ -69,7 +70,7 @@ class ContentSeedTests(TestCase):
         call_command("seed_gamification", stdout=io.StringIO())
 
     def test_one_document_per_source_file(self):
-        pdfs = SourceDocument.objects.exclude(category="buku")
+        pdfs = SourceDocument.objects.exclude(category="buku").exclude(slug__in=[d["slug"] for d in bank.DOCUMENTS])
         self.assertEqual(pdfs.count(), 7)
         self.assertEqual(
             list(pdfs.values_list("filename", flat=True)),
@@ -96,7 +97,8 @@ class ContentSeedTests(TestCase):
             self.assertEqual(sum(o.is_correct for o in q.options.all()), 1, q.code)
             self.assertTrue(q.steps, q.code)
             self.assertTrue(q.answer, q.code)
-            self.assertTrue(q.graphs, f"{q.code} belum punya grafik slider")
+            if not q.code.startswith(("WH-", "ST-", "CB-")):   # bank soal (content/bank) belum memakai grafik
+                self.assertTrue(q.graphs, f"{q.code} belum punya grafik slider")
 
     def test_graph_specs_have_valid_params(self):
         specs = [g for q in Question.objects.all() for g in q.graphs]
@@ -152,7 +154,7 @@ class GamificationApiTests(TestCase):
         self.assertEqual(len(codes), 10)
         levels = [q["difficulty"] for q in data["questions"]]
         self.assertEqual((levels.count("basic"), levels.count("medium"), levels.count("high")), (5, 3, 2))
-        self.assertTrue(all(c.startswith(("FK-", "U-")) for c in codes))
+        self.assertTrue(all(not c.startswith(("FT-", "FM-")) for c in codes))   # tidak ada soal prodi lain
         for q in data["questions"]:
             self.assertNotIn("steps", q)
             for o in q["options"]:
@@ -298,9 +300,19 @@ class AuthOnboardingTests(TestCase):
     def test_diagnostic_incomplete_answers_rejected(self):
         self._register()
         self.client.post("/auth/fakultas/", {"faculty": "ft"})
+        shown = [q.code for q in self.client.get("/auth/tes-awal/mulai/").context["questions"]]
         response = self.client.post("/auth/tes-awal/mulai/", {})
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Jawab semua soal")
+        # Soal yang sama ditampilkan ulang, bukan undian baru.
+        self.assertEqual([q.code for q in response.context["questions"]], shown)
+
+    def test_diagnostic_post_without_shown_questions_draws_new_set(self):
+        self._register()
+        self.client.post("/auth/fakultas/", {"faculty": "ft"})
+        response = self.client.post("/auth/tes-awal/mulai/", {})
+        self.assertContains(response, "Sesi tes kedaluwarsa")
+        self.assertEqual(len(response.context["questions"]), 10)
 
     def test_set_faculty_api_requires_login_and_saves(self):
         self.assertEqual(self.client.post("/api/profile/faculty/", "{}", content_type="application/json").status_code, 302)
@@ -549,3 +561,156 @@ class FacultyFixedQuestionTests(TestCase):
     def test_ft_question_only_for_ft(self):
         self.assertIn("FT-S1", self._codes("ft"))
         self.assertNotIn("FT-S1", self._codes("fasilkom"))
+
+
+import random  # noqa: E402
+
+from . import sessions  # noqa: E402
+from .models import Faculty, Question  # noqa: E402
+
+
+class ShuffleTests(TestCase):
+    """Pengacakan soal: diagnostik & opsi soal PDF bervariasi, tetapi penilaian tetap benar."""
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_gamification", stdout=io.StringIO())
+        cls.faculty = Faculty.objects.get(slug="ft")
+        cls.user = User.objects.create_user("acak", password="x")
+
+    def test_diagnostic_keeps_plan_but_varies_questions(self):
+        """Komposisi 5/3/2 tetap, tetapi isi dan urutan soal berganti antar-percobaan."""
+        sets, orders = set(), set()
+        for s in range(20):
+            qs = services.diagnostic_questions(self.faculty, random.Random(s))
+            counts = {lvl: sum(q.difficulty == lvl for q in qs) for lvl, _ in services.DIAGNOSTIC_PLAN}
+            self.assertEqual(counts, dict(services.DIAGNOSTIC_PLAN))
+            self.assertEqual(len({q.code for q in qs}), len(qs))      # tidak ada soal ganda
+            self.assertTrue(any(q.faculty_id == self.faculty.id for q in qs))  # konteks prodi tetap ada
+            sets.add(frozenset(q.code for q in qs))
+            orders.add(tuple(q.code for q in qs))
+        self.assertGreater(len(sets), 10)
+        self.assertGreater(len(orders), 10)
+
+    def test_diagnostic_grading_unaffected_by_shuffle(self):
+        qs = services.diagnostic_questions(self.faculty, random.Random(7))
+        answers = [{"code": q.code, "option_id": next(o.id for o in q.shuffled_options if o.is_correct)} for q in qs]
+        result = services.evaluate_diagnostic(self.faculty, answers)
+        self.assertEqual(result["score"], len(qs))
+
+    def test_fixed_question_options_shuffled_and_regradable(self):
+        q = Question.objects.filter(session__isnull=False).first()
+        correct_positions = set()
+        for seed in range(30):
+            a = sessions._fixed_question_payload(q, seed)
+            b = sessions._fixed_question_payload(q, seed)
+            self.assertEqual(a["options"], b["options"])          # seed sama → urutan sama (penilaian aman)
+            correct_positions.add(next(o["id"] for o in a["options"] if o["is_correct"]))
+        self.assertGreater(len(correct_positions), 1)              # jawaban benar tidak selalu di posisi yang sama
+
+    def test_session_attempts_give_different_questions(self):
+        session = PracticeSession.objects.filter(number=1).order_by("id").first()
+        first = [q["id"] for q in sessions.build_quiz(session, self.user.id, 0)]
+        second = [q["id"] for q in sessions.build_quiz(session, self.user.id, 1)]
+        self.assertEqual(first, [q["id"] for q in sessions.build_quiz(session, self.user.id, 0)])
+        self.assertNotEqual(first, second)
+
+    def test_session_pool_is_varied(self):
+        """Setiap percobaan memuat ≥6 jenis soal, termasuk sesi topik pertama (tanpa topik sebelumnya)."""
+        for slug in ("pre-bilangan-real", "kd-lim-konsep"):
+            for session in PracticeSession.objects.filter(topic__slug=slug):
+                for attempt in range(3):
+                    quiz = sessions.build_quiz(session, self.user.id, attempt)
+                    self.assertEqual(len(quiz), session.question_count)
+                    self.assertGreaterEqual(len({q["id"].split(":")[1] for q in quiz}), 6)
+
+    def test_borrowed_generators_are_graded_consistently(self):
+        """Soal pinjaman (tingkat lain) dibangun ulang sama persis saat penilaian."""
+        session = PracticeSession.objects.get(topic__slug="pre-bilangan-real", number=1)
+        a = sessions.build_quiz(session, self.user.id, 5)
+        b = sessions.build_quiz(session, self.user.id, 5)
+        self.assertEqual([(q["id"], q["options"]) for q in a], [(q["id"], q["options"]) for q in b])
+
+
+
+class BookBankTests(TestCase):
+    """Bank soal buku referensi (content/bank) termuat dan terpasang ke sesi yang benar."""
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_gamification", stdout=io.StringIO())
+
+    def test_all_bank_questions_seeded_to_matching_session(self):
+        codes = [d["code"] for d in bank.QUESTIONS]
+        self.assertEqual(len(codes), len(set(codes)))
+        qs = {q.code: q for q in Question.objects.filter(code__in=codes).select_related("session__topic", "node")}
+        self.assertEqual(len(qs), len(codes))
+        for d in bank.QUESTIONS:
+            q = qs[d["code"]]
+            self.assertEqual(q.session.topic.slug, d["topic"])
+            self.assertEqual(q.session.number, bank.TIER_OF[d["difficulty"]])
+            self.assertEqual(q.node_id, q.session.topic.node_id)
+            self.assertEqual(q.options.filter(is_correct=True).count(), 1)
+            self.assertEqual(q.options.count(), 4)
+
+    def test_every_bank_difficulty_has_diagnostic_questions(self):
+        for level, count in services.DIAGNOSTIC_PLAN:
+            n = sum(1 for d in bank.QUESTIONS if d["is_diagnostic"] and d["difficulty"] == level)
+            self.assertGreaterEqual(n, count, level)
+
+    def test_bank_questions_appear_in_sessions(self):
+        """Soal buku muncul di sesi latihan (lewat soal tetap sesi maupun bank tambahan sub-level)."""
+        user = User.objects.create_user("bank", password="x")
+        seen = set()
+        for session in PracticeSession.objects.filter(topic__slug="kd-tur-rantai"):
+            for attempt in range(10):
+                seen |= {q["id"] for q in sessions.build_quiz(session, user.id, attempt) if q["id"].startswith("q:WH-")}
+        self.assertGreater(len(seen), 5)
+
+
+class BankFacultyTests(TestCase):
+    """Soal Kalkulus Lanjut bersama disalin ke tiga jalur dan hanya terlihat oleh fakultasnya."""
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_gamification", stdout=io.StringIO())
+
+    def test_shared_topic_copied_per_faculty(self):
+        codes = set(Question.objects.filter(code__startswith="ST-13.2-6").values_list("code", "faculty__slug"))
+        self.assertEqual(codes, {("ST-13.2-6T", "ft"), ("ST-13.2-6M", "fmipa"), ("ST-13.2-6K", "fasilkom")})
+
+    def test_curriculum_lists_only_own_faculty_bank_questions(self):
+        data = services.build_curriculum(Faculty.objects.get(slug="ft"))
+        codes = {c for d in data["documents"] for c in d["items"] if isinstance(c, str) and c.startswith("ST-")}
+        self.assertTrue(codes)
+        self.assertFalse(any(c.endswith(("M", "K")) for c in codes))
+
+
+class DiagnosticBankTests(TestCase):
+    """Tes diagnostik diundi dari bank soal per level dengan aturan sebaran topik & prodi."""
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_gamification", stdout=io.StringIO())
+        cls.faculty = Faculty.objects.get(slug="fmipa")
+
+    def test_pool_uses_level_bank(self):
+        pool = services._diagnostic_pool(self.faculty)
+        self.assertGreater(sum(len(v) for v in pool.values()), 250)
+        levels = {q.node.main_level.slug for q in pool["basic"] if not q.is_diagnostic}
+        self.assertEqual(levels, {"precalculus"})
+        self.assertTrue(all(q.node.main_level.slug == "kalkulus-dasar" for q in pool["high"] if not q.is_diagnostic))
+
+    def test_one_question_per_topic_and_own_faculty_share(self):
+        for seed in range(30):
+            qs = services.diagnostic_questions(self.faculty, random.Random(seed))
+            keys = [services._topic_key(q) for q in qs]
+            self.assertEqual(len(keys), len(set(keys)))
+            self.assertGreaterEqual(sum(q.faculty_id == self.faculty.id for q in qs), 3)
+
+    def test_grading_uses_test_section_not_question_difficulty(self):
+        qs = services.diagnostic_questions(self.faculty, random.Random(3))
+        answers = [{"code": q.code, "option_id": next(o.id for o in q.shuffled_options if o.is_correct)} for q in qs]
+        result = services.evaluate_diagnostic(self.faculty, answers)
+        self.assertEqual(result["evaluation"], "mastery")
+        self.assertEqual({k: v["total"] for k, v in result["levels"].items()}, dict(services.DIAGNOSTIC_PLAN))

@@ -163,6 +163,7 @@ const Practice = (() => {
   function renderSessions() {
     const box = document.getElementById('quiz-container');
     if (!box) return;
+    QuizBoard.hide();
     if (!topic) {
       box.innerHTML = `
         <div class="level-complete">

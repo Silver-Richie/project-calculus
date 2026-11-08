@@ -1,0 +1,80 @@
+/* ════════════════════════════════════════════════════════════════
+   PAPAN TULIS (static/js/whiteboard.js) + tata letak kuis layar penuh
+   Kiri: soal & jawaban · Kanan: papan tulis · HP: papan di bawah soal
+   ════════════════════════════════════════════════════════════════ */
+.wb {
+  display: flex;
+  flex-direction: column;
+  gap: .5rem;
+  min-height: 0;
+  background: var(--clr-surface);
+  border: 2px solid var(--clr-border);
+  border-radius: 16px;
+  padding: .6rem;
+  outline: none;
+}
+.wb:focus-visible { border-color: var(--clr-primary); }
+.wb-toolbar { display: flex; flex-wrap: wrap; gap: .4rem .75rem; align-items: center; }
+.wb-group { display: flex; gap: .25rem; align-items: center; padding-right: .6rem; border-right: 1px solid var(--clr-border); }
+.wb-group:last-child { border-right: none; }
+.wb-btn {
+  min-width: 36px; height: 36px; padding: 0 .4rem;
+  border: 2px solid transparent; border-radius: 10px;
+  background: var(--clr-cream); font-size: 1rem; cursor: pointer; line-height: 1;
+}
+.wb-btn:hover { border-color: var(--clr-border); }
+.wb-btn.active { border-color: var(--clr-primary); background: var(--clr-primary-l); }
+.wb-color { width: 26px; height: 26px; border-radius: 50%; border: 3px solid #fff; background: var(--c); box-shadow: 0 0 0 2px var(--clr-border); cursor: pointer; }
+.wb-color.active { box-shadow: 0 0 0 3px var(--clr-primary); }
+.wb-size { width: 32px; height: 32px; border-radius: 8px; border: 2px solid transparent; background: var(--clr-cream); cursor: pointer; display: grid; place-items: center; }
+.wb-size i { display: block; width: var(--s); height: var(--s); border-radius: 50%; background: var(--clr-text); }
+.wb-size.active { border-color: var(--clr-primary); }
+
+.wb-surface {
+  position: relative;
+  flex: 1;
+  min-height: 300px;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid var(--clr-border);
+}
+.wb-layer { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.wb-live { touch-action: none; cursor: crosshair; }
+.wb-surface[data-tool="eraser"] .wb-live { cursor: cell; }
+.wb-hint {
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+  color: var(--clr-muted); font-weight: 600; pointer-events: none; font-size: .9rem;
+}
+
+/* ── Kuis di drawer: layar penuh + dua kolom saat soal tampil ─────── */
+.quiz-board { display: none; }
+.drawer-overlay.quiz-mode .drawer-sheet { width: 100vw; }
+.drawer-overlay.quiz-mode .quiz-split {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 1.25rem;
+  align-items: start;
+}
+.drawer-overlay.quiz-mode .quiz-board {
+  display: flex;
+  position: sticky;
+  top: 0;
+  height: calc(100vh - 190px);
+}
+.drawer-overlay.quiz-mode .drawer-header { padding-top: 1rem; padding-bottom: .6rem; }
+
+/* ── Tes diagnostik: soal kiri, papan kanan ──────────────────────── */
+.auth-main:has(.diag-test) { max-width: 1280px; }
+.auth-card.diag-test { max-width: 100%; }
+.diag-split > *, .diag-split .dq, .quiz-split > * { min-width: 0; }   /* fieldset/grid default min-content melebar di HP */
+.diag-split { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 1.25rem; align-items: start; }
+.diag-split .diag-board { position: sticky; top: 1rem; height: min(640px, 78vh); }
+.diag-board:not(.wb) { display: none; }   /* tanpa JS papan tidak ditampilkan */
+
+@media (max-width: 860px) {
+  .drawer-overlay.quiz-mode .quiz-split,
+  .diag-split { grid-template-columns: 1fr; }
+  .drawer-overlay.quiz-mode .quiz-board,
+  .diag-split .diag-board { position: static; height: 60vh; }
+  .wb-btn { min-width: 32px; height: 32px; }
+}
