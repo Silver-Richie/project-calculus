@@ -124,7 +124,8 @@ const State = (() => {
     s.xp = Math.max(s.xp || 0, SERVER.xp || 0);
     const p = s.progress[s.faculty] || (s.progress[s.faculty] = { completed: [], active: null });
     (SERVER.completed || []).forEach((slug) => { if (!p.completed.includes(slug)) p.completed.push(slug); });
-    if (SERVER.active && !p.completed.includes(SERVER.active) && !p.active) p.active = SERVER.active;
+    // Server adalah sumber kebenaran sub-level aktif: nilai lokal bisa usang (mis. node kurikulum lama).
+    if (SERVER.active && !p.completed.includes(SERVER.active)) p.active = SERVER.active;
   }
 
   /** Simpan pilihan fakultas ke akun (UserProfile) di server. */
@@ -224,7 +225,10 @@ const State = (() => {
     nodeStatus(slug, tree) {
       const p = prog();
       if (p.completed.includes(slug)) return 'completed';
-      const active = p.active || tree.find((n) => !p.completed.includes(n.slug))?.slug;
+      // Abaikan sub-level aktif yang tidak ada lagi di peta (sisa kurikulum lama) atau sudah selesai,
+      // agar sub-level pertama yang belum selesai tetap terbuka.
+      const valid = p.active && !p.completed.includes(p.active) && tree.some((n) => n.slug === p.active);
+      const active = valid ? p.active : tree.find((n) => !p.completed.includes(n.slug))?.slug;
       return slug === active ? 'active' : 'locked';
     },
     completeNode(slug, nextSlug) {
