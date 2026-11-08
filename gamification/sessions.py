@@ -228,11 +228,41 @@ def _complete_node_if_done(user, node):
     return node.slug
 
 
+# ── Nyawa ───────────────────────────────────────────────────────────────────
+class NoHeartsError(PermissionError):
+    """Nyawa habis: sesi latihan tidak bisa dibuka/dikirim sampai nyawa terisi ulang."""
+
+    def __init__(self, state):
+        self.state = state
+        hours, rest = divmod(state["refill_in"], 3600)
+        super().__init__(f"Nyawamu habis. Nyawa penuh kembali dalam {hours} jam {rest // 60} menit.")
+
+
+def _profile_for_hearts(user, lock=False):
+    qs = UserProfile.objects.select_for_update() if lock else UserProfile.objects
+    profile, _ = qs.get_or_create(user=user)
+    return profile
+
+
+def require_hearts(user, lock=False):
+    """Pastikan user masih punya nyawa (setelah isi ulang otomatis). Raise NoHeartsError bila 0."""
+    profile = _profile_for_hearts(user, lock)
+    state = profile.hearts_state()
+    if state["hearts"] <= 0:
+        raise NoHeartsError(state)
+    return profile
+
+
 # ── API utama ───────────────────────────────────────────────────────────────
 def open_session(user, session):
-    """Soal untuk percobaan berjalan. Raise PermissionError bila sesi masih terkunci."""
+    """
+    Soal untuk percobaan berjalan.
+
+    Raise PermissionError bila sesi masih terkunci, NoHeartsError bila nyawa habis.
+    """
     if not is_unlocked(user, session):
         raise PermissionError("Selesaikan sesi/topik sebelumnya terlebih dahulu.")
+    require_hearts(user)
     progress, _ = UserSessionProgress.objects.get_or_create(user=user, session=session)
     return {
         "session": session_meta(session),
@@ -248,10 +278,13 @@ def submit_session(user, session, attempt, answers):
     Menilai jawaban sesi. `answers` = [{"id": "g:key:seed", "option": 2}, ...].
 
     XP hanya diberikan untuk peningkatan skor terbaik (tidak bisa 'farming' XP
-    dengan mengulang sesi yang sama).
+    dengan mengulang sesi yang sama). Gagal lulus mengurangi satu nyawa; dengan
+    nyawa 0 jawaban tidak dinilai (NoHeartsError), agar sesi yang dibuka di tab
+    lain sebelum nyawa habis tidak bisa dipakai untuk terus mencoba.
     """
     if not is_unlocked(user, session):
         raise PermissionError("Sesi masih terkunci.")
+    profile = require_hearts(user, lock=True)
     progress, _ = UserSessionProgress.objects.select_for_update().get_or_create(user=user, session=session)
     if attempt != progress.attempts:
         raise ValueError("Percobaan sudah kedaluwarsa. Muat ulang sesi.")
@@ -272,9 +305,12 @@ def submit_session(user, session, attempt, answers):
         progress.passed_at = progress.passed_at or timezone.now()
     progress.save()
 
+    heart_lost = score < pass_score(session)
+    if heart_lost:
+        profile.lose_heart()
+
     xp = max(0, score - prev_best) * session.xp_per_question
     if xp:
-        profile, _ = UserProfile.objects.get_or_create(user=user)
         profile.add_xp(xp)
 
     node = session.topic.node
@@ -292,6 +328,7 @@ def submit_session(user, session, attempt, answers):
             next_node = nxt.slug
 
     return {
+        "heart_lost": heart_lost, "hearts": profile.hearts_state(),
         "score": score, "total": len(quiz), "pass_score": pass_score(session), "passed": score >= pass_score(session),
         "best": progress.best_score, "attempts": progress.attempts, "xp_awarded": xp, "results": results,
         "unlocked_next_session": newly_passed and session.number < 5,

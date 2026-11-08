@@ -462,6 +462,7 @@ def profile_bootstrap(user):
         "faculty": profile.faculty.slug if profile.faculty else None,
         "faculty_name": profile.faculty.name if profile.faculty else "",
         "xp": profile.xp,
+        "hearts": profile.hearts_state(),
         "diagnostic_level": profile.diagnostic_level,
         "completed": [r.node.slug for r in records if r.status == "completed"],
         "active": next((r.node.slug for r in records if r.status == "active"), None),

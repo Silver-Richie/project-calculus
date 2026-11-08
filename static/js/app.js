@@ -30,7 +30,7 @@ async function postJSON(url, body) {
     body: JSON.stringify(body || {}),
   });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.message || `HTTP ${res.status}`);
+  if (!res.ok) throw Object.assign(new Error(data.message || `HTTP ${res.status}`), { data, status: res.status });
   return data;
 }
 
@@ -95,7 +95,7 @@ const State = (() => {
   const KEY = SERVER ? `cb_state_v4:${SERVER.username}` : 'cb_state_v4';
   const DEFAULTS = {
     faculty: 'fasilkom',
-    xp: 0, streak: 1, hearts: 5, maxHearts: 5, gems: 100,
+    xp: 0, streak: 1, hearts: 10, maxHearts: 10, heartsRefillAt: null, gems: 100,
     progress: {},   // { ft: { completed: [slug...], active: slug|null } }
     sound: true,
   };
@@ -110,7 +110,16 @@ const State = (() => {
    * Menggabungkan data server ke state lokal: fakultas akun, XP, dan progres
    * hasil tes diagnostik (node yang dilewati = selesai, node rekomendasi = aktif).
    */
+  /** Nyawa selalu mengikuti server (sumber kebenaran); refillAt = cap waktu lokal saat nyawa penuh lagi. */
+  function applyHearts(h) {
+    if (!h) return;
+    s.hearts = h.hearts;
+    s.maxHearts = h.max_hearts;
+    s.heartsRefillAt = h.refill_at ? Date.now() + h.refill_in * 1000 : null;
+  }
+
   if (SERVER) {
+    applyHearts(SERVER.hearts);
     if (SERVER.faculty) s.faculty = SERVER.faculty;
     s.xp = Math.max(s.xp || 0, SERVER.xp || 0);
     const p = s.progress[s.faculty] || (s.progress[s.faculty] = { completed: [], active: null });
@@ -143,6 +152,11 @@ const State = (() => {
     setText('hud-xp', `⚡ ${s.xp} XP`);
     setText('hud-streak', `🔥 ${s.streak}`);
     setText('hud-hearts-val', `${s.hearts}/${s.maxHearts}`);
+    const pill = document.getElementById('hud-hearts-pill');
+    if (pill) {
+      pill.title = s.heartsRefillAt ? `Nyawa penuh kembali dalam ${refillText()}` : 'Nyawa penuh';
+      pill.classList.toggle('hearts-empty', s.hearts <= 0);
+    }
     setText('hud-gems', `💎 ${s.gems}`);
     setText('profile-xp', s.xp);
     setText('profile-streak', s.streak);
@@ -161,6 +175,20 @@ const State = (() => {
     if (typeof SkillTree !== 'undefined') SkillTree.refreshStates();
   }
 
+  /** Sisa waktu sampai nyawa penuh, mis. "5 jam 20 menit". */
+  function refillText() {
+    const sec = Math.max(0, Math.round(((s.heartsRefillAt || 0) - Date.now()) / 1000));
+    const h = Math.floor(sec / 3600), m = Math.ceil((sec % 3600) / 60);
+    return h ? `${h} jam ${m} menit` : `${Math.max(1, m)} menit`;
+  }
+
+  // Isi ulang tampilan saat waktunya tiba (server tetap memeriksa ulang saat sesi dibuka).
+  setInterval(() => {
+    if (s.heartsRefillAt && Date.now() >= s.heartsRefillAt) {
+      s.hearts = s.maxHearts; s.heartsRefillAt = null; save();
+    } else if (s.heartsRefillAt) updateHUD();
+  }, 30000);
+
   function floatXP(amount) {
     const el = document.getElementById('hud-xp');
     if (!el) return;
@@ -177,11 +205,15 @@ const State = (() => {
     get: () => s,
     progress: prog,
     addXP(n) { s.xp += n; save(); floatXP(n); },
-    loseHeart() {
-      if (s.hearts > 0) { s.hearts--; save(); }
+    /** Terapkan status nyawa dari server; animasi goyang bila nyawa berkurang. */
+    setHearts(h) {
+      const before = s.hearts;
+      applyHearts(h); save();
       const p = document.getElementById('hud-hearts-pill');
-      if (p) { p.classList.add('hearts-shake'); setTimeout(() => p.classList.remove('hearts-shake'), 500); }
+      if (p && s.hearts < before) { p.classList.add('hearts-shake'); setTimeout(() => p.classList.remove('hearts-shake'), 500); }
     },
+    hasHearts: () => s.hearts > 0,
+    refillText,
     setFaculty(f) {
       if (s.faculty === f) return;
       s.faculty = f; save(); SFX.click();
@@ -714,9 +746,9 @@ const QuizEngine = (() => {
           `Jawaban: ${q.answer}`, actionLabel);
       } else {
         SFX.wrong();
-        if (mode !== 'practice') State.loseHeart();
+        // Nyawa tidak berkurang per soal: hanya saat gagal lulus satu sesi (dinilai server).
         Mascot.setMood('comfort', 'Jangan menyerah! Baca pembahasannya ya.');
-        showFeedback(false, mode !== 'practice' ? 'Belum tepat (−1 Nyawa)' : 'Belum tepat',
+        showFeedback(false, 'Belum tepat',
           'Baca pembahasan langkah demi langkah di atas.', actionLabel);
       }
     },

@@ -714,3 +714,68 @@ class DiagnosticBankTests(TestCase):
         result = services.evaluate_diagnostic(self.faculty, answers)
         self.assertEqual(result["evaluation"], "mastery")
         self.assertEqual({k: v["total"] for k, v in result["levels"].items()}, dict(services.DIAGNOSTIC_PLAN))
+
+
+from datetime import timedelta  # noqa: E402
+
+from django.utils import timezone  # noqa: E402
+
+
+class HeartsTests(TestCase):
+    """Sistem nyawa: 10 nyawa, −1 saat gagal sesi, sesi terkunci di 0, penuh lagi 24 jam setelah nyawa pertama hilang."""
+
+    setUpTestData = PracticeSessionApiTests.__dict__["setUpTestData"]
+    setUp = PracticeSessionApiTests.setUp
+    _open = PracticeSessionApiTests._open
+    _answers = PracticeSessionApiTests._answers
+    _submit = PracticeSessionApiTests._submit
+
+    def _fail(self, session):
+        data = self._open(session).json()
+        return self._submit(session, data["attempt"], self._answers(data, correct=False))
+
+    def test_new_profile_has_ten_hearts(self):
+        state = UserProfile.objects.get_or_create(user=self.user)[0].hearts_state()
+        self.assertEqual((state["hearts"], state["max_hearts"], state["refill_at"]), (10, 10, None))
+
+    def test_failing_session_costs_one_heart_and_starts_timer(self):
+        r = self._fail(self.s1).json()
+        self.assertTrue(r["heart_lost"])
+        self.assertEqual(r["hearts"]["hearts"], 9)
+        self.assertGreater(r["hearts"]["refill_in"], 23 * 3600)
+
+    def test_passing_session_keeps_hearts(self):
+        data = self._open(self.s1).json()
+        r = self._submit(self.s1, data["attempt"], self._answers(data)).json()
+        self.assertFalse(r["heart_lost"])
+        self.assertEqual(r["hearts"]["hearts"], 10)
+
+    def test_zero_hearts_blocks_open_and_submit(self):
+        data = self._open(self.s1).json()          # sesi dibuka saat nyawa masih ada
+        profile = UserProfile.objects.get(user=self.user)
+        profile.hearts, profile.hearts_lost_at = 0, timezone.now()
+        profile.save()
+        r = self._open(self.s1)
+        self.assertEqual(r.status_code, 403)
+        self.assertEqual(r.json()["status"], "no_hearts")
+        r = self._submit(self.s1, data["attempt"], self._answers(data, correct=False))
+        self.assertEqual(r.status_code, 403)
+        self.assertEqual(UserProfile.objects.get(user=self.user).hearts, 0)
+
+    def test_refill_24_hours_after_first_loss(self):
+        self._fail(self.s1)
+        self._fail(self.s1)
+        profile = UserProfile.objects.get(user=self.user)
+        first_loss = profile.hearts_lost_at
+        self.assertEqual(profile.hearts, 8)
+        profile.refresh_hearts(first_loss + timedelta(hours=23, minutes=59))
+        self.assertEqual(profile.hearts, 8)                       # belum 24 jam
+        profile.refresh_hearts(first_loss + timedelta(hours=24))
+        self.assertEqual((profile.hearts, profile.hearts_lost_at), (10, None))
+
+    def test_later_losses_do_not_restart_timer(self):
+        profile = UserProfile.objects.get_or_create(user=self.user)[0]
+        t0 = timezone.now()
+        profile.lose_heart(t0)
+        profile.lose_heart(t0 + timedelta(hours=5))
+        self.assertEqual(profile.hearts_lost_at, t0)

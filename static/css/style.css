@@ -2224,3 +2224,26 @@ form:not(.stepper-on) .dq-nav [data-step=next] { display: none; }
 .auth-body #app { display: block; min-height: 100vh; }
 .auth-form.auth-pane:not(.active) { display: none; }
 .dq-nav [hidden], .auth-body [hidden] { display: none !important; }
+
+/* Nyawa habis: pill HUD berkedip pelan, banner di daftar sesi, catatan hasil sesi */
+.hud-pill.hearts.hearts-empty {
+  opacity: .75;
+  animation: heartPulse 1.6s ease-in-out infinite;
+}
+
+@keyframes heartPulse {
+  50% { opacity: .45; }
+}
+
+.hearts-banner {
+  margin-bottom: 12px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  color: var(--clr-danger);
+  background: var(--clr-danger-l);
+  font-size: .9rem;
+}
+
+.hearts-note {
+  color: var(--clr-danger);
+}
