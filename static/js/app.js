@@ -521,6 +521,20 @@ function renderSections(container, node) {
   });
 }
 
+/**
+ * Fisher-Yates shuffle: salinan acak dari `arr` (array asli tidak diubah).
+ * Mechanism: dari elemen terakhir ke depan, tukar elemen i dengan elemen acak j ∈ [0, i],
+ * sehingga setiap urutan punya peluang sama (O(n)).
+ */
+function shuffle(arr) {
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
 /* ════════════════════════════════════════════════════════════════
    QUIZ ENGINE — hint bertahap + pembahasan lengkap dengan grafik slider
    Mode 'level'   : kuis node skill tree (membuka node berikutnya).
@@ -652,7 +666,10 @@ const QuizEngine = (() => {
   return {
     start(slug, qs, m = 'level') {
       nodeSlug = slug;
-      questions = qs || [];
+      // Mode session sudah diacak server (urutan harus sama saat dinilai), jadi tidak dikocok ulang.
+      // Mode lain: kocok urutan soal (level) dan opsi; benar/salah dicek lewat is_correct, bukan posisi.
+      questions = (qs || []).map((q) => (m === 'session' ? q : { ...q, options: shuffle(q.options || []) }));
+      if (m === 'level') questions = shuffle(questions);
       mode = m;
       idx = 0;
       answers = [];

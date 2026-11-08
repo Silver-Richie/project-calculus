@@ -31,7 +31,7 @@
         </legend>
         <div class="quiz-prompt">{{ q.prompt|safe }}</div>
         <div class="options-list">
-          {% for opt in q.options.all %}
+          {% for opt in q.shuffled_options %}
             <label class="option-btn dq-option">
               <input type="radio" name="q_{{ q.code }}" value="{{ opt.id }}" required
                      {% if answered|length and opt.id|stringformat:"d" in answered.values %}checked{% endif %}>

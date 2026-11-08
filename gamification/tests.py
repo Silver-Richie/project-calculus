@@ -549,3 +549,51 @@ class FacultyFixedQuestionTests(TestCase):
     def test_ft_question_only_for_ft(self):
         self.assertIn("FT-S1", self._codes("ft"))
         self.assertNotIn("FT-S1", self._codes("fasilkom"))
+
+
+import random  # noqa: E402
+
+from . import sessions  # noqa: E402
+from .models import Faculty, Question  # noqa: E402
+
+
+class ShuffleTests(TestCase):
+    """Pengacakan soal: diagnostik & opsi soal PDF bervariasi, tetapi penilaian tetap benar."""
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_gamification", stdout=io.StringIO())
+        cls.faculty = Faculty.objects.get(slug="ft")
+        cls.user = User.objects.create_user("acak", password="x")
+
+    def test_diagnostic_keeps_same_plan_but_varies_order(self):
+        base = sorted(q.code for q in services.diagnostic_questions(self.faculty, random.Random(0)))
+        orders = set()
+        for s in range(20):
+            qs = services.diagnostic_questions(self.faculty, random.Random(s))
+            self.assertEqual(sorted(q.code for q in qs), base)   # komposisi 5/3/2 tetap
+            orders.add(tuple(q.code for q in qs))
+        self.assertGreater(len(orders), 1)
+
+    def test_diagnostic_grading_unaffected_by_shuffle(self):
+        qs = services.diagnostic_questions(self.faculty, random.Random(7))
+        answers = [{"code": q.code, "option_id": next(o.id for o in q.shuffled_options if o.is_correct)} for q in qs]
+        result = services.evaluate_diagnostic(self.faculty, answers)
+        self.assertEqual(result["score"], len(qs))
+
+    def test_fixed_question_options_shuffled_and_regradable(self):
+        q = Question.objects.filter(session__isnull=False).first()
+        correct_positions = set()
+        for seed in range(30):
+            a = sessions._fixed_question_payload(q, seed)
+            b = sessions._fixed_question_payload(q, seed)
+            self.assertEqual(a["options"], b["options"])          # seed sama → urutan sama (penilaian aman)
+            correct_positions.add(next(o["id"] for o in a["options"] if o["is_correct"]))
+        self.assertGreater(len(correct_positions), 1)              # jawaban benar tidak selalu di posisi yang sama
+
+    def test_session_attempts_give_different_questions(self):
+        session = PracticeSession.objects.filter(number=1).order_by("id").first()
+        first = [q["id"] for q in sessions.build_quiz(session, self.user.id, 0)]
+        second = [q["id"] for q in sessions.build_quiz(session, self.user.id, 1)]
+        self.assertEqual(first, [q["id"] for q in sessions.build_quiz(session, self.user.id, 0)])
+        self.assertNotEqual(first, second)

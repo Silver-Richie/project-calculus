@@ -73,11 +73,20 @@ def _draw(session, user_id, attempt):
     return out
 
 
-def _fixed_question_payload(q):
+def _fixed_question_payload(q, seed):
+    """
+    Soal tetap (dari PDF) → payload sesi, dengan urutan opsi diacak.
+
+    Mechanism: opsi dikocok Fisher-Yates (`random.shuffle`) memakai rng ber-seed
+    ``"<code>|<seed>"``. Seed berasal dari pengundian sesi, jadi saat penilaian
+    urutan yang sama dibangun ulang dan id opsi (= indeks) tetap cocok.
+    """
     from .services import serialize_question
     data = serialize_question(q)
     data["id"] = f"q:{q.code}"
-    data["options"] = [{"id": i, "text": o["text"], "is_correct": o["is_correct"]} for i, o in enumerate(data["options"])]
+    opts = data["options"]
+    random.Random(f"{q.code}|{seed}").shuffle(opts)
+    data["options"] = [{"id": i, "text": o["text"], "is_correct": o["is_correct"]} for i, o in enumerate(opts)]
     return data
 
 
@@ -90,7 +99,7 @@ def build_quiz(session, user_id, attempt):
             q = generators.generate(key, sub, session.number)
             q["id"] = f"g:{key}:{sub}"
         else:
-            q = _fixed_question_payload(fixed[key])
+            q = _fixed_question_payload(fixed[key], sub)
         if kind == "g":
             q["code"] = f"{session.topic.slug.split('-', 1)[1].upper()[:12]}-S{session.number}-{i:02d}"
         q["xp_reward"] = session.xp_per_question

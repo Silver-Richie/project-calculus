@@ -5,7 +5,9 @@ Views hanya memanggil fungsi di sini lalu mengembalikan JSON, sehingga logika
 pemilihan jalur belajar dan evaluasi diagnostik mudah diuji secara terpisah.
 """
 
-from django.db.models import F, Prefetch, Q
+import random
+
+from django.db.models import Prefetch, Q
 
 from .models import (
     Faculty, SourceDocument, SkillNode, LessonSection, Question, Option, MainLevel, Topic, PracticeSession,
@@ -54,6 +56,11 @@ def tree_nodes(faculty):
     )
 
 
+def option_list(q):
+    """Opsi soal: urutan acak bila sudah dikocok (lihat diagnostic_questions), selain itu urutan database."""
+    return getattr(q, "shuffled_options", None) or list(q.options.all())
+
+
 def serialize_question(q, include_answer=True):
     """Soal → dict JSON. `include_answer=False` dipakai untuk tes diagnostik."""
     data = {
@@ -65,7 +72,7 @@ def serialize_question(q, include_answer=True):
         "source": q.source_document.filename if q.source_document else "",
         "options": [
             {"id": o.id, "text": o.text, **({"is_correct": o.is_correct} if include_answer else {})}
-            for o in q.options.all()
+            for o in option_list(q)
         ],
     }
     if include_answer:
@@ -186,24 +193,35 @@ EVALUATION_LABELS = {
 }
 
 
-def diagnostic_questions(faculty):
+def diagnostic_questions(faculty, rng=None):
     """
-    Soal tes diagnostik sesuai DIAGNOSTIC_PLAN (5 mudah, 3 sedang, 2 sulit).
+    Soal tes diagnostik sesuai DIAGNOSTIC_PLAN (5 mudah, 3 sedang, 2 sulit), diacak.
 
-    Mechanism: untuk tiap tingkat diambil soal bertanda is_diagnostic, dengan
-    soal milik fakultas pengguna diutamakan lalu dilengkapi soal umum. Dengan
-    demikian tes menguji konteks prodi masing-masing, tetapi tetap lengkap.
+    Mechanism: untuk tiap tingkat, soal bertanda is_diagnostic dikumpulkan (soal
+    fakultas pengguna diutamakan, lalu soal umum). Bila stok lebih banyak dari
+    kuota, kandidat diambil acak dari kelompok yang sama prioritasnya. Lalu urutan
+    10 soal dan urutan opsi tiap soal dikocok Fisher-Yates (`random.shuffle`).
+    Penilaian memakai kode soal & id opsi database, jadi pengacakan tidak
+    memengaruhi skor.
     """
+    rng = rng or random.Random()
     picked = []
     for level, count in DIAGNOSTIC_PLAN:
-        qs = (
+        qs = list(
             Question.objects.filter(is_diagnostic=True, difficulty=level)
             .filter(_visible_to(faculty))
             .select_related("source_document", "node")
             .prefetch_related(Prefetch("options", queryset=Option.objects.order_by("order")))
-            .order_by(F("faculty_id").desc(nulls_last=True), "node__order", "order")
         )
-        picked.extend(qs[:count])
+        own = [q for q in qs if q.faculty_id is not None]
+        general = [q for q in qs if q.faculty_id is None]
+        rng.shuffle(own)
+        rng.shuffle(general)
+        picked.extend((own + general)[:count])
+    rng.shuffle(picked)
+    for q in picked:
+        q.shuffled_options = list(q.options.all())
+        rng.shuffle(q.shuffled_options)
     return picked
 
 
