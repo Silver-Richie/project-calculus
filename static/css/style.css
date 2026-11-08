@@ -2224,3 +2224,217 @@ form:not(.stepper-on) .dq-nav [data-step=next] { display: none; }
 .auth-body #app { display: block; min-height: 100vh; }
 .auth-form.auth-pane:not(.active) { display: none; }
 .dq-nav [hidden], .auth-body [hidden] { display: none !important; }
+
+/* Nyawa habis: pill HUD berkedip pelan, banner di daftar sesi, catatan hasil sesi */
+.hud-pill.hearts.hearts-empty {
+  opacity: .75;
+  animation: heartPulse 1.6s ease-in-out infinite;
+}
+
+@keyframes heartPulse {
+  50% { opacity: .45; }
+}
+
+.hearts-banner {
+  margin-bottom: 12px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  color: var(--clr-danger);
+  background: var(--clr-danger-l);
+  font-size: .9rem;
+}
+
+.hearts-note {
+  color: var(--clr-danger);
+}
+
+/* ── Latihan Bebas ─────────────────────────────────────────────────────── */
+.fp-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.fp-chip {
+  padding: 4px 12px;
+  border-radius: var(--radius-full);
+  background: var(--clr-primary-l);
+  color: var(--clr-primary-d);
+  font-size: .85rem;
+}
+
+.fp-step {
+  margin-bottom: 14px;
+  padding: 16px;
+  border: 1px solid var(--clr-border);
+  border-radius: var(--radius-md);
+  background: var(--clr-surface);
+}
+
+.fp-step-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.fp-step-title {
+  margin: 0 0 10px;
+  font-size: 1rem;
+}
+
+.fp-step-title small {
+  color: var(--clr-muted);
+  font-weight: 400;
+}
+
+.fp-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.fp-topics {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 8px;
+}
+
+.fp-topic {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 10px 12px;
+  border: 1px solid var(--clr-border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: .9rem;
+}
+
+.fp-topic.on {
+  border-color: var(--clr-primary);
+  background: var(--clr-primary-l);
+}
+
+.fp-range {
+  width: 100%;
+  accent-color: var(--clr-primary);
+}
+
+.fp-range-scale {
+  display: flex;
+  justify-content: space-between;
+  color: var(--clr-muted);
+  font-size: .8rem;
+}
+
+.fp-start {
+  width: 100%;
+}
+
+.fp-summary {
+  max-width: 420px;
+  margin: 12px auto;
+  padding: 0;
+  list-style: none;
+  text-align: left;
+}
+
+.fp-summary li {
+  display: flex;
+  justify-content: space-between;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--clr-border);
+}
+
+/* ── Tab Ringkasan & Pembahasan di layar hasil ─────────────────────────── */
+.rv-tabs {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 14px;
+  border-bottom: 2px solid var(--clr-border);
+}
+
+.rv-tab {
+  padding: 8px 14px;
+  border: 0;
+  border-bottom: 3px solid transparent;
+  margin-bottom: -2px;
+  background: none;
+  color: var(--clr-muted);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.rv-tab.active {
+  border-bottom-color: var(--clr-primary);
+  color: var(--clr-primary);
+}
+
+.rv-pane { display: none; }
+.rv-pane.active { display: block; }
+
+.rv-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+  font-size: .9rem;
+}
+
+.rv-item {
+  margin-bottom: 10px;
+  border: 1px solid var(--clr-border);
+  border-left: 4px solid var(--clr-growth);
+  border-radius: var(--radius-sm);
+  background: var(--clr-surface);
+}
+
+.rv-item.bad { border-left-color: var(--clr-danger); }
+
+.rv-item > summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 12px;
+  cursor: pointer;
+  font-size: .9rem;
+}
+
+.rv-item[open] > summary { border-bottom: 1px solid var(--clr-border); }
+.rv-item > :not(summary) { margin: 12px; }
+
+.rv-num {
+  min-width: 26px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.rv-topic { color: var(--clr-muted); }
+.rv-code { margin-left: auto; color: var(--clr-muted); font-size: .8rem; }
+
+.rv-options {
+  padding: 0;
+  list-style: none;
+}
+
+.rv-options li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 6px;
+  padding: 8px 10px;
+  border: 1px solid var(--clr-border);
+  border-radius: var(--radius-sm);
+}
+
+.rv-options li.is-right { border-color: var(--clr-growth); background: var(--clr-growth-l); }
+.rv-options li.is-wrong { border-color: var(--clr-danger); background: var(--clr-danger-l); }
+.rv-tag { margin-left: auto; font-size: .8rem; }

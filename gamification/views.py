@@ -12,7 +12,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_POST
 
-from . import services, sessions
+from . import free_practice, services, sessions
 from .models import Faculty, PracticeSession, SkillNode, UserProfile
 
 
@@ -137,6 +137,8 @@ def session_api(request, session_id):
     session = get_object_or_404(PracticeSession.objects.select_related("topic"), pk=session_id)
     try:
         data = sessions.open_session(request.user, session)
+    except sessions.NoHeartsError as err:
+        return JsonResponse({"status": "no_hearts", "message": str(err), "hearts": err.state}, status=403)
     except PermissionError as err:
         return JsonResponse({"status": "locked", "message": str(err)}, status=403)
     return JsonResponse({"status": "success", **data})
@@ -150,6 +152,8 @@ def submit_session_api(request, session_id):
     body = _json_body(request)
     try:
         result = sessions.submit_session(request.user, session, int(body.get("attempt", -1)), body.get("answers") or [])
+    except sessions.NoHeartsError as err:
+        return JsonResponse({"status": "no_hearts", "message": str(err), "hearts": err.state}, status=403)
     except PermissionError as err:
         return JsonResponse({"status": "locked", "message": str(err)}, status=403)
     except ValueError as err:
@@ -166,3 +170,31 @@ def complete_node_api(request):
         return JsonResponse({"status": "error", "message": "Node tidak dikenal."}, status=400)
     sessions.mark_node_completed(request.user, node)
     return JsonResponse({"status": "success", "slug": node.slug})
+
+
+# ── Latihan Bebas (tanpa nyawa & tanpa XP) ──────────────────────────────────
+@login_required
+@require_GET
+def free_practice_catalog_api(request):
+    """GET /api/latihan-bebas/?faculty=ft — pilihan level → topik untuk satu fakultas."""
+    faculty = services.get_faculty(request.GET.get("faculty", services.DEFAULT_FACULTY))
+    return JsonResponse({"status": "success", "faculty": faculty.slug, "levels": free_practice.catalog(faculty)})
+
+
+@login_required
+@require_POST
+def free_practice_start_api(request):
+    """
+    POST /api/latihan-bebas/mulai/ {"faculty": "ft", "topics": ["pre-bilangan-real", ...], "count": 10}
+
+    Mengembalikan soal acak lengkap dengan kunci & pembahasan (dinilai di browser).
+    Tidak mengubah nyawa, XP, maupun progres.
+    """
+    body = _json_body(request)
+    faculty = services.get_faculty(body.get("faculty", services.DEFAULT_FACULTY))
+    try:
+        count = int(body.get("count", 10))
+        questions = free_practice.build_quiz(faculty, body.get("topics") or [], count)
+    except (TypeError, ValueError) as err:
+        return JsonResponse({"status": "error", "message": str(err) or "Permintaan tidak valid."}, status=400)
+    return JsonResponse({"status": "success", "questions": questions})

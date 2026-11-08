@@ -5,6 +5,8 @@ Defines schemas for Faculties, Learning Tree Nodes, Question Bank,
 User Gamification Profiles, and Skill Progress Records.
 """
 
+from datetime import timedelta
+
 from django.db import models
 from django.conf import settings
 from django.utils import timezone
@@ -357,8 +359,12 @@ class UserProfile(models.Model):
     )
     xp = models.PositiveIntegerField(default=0, help_text="Total earned Experience Points")
     streak_days = models.PositiveIntegerField(default=1, help_text="Consecutive days of active practice")
-    hearts = models.PositiveIntegerField(default=5, help_text="Current hearts/lives remaining (max 5)")
-    max_hearts = models.PositiveIntegerField(default=5)
+    hearts = models.PositiveIntegerField(default=10, help_text="Nyawa tersisa (maks. max_hearts)")
+    max_hearts = models.PositiveIntegerField(default=10)
+    hearts_lost_at = models.DateTimeField(
+        null=True, blank=True,
+        help_text="Waktu nyawa pertama hilang pada siklus ini; nyawa penuh lagi 24 jam setelahnya",
+    )
     gems = models.PositiveIntegerField(default=100, help_text="Collectible gems currency")
     
     # Diagnostic status
@@ -380,11 +386,53 @@ class UserProfile(models.Model):
         fac_name = self.faculty.short_name if self.faculty else "General"
         return f"{self.user.username} ({fac_name}) - {self.xp} XP"
 
-    def deduct_heart(self):
-        """Deducts one life when an error is made."""
+    # ── Sistem nyawa ────────────────────────────────────────────────────────
+    HEART_REFILL = timedelta(hours=24)
+
+    @property
+    def hearts_refill_at(self):
+        """Waktu nyawa kembali penuh, atau None bila nyawa sedang penuh."""
+        return self.hearts_lost_at + self.HEART_REFILL if self.hearts_lost_at else None
+
+    def refresh_hearts(self, now=None):
+        """
+        Isi ulang nyawa bila sudah 24 jam sejak nyawa pertama hilang.
+
+        Mechanism: tidak ada tugas terjadwal. Setiap kali nyawa dibaca (buka sesi,
+        kirim jawaban, muat beranda), fungsi ini dipanggil dulu; bila waktunya sudah
+        lewat, nyawa kembali ke max_hearts dan siklus baru dimulai saat nyawa hilang lagi.
+        """
+        now = now or timezone.now()
+        if self.hearts_lost_at and now >= self.hearts_refill_at:
+            self.hearts, self.hearts_lost_at = self.max_hearts, None
+            self.save(update_fields=["hearts", "hearts_lost_at"])
+        return self.hearts
+
+    def lose_heart(self, now=None):
+        """Kurangi satu nyawa (dipakai saat gagal lulus sesi). Nyawa pertama yang hilang memulai hitungan 24 jam."""
+        now = now or timezone.now()
+        self.refresh_hearts(now)
         if self.hearts > 0:
             self.hearts -= 1
-            self.save(update_fields=['hearts'])
+            self.hearts_lost_at = self.hearts_lost_at or now
+            self.save(update_fields=["hearts", "hearts_lost_at"])
+        return self.hearts
+
+    def deduct_heart(self):
+        """Alias lama untuk lose_heart()."""
+        return self.lose_heart()
+
+    def hearts_state(self, now=None):
+        """Status nyawa untuk frontend: jumlah, maksimum, dan kapan penuh lagi."""
+        now = now or timezone.now()
+        self.refresh_hearts(now)
+        refill = self.hearts_refill_at
+        return {
+            "hearts": self.hearts,
+            "max_hearts": self.max_hearts,
+            "refill_at": refill.isoformat() if refill else None,
+            "refill_in": max(0, int((refill - now).total_seconds())) if refill else 0,
+        }
 
     def add_xp(self, amount):
         """Awards XP to user and updates level."""
