@@ -137,6 +137,8 @@ def session_api(request, session_id):
     session = get_object_or_404(PracticeSession.objects.select_related("topic"), pk=session_id)
     try:
         data = sessions.open_session(request.user, session)
+    except sessions.NoHeartsError as err:
+        return JsonResponse({"status": "no_hearts", "message": str(err), "hearts": err.state}, status=403)
     except PermissionError as err:
         return JsonResponse({"status": "locked", "message": str(err)}, status=403)
     return JsonResponse({"status": "success", **data})
@@ -150,6 +152,8 @@ def submit_session_api(request, session_id):
     body = _json_body(request)
     try:
         result = sessions.submit_session(request.user, session, int(body.get("attempt", -1)), body.get("answers") or [])
+    except sessions.NoHeartsError as err:
+        return JsonResponse({"status": "no_hearts", "message": str(err), "hearts": err.state}, status=403)
     except PermissionError as err:
         return JsonResponse({"status": "locked", "message": str(err)}, status=403)
     except ValueError as err:

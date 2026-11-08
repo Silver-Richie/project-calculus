@@ -40,8 +40,12 @@
 
       <!-- TAB: Kuis dengan HINT BERTAHAP -->
       <div class="tab-pane" id="tab-kuis">
-        <div id="quiz-container">
-          <!-- Diisi dinamis oleh QuizEngine.render() -->
+        <!-- Saat soal tampil, drawer menjadi layar penuh: kiri soal, kanan papan tulis (whiteboard.js) -->
+        <div class="quiz-split">
+          <div id="quiz-container">
+            <!-- Diisi dinamis oleh QuizEngine.render() -->
+          </div>
+          <aside class="quiz-board" id="quiz-board" aria-label="Papan tulis"></aside>
         </div>
       </div>
 

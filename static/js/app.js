@@ -30,7 +30,7 @@ async function postJSON(url, body) {
     body: JSON.stringify(body || {}),
   });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.message || `HTTP ${res.status}`);
+  if (!res.ok) throw Object.assign(new Error(data.message || `HTTP ${res.status}`), { data, status: res.status });
   return data;
 }
 
@@ -95,7 +95,7 @@ const State = (() => {
   const KEY = SERVER ? `cb_state_v4:${SERVER.username}` : 'cb_state_v4';
   const DEFAULTS = {
     faculty: 'fasilkom',
-    xp: 0, streak: 1, hearts: 5, maxHearts: 5, gems: 100,
+    xp: 0, streak: 1, hearts: 10, maxHearts: 10, heartsRefillAt: null, gems: 100,
     progress: {},   // { ft: { completed: [slug...], active: slug|null } }
     sound: true,
   };
@@ -110,12 +110,22 @@ const State = (() => {
    * Menggabungkan data server ke state lokal: fakultas akun, XP, dan progres
    * hasil tes diagnostik (node yang dilewati = selesai, node rekomendasi = aktif).
    */
+  /** Nyawa selalu mengikuti server (sumber kebenaran); refillAt = cap waktu lokal saat nyawa penuh lagi. */
+  function applyHearts(h) {
+    if (!h) return;
+    s.hearts = h.hearts;
+    s.maxHearts = h.max_hearts;
+    s.heartsRefillAt = h.refill_at ? Date.now() + h.refill_in * 1000 : null;
+  }
+
   if (SERVER) {
+    applyHearts(SERVER.hearts);
     if (SERVER.faculty) s.faculty = SERVER.faculty;
     s.xp = Math.max(s.xp || 0, SERVER.xp || 0);
     const p = s.progress[s.faculty] || (s.progress[s.faculty] = { completed: [], active: null });
     (SERVER.completed || []).forEach((slug) => { if (!p.completed.includes(slug)) p.completed.push(slug); });
-    if (SERVER.active && !p.completed.includes(SERVER.active) && !p.active) p.active = SERVER.active;
+    // Server adalah sumber kebenaran sub-level aktif: nilai lokal bisa usang (mis. node kurikulum lama).
+    if (SERVER.active && !p.completed.includes(SERVER.active)) p.active = SERVER.active;
   }
 
   /** Simpan pilihan fakultas ke akun (UserProfile) di server. */
@@ -143,6 +153,11 @@ const State = (() => {
     setText('hud-xp', `⚡ ${s.xp} XP`);
     setText('hud-streak', `🔥 ${s.streak}`);
     setText('hud-hearts-val', `${s.hearts}/${s.maxHearts}`);
+    const pill = document.getElementById('hud-hearts-pill');
+    if (pill) {
+      pill.title = s.heartsRefillAt ? `Nyawa penuh kembali dalam ${refillText()}` : 'Nyawa penuh';
+      pill.classList.toggle('hearts-empty', s.hearts <= 0);
+    }
     setText('hud-gems', `💎 ${s.gems}`);
     setText('profile-xp', s.xp);
     setText('profile-streak', s.streak);
@@ -161,6 +176,20 @@ const State = (() => {
     if (typeof SkillTree !== 'undefined') SkillTree.refreshStates();
   }
 
+  /** Sisa waktu sampai nyawa penuh, mis. "5 jam 20 menit". */
+  function refillText() {
+    const sec = Math.max(0, Math.round(((s.heartsRefillAt || 0) - Date.now()) / 1000));
+    const h = Math.floor(sec / 3600), m = Math.ceil((sec % 3600) / 60);
+    return h ? `${h} jam ${m} menit` : `${Math.max(1, m)} menit`;
+  }
+
+  // Isi ulang tampilan saat waktunya tiba (server tetap memeriksa ulang saat sesi dibuka).
+  setInterval(() => {
+    if (s.heartsRefillAt && Date.now() >= s.heartsRefillAt) {
+      s.hearts = s.maxHearts; s.heartsRefillAt = null; save();
+    } else if (s.heartsRefillAt) updateHUD();
+  }, 30000);
+
   function floatXP(amount) {
     const el = document.getElementById('hud-xp');
     if (!el) return;
@@ -177,11 +206,15 @@ const State = (() => {
     get: () => s,
     progress: prog,
     addXP(n) { s.xp += n; save(); floatXP(n); },
-    loseHeart() {
-      if (s.hearts > 0) { s.hearts--; save(); }
+    /** Terapkan status nyawa dari server; animasi goyang bila nyawa berkurang. */
+    setHearts(h) {
+      const before = s.hearts;
+      applyHearts(h); save();
       const p = document.getElementById('hud-hearts-pill');
-      if (p) { p.classList.add('hearts-shake'); setTimeout(() => p.classList.remove('hearts-shake'), 500); }
+      if (p && s.hearts < before) { p.classList.add('hearts-shake'); setTimeout(() => p.classList.remove('hearts-shake'), 500); }
     },
+    hasHearts: () => s.hearts > 0,
+    refillText,
     setFaculty(f) {
       if (s.faculty === f) return;
       s.faculty = f; save(); SFX.click();
@@ -192,7 +225,10 @@ const State = (() => {
     nodeStatus(slug, tree) {
       const p = prog();
       if (p.completed.includes(slug)) return 'completed';
-      const active = p.active || tree.find((n) => !p.completed.includes(n.slug))?.slug;
+      // Abaikan sub-level aktif yang tidak ada lagi di peta (sisa kurikulum lama) atau sudah selesai,
+      // agar sub-level pertama yang belum selesai tetap terbuka.
+      const valid = p.active && !p.completed.includes(p.active) && tree.some((n) => n.slug === p.active);
+      const active = valid ? p.active : tree.find((n) => !p.completed.includes(n.slug))?.slug;
       return slug === active ? 'active' : 'locked';
     },
     completeNode(slug, nextSlug) {
@@ -343,6 +379,24 @@ const Curriculum = (() => {
 
 const DIFF_LABEL = { basic: 'Dasar / Mudah', medium: 'Sedang', high: 'Sulit' };
 
+/**
+ * Papan tulis kuis. Saat soal tampil, drawer menjadi layar penuh (kelas .quiz-mode):
+ * kiri soal & jawaban, kanan papan tulis. Setiap soal memakai papan sendiri
+ * (kunci = id/kode soal), jadi soal baru selalu kosong dan coretan lama kembali
+ * bila soal yang sama dibuka lagi.
+ */
+const QuizBoard = {
+  show(key) {
+    const drawer = document.getElementById('lesson-drawer');
+    if (!drawer || typeof Whiteboard === 'undefined') return;
+    drawer.classList.add('quiz-mode');
+    Whiteboard.mount(document.getElementById('quiz-board'))?.load(`quiz:${key}`);
+  },
+  hide() {
+    document.getElementById('lesson-drawer')?.classList.remove('quiz-mode');
+  },
+};
+
 /* ════════════════════════════════════════════════════════════════
    SKILL TREE — Peta belajar (halaman Level Up)
    ════════════════════════════════════════════════════════════════ */
@@ -403,7 +457,7 @@ const SkillTree = (() => {
    CATALOGUE — Halaman Lesson, dikelompokkan per berkas sumber
    ════════════════════════════════════════════════════════════════ */
 const Catalogue = (() => {
-  const CAT_ICON = { materi: '📖', soal: '📝', lampiran: '📚' };
+  const CAT_ICON = { materi: '📖', soal: '📝', lampiran: '📚', buku: '📕' };
 
   function nodeCard(n) {
     return `
@@ -460,7 +514,7 @@ const Catalogue = (() => {
             ${doc.subtitle ? `<p class="doc-sub">${doc.subtitle}</p>` : ''}
           </div>
         </header>
-        ${doc.category === 'soal'
+        ${doc.category === 'soal' || doc.category === 'buku'
           ? `<div class="qbank-list">${doc.items.map(questionRow).join('')}</div>`
           : `<div class="lesson-grid">${doc.items.map((slug) => Curriculum.node(slug)).filter(Boolean).map(nodeCard).join('')}</div>`}
       </section>`).join('');
@@ -501,6 +555,20 @@ function renderSections(container, node) {
       GraphLab.mountList(g, sec.graphs);
     }
   });
+}
+
+/**
+ * Fisher-Yates shuffle: salinan acak dari `arr` (array asli tidak diubah).
+ * Mechanism: dari elemen terakhir ke depan, tukar elemen i dengan elemen acak j ∈ [0, i],
+ * sehingga setiap urutan punya peluang sama (O(n)).
+ */
+function shuffle(arr) {
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
 }
 
 /* ════════════════════════════════════════════════════════════════
@@ -545,6 +613,7 @@ const QuizEngine = (() => {
     if (!container) return;
 
     if (!questions.length) {
+      QuizBoard.hide();
       container.innerHTML = `
         <div class="level-complete">
           <div class="trophy-anim">📖</div>
@@ -555,6 +624,7 @@ const QuizEngine = (() => {
       return;
     }
     if (idx >= questions.length) {
+      QuizBoard.hide();
       if (mode === 'session') { Practice.finish(answers); return; }
       showComplete();
       return;
@@ -594,6 +664,7 @@ const QuizEngine = (() => {
       </div>`;
 
     hideFeedback();
+    QuizBoard.show(q.id || q.code);
   }
 
   function revealPembahasan(q) {
@@ -631,7 +702,10 @@ const QuizEngine = (() => {
   return {
     start(slug, qs, m = 'level') {
       nodeSlug = slug;
-      questions = qs || [];
+      // Mode session sudah diacak server (urutan harus sama saat dinilai), jadi tidak dikocok ulang.
+      // Mode lain: kocok urutan soal (level) dan opsi; benar/salah dicek lewat is_correct, bukan posisi.
+      questions = (qs || []).map((q) => (m === 'session' ? q : { ...q, options: shuffle(q.options || []) }));
+      if (m === 'level') questions = shuffle(questions);
       mode = m;
       idx = 0;
       answers = [];
@@ -676,9 +750,9 @@ const QuizEngine = (() => {
           `Jawaban: ${q.answer}`, actionLabel);
       } else {
         SFX.wrong();
-        if (mode !== 'practice') State.loseHeart();
+        // Nyawa tidak berkurang per soal: hanya saat gagal lulus satu sesi (dinilai server).
         Mascot.setMood('comfort', 'Jangan menyerah! Baca pembahasannya ya.');
-        showFeedback(false, mode !== 'practice' ? 'Belum tepat (−1 Nyawa)' : 'Belum tepat',
+        showFeedback(false, 'Belum tepat',
           'Baca pembahasan langkah demi langkah di atas.', actionLabel);
       }
     },
@@ -833,6 +907,7 @@ const Drawer = (() => {
     },
 
     close() {
+      QuizBoard.hide();
       document.getElementById('lesson-drawer').classList.remove('open');
       hideFeedback();
       SFX.click();
@@ -842,6 +917,7 @@ const Drawer = (() => {
       document.querySelectorAll('.drawer-tab').forEach((t) => t.classList.toggle('active', t.dataset.tab === tab));
       document.querySelectorAll('.tab-pane').forEach((p) => p.classList.toggle('active', p.id === `tab-${tab}`));
       hideFeedback();
+      QuizBoard.hide();
       if (tab !== 'kuis') return;
 
       const node = Curriculum.node(current);

@@ -85,3 +85,9 @@ Langkah:
   aset static diberi ?v=mtime (templatetag `asset`) agar cache browser tidak memakai JS lama. Heredoc bash sering gagal di mesin ini → tulis skrip
   patch ke scratchpad lalu jalankan dengan `.\env\Scripts\python.exe`.
 - Format grafik: angka negatif di ekspresi aman (`graphlab.js` mengubah `--` → `- -`).
+
+## Fitur Papan Tulis (2026-11-07, branch sama, belum commit)
+- [x] static/js/whiteboard.js + static/css/whiteboard.css: spidol 4 warna/3 tebal, stabilo, garis lurus, penghapus 3 ukuran, undo/redo, hapus semua, latar petak/garis/polos, stylus (tekanan) & sentuh
+- [x] Kuis/sesi/Bank Soal: drawer layar penuh (kiri soal, kanan papan), papan per soal (QuizBoard di app.js)
+- [x] Tes diagnostik /auth/tes-awal/mulai/: soal kiri, papan kanan, papan per soal (auth.js DiagStepper)
+- [x] HP: papan di bawah soal (60vh)
