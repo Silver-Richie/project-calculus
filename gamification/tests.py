@@ -154,7 +154,7 @@ class GamificationApiTests(TestCase):
         self.assertEqual(len(codes), 10)
         levels = [q["difficulty"] for q in data["questions"]]
         self.assertEqual((levels.count("basic"), levels.count("medium"), levels.count("high")), (5, 3, 2))
-        self.assertTrue(all(c.startswith(("FK-", "U-", "WH-")) for c in codes))
+        self.assertTrue(all(not c.startswith(("FT-", "FM-")) for c in codes))   # tidak ada soal prodi lain
         for q in data["questions"]:
             self.assertNotIn("steps", q)
             for o in q["options"]:
@@ -684,3 +684,33 @@ class BankFacultyTests(TestCase):
         codes = {c for d in data["documents"] for c in d["items"] if isinstance(c, str) and c.startswith("ST-")}
         self.assertTrue(codes)
         self.assertFalse(any(c.endswith(("M", "K")) for c in codes))
+
+
+class DiagnosticBankTests(TestCase):
+    """Tes diagnostik diundi dari bank soal per level dengan aturan sebaran topik & prodi."""
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_gamification", stdout=io.StringIO())
+        cls.faculty = Faculty.objects.get(slug="fmipa")
+
+    def test_pool_uses_level_bank(self):
+        pool = services._diagnostic_pool(self.faculty)
+        self.assertGreater(sum(len(v) for v in pool.values()), 250)
+        levels = {q.node.main_level.slug for q in pool["basic"] if not q.is_diagnostic}
+        self.assertEqual(levels, {"precalculus"})
+        self.assertTrue(all(q.node.main_level.slug == "kalkulus-dasar" for q in pool["high"] if not q.is_diagnostic))
+
+    def test_one_question_per_topic_and_own_faculty_share(self):
+        for seed in range(30):
+            qs = services.diagnostic_questions(self.faculty, random.Random(seed))
+            keys = [services._topic_key(q) for q in qs]
+            self.assertEqual(len(keys), len(set(keys)))
+            self.assertGreaterEqual(sum(q.faculty_id == self.faculty.id for q in qs), 3)
+
+    def test_grading_uses_test_section_not_question_difficulty(self):
+        qs = services.diagnostic_questions(self.faculty, random.Random(3))
+        answers = [{"code": q.code, "option_id": next(o.id for o in q.shuffled_options if o.is_correct)} for q in qs]
+        result = services.evaluate_diagnostic(self.faculty, answers)
+        self.assertEqual(result["evaluation"], "mastery")
+        self.assertEqual({k: v["total"] for k, v in result["levels"].items()}, dict(services.DIAGNOSTIC_PLAN))

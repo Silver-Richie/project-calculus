@@ -185,6 +185,7 @@ DIAGNOSTIC_PLAN = (("basic", 5), ("medium", 3), ("high", 2))
 
 # Batas lulus per tingkat (proporsi jawaban benar).
 PASS_RATIO = {"basic": 0.6, "medium": 0.6, "high": 0.5}
+DIFFICULTY_LABELS = dict(Question._meta.get_field("difficulty").choices)
 
 EVALUATION_LABELS = {
     "weak_foundation": "Perlu Penguatan Fondasi",
@@ -193,33 +194,94 @@ EVALUATION_LABELS = {
 }
 
 
+# Bagian tes ← soal bank per level (lihat diagnostic_tier). Kalkulus Menengah tidak dipakai:
+# lulus tes berarti siap masuk Menengah, jadi yang diuji adalah penguasaan Kalkulus Dasar.
+DIAGNOSTIC_SOURCES = {
+    "precalculus": {"basic": "basic", "medium": "basic", "high": "basic"},
+    "kalkulus-dasar": {"basic": "medium", "medium": "medium", "high": "high"},
+}
+DIAG_FLAG_WEIGHT = 3        # soal bertanda is_diagnostic lebih sering terpilih
+
+
+def diagnostic_tier(q, level_slug=None):
+    """
+    Bagian tes (basic/medium/high) tempat soal q diujikan, atau None bila tidak dipakai.
+
+    Mechanism: soal bertanda is_diagnostic memakai tingkat kesulitannya sendiri (penanda
+    penulis soal tetap dihormati). Soal lain dipetakan menurut levelnya lewat
+    DIAGNOSTIC_SOURCES: semua PreCalculus → bagian Mudah (fondasi), Kalkulus Dasar
+    Mudah/Sedang → bagian Sedang, Kalkulus Dasar Sulit → bagian Sulit.
+    """
+    if q.is_diagnostic:
+        return q.difficulty
+    if level_slug is None:
+        level_slug = q.node.main_level.slug if q.node_id and q.node.main_level_id else None
+    return DIAGNOSTIC_SOURCES.get(level_slug, {}).get(q.difficulty)
+
+
+def _diagnostic_pool(faculty):
+    """Semua soal yang boleh diujikan untuk fakultas ini, dikelompokkan per bagian tes."""
+    qs = (
+        Question.objects.filter(_visible_to(faculty))
+        .filter(Q(is_diagnostic=True) | Q(node__main_level__slug__in=list(DIAGNOSTIC_SOURCES)))
+        .select_related("source_document", "node__main_level", "session")
+        .prefetch_related(Prefetch("options", queryset=Option.objects.order_by("order")))
+    )
+    pool = {tier: [] for tier, _ in DIAGNOSTIC_PLAN}
+    for q in qs:
+        level = q.node.main_level.slug if q.node_id and q.node.main_level_id else None
+        tier = diagnostic_tier(q, level)
+        if tier in pool:
+            pool[tier].append(q)
+    return pool
+
+
+def _topic_key(q):
+    """Kunci topik untuk aturan 'satu topik paling banyak satu soal'."""
+    return ("topic", q.session.topic_id) if q.session_id else ("node", q.node_id)
+
+
 def diagnostic_questions(faculty, rng=None):
     """
-    Soal tes diagnostik sesuai DIAGNOSTIC_PLAN (5 mudah, 3 sedang, 2 sulit), diacak.
+    Soal tes diagnostik sesuai DIAGNOSTIC_PLAN (5 mudah, 3 sedang, 2 sulit), diundi dari bank soal.
 
-    Mechanism: untuk tiap tingkat, kumpulan soal bertanda is_diagnostic dibagi dua:
-    soal fakultas pengguna dan soal umum (termasuk bank soal buku referensi).
-    Sekitar separuh kuota (count // 2) diambil acak dari soal fakultas agar tes tetap
-    menguji konteks prodi; sisanya diundi dari semua soal yang tersisa. Lalu urutan
-    10 soal dan urutan opsi tiap soal dikocok Fisher-Yates (`random.shuffle`).
-    Penilaian memakai kode soal & id opsi database, jadi pengacakan tidak
-    memengaruhi skor.
+    Mechanism:
+      1. Kandidat tiap bagian diambil dari _diagnostic_pool (bank per level + soal bertanda).
+      2. Undian berbobot tanpa pengembalian: kunci acak u^(1/w) (Efraimidis–Spirakis), dengan
+         w = DIAG_FLAG_WEIGHT untuk soal bertanda is_diagnostic, selain itu 1.
+      3. Sekitar separuh kuota (count // 2) diisi soal milik fakultas pengguna bila ada.
+      4. Satu topik paling banyak satu soal di seluruh tes, agar 10 soal menyebar.
+      5. Urutan soal dan opsi dikocok Fisher-Yates (`random.shuffle`).
+    Atribut `difficulty` pada objek soal (tidak disimpan) diganti menjadi bagian tesnya,
+    agar tampilan & penilaian memakai bagian yang sama (lihat grade_answers).
     """
     rng = rng or random.Random()
-    picked = []
-    for level, count in DIAGNOSTIC_PLAN:
-        qs = list(
-            Question.objects.filter(is_diagnostic=True, difficulty=level)
-            .filter(_visible_to(faculty))
-            .select_related("source_document", "node")
-            .prefetch_related(Prefetch("options", queryset=Option.objects.order_by("order")))
-        )
-        own = [q for q in qs if q.faculty_id is not None]
-        rng.shuffle(own)
-        chosen = own[: count // 2]
-        rest = [q for q in qs if q not in chosen]
-        rng.shuffle(rest)
-        picked.extend(chosen + rest[: count - len(chosen)])
+    pool = _diagnostic_pool(faculty)
+    picked, used_topics = [], set()
+
+    def ranked(items):
+        return sorted(items, key=lambda q: rng.random() ** (1 / (DIAG_FLAG_WEIGHT if q.is_diagnostic else 1)),
+                      reverse=True)
+
+    def take(items, n, tier):
+        got = []
+        for q in items:
+            if len(got) == n:
+                break
+            key = _topic_key(q)
+            if key in used_topics or q in picked:
+                continue
+            used_topics.add(key)
+            q.difficulty = tier
+            got.append(q)
+        return got
+
+    for tier, count in DIAGNOSTIC_PLAN:
+        cands = ranked(pool[tier])
+        own = [q for q in cands if faculty and q.faculty_id == faculty.id]
+        chosen = take(own, count // 2, tier)
+        picked.extend(chosen)
+        picked.extend(take(cands, count - len(chosen), tier))
     rng.shuffle(picked)
     for q in picked:
         q.shuffled_options = list(q.options.all())
@@ -243,14 +305,16 @@ def diagnostic_from_snapshot(snapshot):
     if not snapshot:
         return None
     codes = [code for code, _ in snapshot]
-    by_code = {q.code: q for q in Question.objects.filter(code__in=codes, is_diagnostic=True)
-               .select_related("source_document", "node").prefetch_related("options")}
+    by_code = {q.code: q for q in Question.objects.filter(code__in=codes)
+               .select_related("source_document", "node__main_level").prefetch_related("options")}
     out = []
     for code, opt_ids in snapshot:
         q = by_code.get(code)
         opts = {o.id: o for o in q.options.all()} if q else {}
-        if not q or set(opts) != set(opt_ids):
+        tier = diagnostic_tier(q) if q else None
+        if not q or tier is None or set(opts) != set(opt_ids):
             return None
+        q.difficulty = tier
         q.shuffled_options = [opts[i] for i in opt_ids]
         out.append(q)
     return out
@@ -263,7 +327,8 @@ def grade_answers(answers):
     """
     codes = [a.get("code") for a in answers if a.get("code")]
     questions = {
-        q.code: q for q in Question.objects.filter(code__in=codes).prefetch_related("options")
+        q.code: q for q in Question.objects.filter(code__in=codes)
+        .select_related("node__main_level").prefetch_related("options")
     }
     results = []
     for ans in answers:
@@ -279,8 +344,8 @@ def grade_answers(answers):
         chosen = next((o for o in q.options.all() if str(o.id) == str(ans.get("option_id"))), None)
         results.append({
             "code": q.code,
-            "difficulty": q.difficulty,
-            "difficulty_label": q.get_difficulty_display(),
+            "difficulty": diagnostic_tier(q) or q.difficulty,
+            "difficulty_label": DIFFICULTY_LABELS[diagnostic_tier(q) or q.difficulty],
             "prompt": q.prompt,
             "chosen": chosen.text if chosen else "",
             "correct": correct_opt.text if correct_opt else "",
