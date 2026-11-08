@@ -597,3 +597,19 @@ class ShuffleTests(TestCase):
         second = [q["id"] for q in sessions.build_quiz(session, self.user.id, 1)]
         self.assertEqual(first, [q["id"] for q in sessions.build_quiz(session, self.user.id, 0)])
         self.assertNotEqual(first, second)
+
+    def test_session_pool_is_varied(self):
+        """Setiap percobaan memuat ≥6 jenis soal, termasuk sesi topik pertama (tanpa topik sebelumnya)."""
+        for slug in ("pre-bilangan-real", "kd-lim-konsep"):
+            for session in PracticeSession.objects.filter(topic__slug=slug):
+                for attempt in range(3):
+                    quiz = sessions.build_quiz(session, self.user.id, attempt)
+                    self.assertEqual(len(quiz), session.question_count)
+                    self.assertGreaterEqual(len({q["id"].split(":")[1] for q in quiz}), 6)
+
+    def test_borrowed_generators_are_graded_consistently(self):
+        """Soal pinjaman (tingkat lain) dibangun ulang sama persis saat penilaian."""
+        session = PracticeSession.objects.get(topic__slug="pre-bilangan-real", number=1)
+        a = sessions.build_quiz(session, self.user.id, 5)
+        b = sessions.build_quiz(session, self.user.id, 5)
+        self.assertEqual([(q["id"], q["options"]) for q in a], [(q["id"], q["options"]) for q in b])

@@ -43,34 +43,96 @@ def _pool(session, faculty_id=None):
     return items
 
 
+def _extra_pool(session, faculty_id=None):
+    """
+    Bank soal tambahan di luar jenis inti sesi, agar soal tidak itu-itu saja.
+
+    Mechanism — sumber generator ditambahkan berlapis, dari yang paling dekat dengan
+    materi sesi, dan berhenti begitu total jenis soal mencapai MIN_VARIETY:
+      1. Generator lain dari topik yang sama pada tingkat tetangga (sesi ±1).
+      2. Ulasan: topik-topik sebelumnya di sub-level yang sama (tingkat ±1).
+      3. Topik yang sama pada tingkat ±2.
+      4. Ulasan: topik di sub-level sebelumnya pada jalur fakultas user (tingkat ±1).
+    Lalu soal PDF dari database ikut ditambahkan: sub-level sama, tingkat kesulitan
+    sama, bukan soal diagnostik. Generator yang dipinjam dijalankan pada tingkat
+    terdekat yang didukungnya (lihat _gen_tier).
+    """
+    topic, tier = session.topic, session.number
+    core = {t.key for t in session.templates.all()}
+    earlier = set(Topic.objects.filter(node_id=topic.node_id, order__lt=topic.order).values_list("slug", flat=True))
+    prev_node = (SkillNode.objects.filter(kind="lesson", order__lt=topic.node.order)
+                 .filter(Q(faculty__isnull=True) | Q(faculty_id=faculty_id)).order_by("-order").first())
+    prev_topics = set(prev_node.topics.values_list("slug", flat=True)) if prev_node else set()
+    layers = [({topic.slug}, 1), (earlier, 1), ({topic.slug}, 2), (prev_topics, 1)]
+
+    picked = []
+    for slugs, reach in layers:
+        if len(core) + len(picked) >= MIN_VARIETY:
+            break
+        picked += [g.key for g in generators.REGISTRY.values()
+                   if g.key not in core and g.key not in picked
+                   and slugs.intersection(g.topics) and any(abs(t - tier) <= reach for t in g.tiers)]
+    items = [("g", key) for key in picked]
+    pdf = (Question.objects.filter(node_id=topic.node_id, difficulty=generators.TIER_DIFFICULTY[tier], is_diagnostic=False)
+           .exclude(session=session).exclude(code="")
+           .filter(Q(faculty__isnull=True) | Q(faculty_id=faculty_id)))
+    items += [("q", code) for code in pdf.values_list("code", flat=True)]
+    return items
+
+
+def _gen_tier(key, tier):
+    """Tingkat yang dipakai saat menjalankan generator: tingkat sesi bila didukung, selain itu yang terdekat."""
+    return min(generators.REGISTRY[key].tiers, key=lambda t: (abs(t - tier), t))
+
+
 def _user_faculty_id(user_id):
     return UserProfile.objects.filter(user_id=user_id).values_list("faculty_id", flat=True).first()
 
 
+def _deal(rng, bag, k, used):
+    """
+    Ambil k butir dari `bag` secara bergiliran.
+
+    Mechanism: setiap putaran, bag dikocok Fisher-Yates (`rng.shuffle`) lalu diambil
+    berurutan, sehingga semua jenis soal muncul dulu sebelum ada yang berulang.
+    Soal tetap ('q') paling banyak sekali per sesi (dicatat di `used`).
+    """
+    out = []
+    while len(out) < k:
+        items = [it for it in bag if not (it[0] == "q" and it[1] in used)]
+        if not items:
+            break
+        rng.shuffle(items)
+        for kind, key in items[: k - len(out)]:
+            if kind == "q":
+                used.add(key)
+            out.append((kind, key))
+    return out
+
+
+CORE_SHARE = 0.6               # porsi minimal soal dari jenis inti sesi; sisanya dari bank tambahan
+MIN_VARIETY = 8                # target jumlah jenis soal per sesi sebelum berhenti meminjam dari lapisan berikutnya
+
+
 def _draw(session, user_id, attempt):
     """
-    Undi slot soal secara seimbang: kumpulan berbobot diacak lalu diambil bergiliran,
-    sehingga 10 soal tersebar ke semua jenis generator sebelum ada yang berulang.
+    Undi 10 slot soal untuk satu percobaan.
+
+    Mechanism: rng ber-seed ``"<user>:<sesi>:<percobaan>"`` (bisa dibangun ulang saat
+    penilaian). Sebanyak CORE_SHARE slot diambil dari jenis inti sesi (berbobot),
+    sisanya dari _extra_pool; bila bank tambahan kurang, slot diisi jenis inti.
+    Hasil gabungan dikocok sekali lagi agar soal tambahan tidak menumpuk di akhir.
     """
     rng = random.Random(f"{user_id}:{session.id}:{attempt}")
-    pool = _pool(session, _user_faculty_id(user_id))
-    if not pool:
-        return []
-    bag = [(kind, key) for kind, key, w in pool for _ in range(max(1, w))]
-    slots = []
-    while len(slots) < session.question_count:
-        rng.shuffle(bag)
-        slots.extend(bag)
-    slots = slots[: session.question_count]
-    # soal tetap tidak boleh muncul dua kali
-    seen, out = set(), []
-    for kind, key in slots:
-        if kind == "q":
-            if key in seen:
-                continue
-            seen.add(key)
-        out.append((kind, key, rng.randrange(10 ** 9)))
-    return out
+    faculty_id = _user_faculty_id(user_id)
+    n = session.question_count
+    core = [(kind, key) for kind, key, w in _pool(session, faculty_id) for _ in range(max(1, w))]
+    extra = _extra_pool(session, faculty_id)
+    used = set()
+    slots = _deal(rng, extra, n - math.ceil(CORE_SHARE * n) if core else n, used)
+    slots += _deal(rng, core, n - len(slots), used)
+    rng.shuffle(slots)
+    return [(kind, key, rng.randrange(10 ** 9)) for kind, key in slots]
 
 
 def _fixed_question_payload(q, seed):
@@ -92,11 +154,13 @@ def _fixed_question_payload(q, seed):
 
 def build_quiz(session, user_id, attempt):
     """Soal lengkap (dengan kunci & pembahasan) untuk satu percobaan."""
-    fixed = {q.code: q for q in session.fixed_questions.prefetch_related("options")}
+    drawn = _draw(session, user_id, attempt)
+    fixed = {q.code: q for q in Question.objects.filter(code__in=[k for kind, k, _ in drawn if kind == "q"])
+             .prefetch_related("options")}
     questions = []
-    for i, (kind, key, sub) in enumerate(_draw(session, user_id, attempt), start=1):
+    for i, (kind, key, sub) in enumerate(drawn, start=1):
         if kind == "g":
-            q = generators.generate(key, sub, session.number)
+            q = generators.generate(key, sub, _gen_tier(key, session.number))
             q["id"] = f"g:{key}:{sub}"
         else:
             q = _fixed_question_payload(fixed[key], sub)
