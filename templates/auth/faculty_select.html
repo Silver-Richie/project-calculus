@@ -31,6 +31,9 @@
             <span class="fac-choice-desc">{{ fac.description }}</span>
           </span>
         </label>
+      {% empty %}
+        {# Tabel Faculty kosong: biasanya karena `manage.py seed_gamification` belum dijalankan. #}
+        <div class="auth-alert auth-alert-error">Data fakultas belum tersedia. Jalankan <code>python manage.py seed_gamification</code> lalu muat ulang halaman ini.</div>
       {% endfor %}
     </div>
     <button type="submit" class="btn btn-primary btn-lg auth-submit">Lanjut ➔</button>

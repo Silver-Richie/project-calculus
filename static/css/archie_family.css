@@ -1,0 +1,234 @@
+/* ════════════════════════════════════════════════════════════════
+   Adegan keluarga Archie (static/js/archie_family.js).
+   ≥ 768px : latar penuh layar di belakang kartu form.
+   < 768px : banner ringkas (papan tulis + keluarga) di atas kartu.
+   Tata letak kartu & form ada di auth_card.css.
+   ════════════════════════════════════════════════════════════════ */
+.family-stage { position: fixed; inset: 0; z-index: 0; overflow: hidden; background: #BAE6FD; }
+.family-fallback { display: grid; place-items: center; height: 100%; }
+.fam { position: absolute; inset: 0; width: 100%; height: 100%; display: block; user-select: none; touch-action: manipulation; }
+
+@media (max-width: 767px) {
+  .family-stage {
+    position: relative;
+    inset: auto;
+    flex-shrink: 0;
+    width: 100%;
+    max-width: 520px;
+    height: 200px;
+    border-radius: 24px;
+    box-shadow: var(--shadow-card);
+  }
+  .family-fallback svg { width: 120px; height: 120px; }
+  .family-stage .fam-hud { top: 8px; left: 8px; gap: .3rem; }
+  .family-stage .fam-hud-chip { font-size: .72rem; padding: .1rem .5rem .1rem .2rem; }
+  .family-stage .fam-hud-chip svg { width: 16px; height: 16px; }
+}
+
+/* ── Elemen adegan ─────────────────────────────────────────────── */
+.fam-char, .fam-board, .fam-tree, .fam-sun, .fam-moon, .fam-butterfly { cursor: pointer; }
+.fam-char { outline: none; }
+.fam-shadow { fill: rgba(15, 23, 42, .14); }
+.fam-char:focus-visible .fam-shadow { fill: rgba(37, 99, 235, .35); }
+
+.fam-move, .fam-breathe, .fam-gill, .fam-arm, .fam-cap, .fam-eyes, .fam-tail, .fam-stache,
+.fam-balloon, .fam-flower, .fam-wing, .fam-rays, .fam-sun-in, .fam-crown, .fam-bubble,
+.chalk-bar, .fam-star, .fam-firefly, [class^="ic-"], [class*=" ic-"] { transform-box: fill-box; }
+
+.fam-move { transform-origin: 50% 100%; }
+.fam-breathe { transform-origin: 50% 100%; animation: fam-breathe 3.2s ease-in-out infinite var(--d, 0s); }
+.fam-gill-l { transform-origin: 100% 50%; animation: fam-gill-l 2.4s ease-in-out infinite var(--d, 0s); }
+.fam-gill-r { transform-origin: 0% 50%; animation: fam-gill-r 2.4s ease-in-out infinite var(--d, 0s); }
+.fam-tail { transform-origin: 0% 50%; animation: fam-tail 1.9s ease-in-out infinite var(--d, 0s); }
+.fam-balloon { transform-origin: 50% 100%; animation: fam-sway 2.6s ease-in-out infinite; }
+.fam-arm { transform-origin: 50% 12%; }
+.fam-cap { transform-origin: 50% 50%; }
+.fam-stache { transform-origin: 50% 50%; }
+.fam-eyes { transform-origin: 50% 50%; transition: transform .08s; }
+.fam-char.blink .fam-eyes, .fam-char.is-sleep .fam-eyes { transform: scaleY(.12); }
+.fam-char.is-sleep .fam-breathe { animation-duration: 4.5s; }
+
+@keyframes fam-breathe { 50% { transform: scale(1.025, .975); } }
+@keyframes fam-gill-l { 50% { transform: rotate(-10deg); } }
+@keyframes fam-gill-r { 50% { transform: rotate(10deg); } }
+@keyframes fam-tail { 50% { transform: rotate(12deg); } }
+@keyframes fam-sway { 50% { transform: rotate(-6deg); } }
+
+/* Aksi (kelas do-* dipasang JS pada .fam-char) */
+.do-jump .fam-move { animation: fam-jump .6s cubic-bezier(.3, .7, .4, 1); }
+.do-hop .fam-move { animation: fam-hop .4s ease-out; }
+.do-spin .fam-move { transform-origin: 50% 60%; animation: fam-spin .8s ease-in-out; }
+.do-shake .fam-move { animation: fam-shake .9s ease-in-out; }
+.do-nod .fam-move { animation: fam-nod .8s ease-in-out; }
+.do-wiggle .fam-move { animation: fam-wiggle 1.2s ease-in-out; }
+.do-startle .fam-move { animation: fam-startle .5s ease-out; }
+.do-dizzy .fam-move { animation: fam-dizzy 1.3s ease-in-out; }
+.do-bounce .fam-move { animation: fam-bounce 1s ease-in-out; }
+.do-stretch .fam-move { animation: fam-stretch 1.4s ease-in-out; }
+.do-wave .fam-arm-r { animation: fam-wave 1s ease-in-out; }
+.do-captoss .fam-cap { animation: fam-captoss 1.2s cubic-bezier(.3, .6, .5, 1); }
+
+/* Menutup mata dengan kedua tangan (saat kolom kata sandi diisi) */
+.fam-char .fam-arm { transition: transform .35s cubic-bezier(.3, 1.4, .5, 1); }
+.fam-char.is-cover .fam-arm-l { transform-origin: 50% 50%; transform: translate(24px, -36px) scale(1.7, 1); }
+.fam-char.is-cover .fam-arm-r { transform-origin: 50% 50%; transform: translate(-24px, -36px) scale(1.7, 1); }
+.fam-held { transition: opacity .2s; }
+.fam-char.is-cover .fam-held { opacity: 0; }
+
+/* ── Vibe tiap tokoh (kelas dari archie_family.js) ──────────────── */
+/* Archie: bangga di puncak, roller coaster (kereta + tangan ke atas) */
+.do-proud .fam-move { animation: fam-proud 1.4s ease-in-out; }
+@keyframes fam-proud { 25%, 75% { transform: translateY(-8px) scale(1.1, 1.06) rotate(-5deg); } 50% { transform: translateY(-10px) scale(1.12, 1.08) rotate(-3deg); } }
+.fam-cart { opacity: 0; transition: opacity .25s; }
+.fam-char.is-riding .fam-cart { opacity: 1; }
+.fam-char.is-riding .fam-arm-l, .fam-char.is-casting .fam-arm-l { transform: rotate(150deg); }
+.fam-char.is-riding .fam-arm-r, .fam-char.is-casting .fam-arm-r { transform: rotate(-150deg); }
+.do-hammer .fam-arm-r { animation: fam-hammer .9s ease-in-out; }
+@keyframes fam-hammer { 0%, 40%, 80% { transform: rotate(-150deg); } 20%, 60%, 100% { transform: rotate(-80deg); } }
+
+/* Hijau: dahi berkerut saat mengukur, jangka diangkat, tangan menulis saat pengguna mengetik */
+.fam-brows { opacity: 0; transition: opacity .2s; }
+.fam-char.is-frown .fam-brows { opacity: 1; }
+.do-measure .fam-arm-r { animation: fam-measure 1.6s ease-in-out; }
+@keyframes fam-measure { 25%, 75% { transform: rotate(-150deg); } 50% { transform: rotate(-125deg); } }
+.fam-char.is-writing .fam-arm-l { animation: fam-scribble .22s ease-in-out infinite alternate; }
+@keyframes fam-scribble { from { transform: rotate(110deg); } to { transform: rotate(124deg) translateX(3px); } }
+
+/* Ungu: melayang di piringan sihir, rune berputar, monokel melorot + kedipan */
+.fam-char[data-char="ungu"] { animation: fam-float 3.6s ease-in-out infinite; }
+@keyframes fam-float { 50% { transform: translateY(-10px); } }
+.fam-disc-ring { stroke-dasharray: 8 10; animation: fam-runes 3s linear infinite; }
+.fam-char.is-casting .fam-disc-ring { animation-duration: .7s; }
+@keyframes fam-runes { to { stroke-dashoffset: -180; } }
+.fam-disc-glow { opacity: .55; transition: opacity .3s; }
+.fam-char.is-casting .fam-disc-glow { opacity: 1; }
+.fam-wink { opacity: 0; }
+.fam-char.is-wink .fam-wink { opacity: 1; }
+.fam-monocle { transform-box: fill-box; transform-origin: 50% 0%; }
+.do-monocle .fam-monocle { animation: fam-monocle 1.7s ease-in-out; }
+@keyframes fam-monocle { 30%, 75% { transform: translate(-2px, 18px) rotate(14deg); } }
+
+/* Kuning: jaring bergoyang saat menangkap apel */
+.fam-net { transform-box: fill-box; transform-origin: 0% 100%; }
+.do-netcatch .fam-net { animation: fam-net .6s ease-out; }
+@keyframes fam-net { 30% { transform: rotate(-14deg) scale(1.08); } 65% { transform: rotate(8deg); } }
+
+/* ── Jembatan, bendera puncak, sungai, apel, mantra ─────────────── */
+.fam-plank { transition: opacity .25s; }
+.fam-plank.missing { opacity: 0; }
+.fam-peakline { opacity: 0; transition: opacity .4s; }
+.fam-peakline.on { opacity: 1; }
+.fam-flag-in { transform-box: fill-box; transform-origin: 50% 100%; transition: transform .5s cubic-bezier(.3, 1.6, .5, 1), opacity .3s; }
+.fam-flag-in.is-down { transform: scaleY(0); opacity: 0; }
+.fam-flag-cloth { transform-box: fill-box; transform-origin: 0% 50%; animation: fam-cloth 1.1s ease-in-out infinite alternate; }
+@keyframes fam-cloth { to { transform: skewY(-9deg) scaleX(.9); } }
+.fam-flag, .fam-bridge, .fam-item { cursor: pointer; }
+.fam-shimmer path { stroke-dasharray: 10 30; animation: fam-shimmer 2.4s linear infinite; }
+@keyframes fam-shimmer { to { stroke-dashoffset: -40; } }
+.fam-trail { fill: none; stroke: #F97316; stroke-width: 2.5; stroke-dasharray: 5 5; stroke-linecap: round; }
+.chalk-text { font: 600 14px 'Segoe Print', 'Comic Sans MS', cursive; fill: #F8FAFC; }
+.chalk-hit { transform-box: fill-box; transform-origin: 50% 50%; animation: fam-hit .8s ease-in-out infinite alternate; }
+@keyframes fam-hit { to { transform: scale(1.7); filter: drop-shadow(0 0 4px #FDE047); } }
+
+/* ── Item koleksi + penghitung (HUD) ───────────────────────────── */
+.fam-item-in { transform-box: fill-box; transform-origin: 50% 50%; animation: fam-bob 2.4s ease-in-out infinite var(--d, 0s); }
+@keyframes fam-bob { 50% { transform: translateY(-7px) rotate(6deg); } }
+.fam-item-glow { transform-box: fill-box; transform-origin: 50% 50%; animation: ic-twinkle 1.2s ease-in-out infinite alternate; }
+.fam-hud { position: absolute; top: 84px; left: 18px; z-index: 1; display: flex; gap: .4rem; pointer-events: none; }
+.fam-hud-chip {
+  display: inline-flex; align-items: center; gap: .3rem;
+  padding: .2rem .65rem .2rem .3rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .85);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  box-shadow: var(--shadow-card);
+  color: #1E3A5F;
+  font-weight: 800;
+  font-size: .85rem;
+}
+.fam-hud-chip.pop { animation: fam-pop .45s cubic-bezier(.3, 1.6, .5, 1); }
+@keyframes fam-pop { 40% { transform: scale(1.3); } }
+.auth-night .fam-hud-chip { background: rgba(15, 23, 42, .75); color: #E2E8F0; }
+.do-stache .fam-stache { animation: fam-stache .9s ease-in-out; }
+
+@keyframes fam-jump { 0% { transform: scale(1.1, .9); } 35% { transform: translateY(-50px) scale(.95, 1.06); } 70% { transform: scale(1.08, .92); } }
+@keyframes fam-hop { 40% { transform: translateY(-18px); } 80% { transform: scale(1.06, .94); } }
+@keyframes fam-spin { to { transform: rotate(360deg); } }
+@keyframes fam-shake { 15%, 45%, 75% { transform: translateX(-6px) rotate(-3deg); } 30%, 60%, 90% { transform: translateX(6px) rotate(3deg); } }
+@keyframes fam-nod { 25%, 75% { transform: rotate(6deg); } 50% { transform: rotate(-2deg); } }
+@keyframes fam-wiggle { 12%, 37%, 62%, 87% { transform: rotate(-10deg) translateY(-6px); } 25%, 50%, 75% { transform: rotate(10deg); } }
+@keyframes fam-startle { 30% { transform: translateY(-34px) scale(1.12, .9); } 60% { transform: scale(.94, 1.08); } }
+@keyframes fam-dizzy { 20% { transform: rotate(-15deg); } 40% { transform: rotate(12deg); } 60% { transform: rotate(-8deg); } 80% { transform: rotate(4deg); } }
+@keyframes fam-bounce { 15%, 45%, 75% { transform: translateY(-14px); } 30%, 60%, 90% { transform: scale(1.08, .92); } }
+@keyframes fam-stretch { 40%, 60% { transform: scale(.92, 1.14); } }
+@keyframes fam-wave { 20%, 60% { transform: rotate(-150deg); } 40%, 80% { transform: rotate(-115deg); } }
+@keyframes fam-captoss { 45% { transform: translateY(-150px) rotate(540deg); } 80% { transform: translateY(6px) rotate(720deg); } 100% { transform: rotate(720deg); } }
+@keyframes fam-stache { 20%, 60% { transform: scaleX(1.18) rotate(-4deg); } 40%, 80% { transform: scaleX(.9) rotate(4deg); } }
+
+/* ── Gelembung obrolan (isi ikon, tanpa teks) ──────────────────── */
+.fam-bubble { transform-origin: 50% 100%; transform: scale(0); opacity: 0; transition: transform .28s cubic-bezier(.3, 1.6, .5, 1), opacity .2s; pointer-events: none; }
+.fam-bubble.show { transform: none; opacity: 1; }
+
+.ic-draw { stroke-dasharray: 1; stroke-dashoffset: 1; animation: ic-draw 1s ease-out forwards var(--d, .15s); }
+.ic-wobble { transform-origin: 50% 50%; animation: ic-wobble 1s ease-in-out infinite; }
+.ic-pulse { transform-origin: 50% 50%; animation: ic-pulse .5s ease-in-out infinite alternate; }
+.ic-beat { transform-origin: 50% 50%; animation: ic-beat .9s ease-in-out infinite; }
+.ic-rays { animation: ic-blink .5s ease-in-out infinite alternate; }
+.ic-spin { transform-origin: 50% 50%; animation: ic-spin 1.4s linear infinite; }
+.ic-float { animation: ic-float 1.6s ease-in-out infinite; }
+.ic-twinkle { transform-origin: 50% 50%; animation: ic-twinkle .8s ease-in-out infinite alternate var(--d, 0s); }
+.ic-grow { transform-origin: 50% 100%; animation: ic-grow .45s ease-out backwards var(--d, 0s); }
+.ic-approach { animation: ic-approach 2.4s cubic-bezier(.05, .9, .2, 1) infinite; }
+.ic-shake { transform-origin: 50% 50%; animation: ic-shake .35s ease-in-out infinite; }
+.ic-dot { animation: ic-dot .9s ease-in-out infinite var(--d, 0s); }
+.ic-slice { animation: ic-slice 1.2s ease-in-out infinite alternate; }
+.ic-drip { animation: ic-drip 1s ease-in infinite; }
+
+@keyframes ic-draw { to { stroke-dashoffset: 0; } }
+@keyframes ic-wobble { 25% { transform: rotate(-12deg); } 75% { transform: rotate(12deg); } }
+@keyframes ic-pulse { to { transform: scale(1.18); } }
+@keyframes ic-beat { 15% { transform: scale(1.22); } 30% { transform: scale(1); } 45% { transform: scale(1.12); } }
+@keyframes ic-blink { from { opacity: .25; } }
+@keyframes ic-spin { to { transform: rotate(360deg); } }
+@keyframes ic-float { 50% { transform: translateY(-5px); } }
+@keyframes ic-twinkle { from { transform: scale(.5); opacity: .5; } }
+@keyframes ic-grow { from { transform: scaleY(0); } }
+@keyframes ic-approach { from { transform: translateX(-30px); } 80%, to { transform: translateX(16px); } }
+@keyframes ic-shake { 25% { transform: rotate(-9deg); } 75% { transform: rotate(9deg); } }
+@keyframes ic-dot { 30% { transform: translateY(-7px); } 60% { transform: none; } }
+@keyframes ic-slice { to { transform: translate(6px, -3px); } }
+@keyframes ic-drip { 0% { transform: translateY(-4px); opacity: 0; } 30% { opacity: 1; } 100% { transform: translateY(8px); opacity: 0; } }
+
+/* ── Latar: awan, matahari/bulan, bunga, kupu-kupu, malam ──────── */
+.fam-cloud { animation: fam-cloud linear infinite; }
+@keyframes fam-cloud { from { transform: translateX(-1400px); } to { transform: translateX(2000px); } }
+.fam-bird { animation: fam-cloud linear infinite; }
+.fam-bird-wing { transform-box: fill-box; transform-origin: 50% 100%; animation: fam-bird-flap .5s ease-in-out infinite alternate; }
+@keyframes fam-bird-flap { to { transform: scaleY(-.6); } }
+.fam-bush { transform-box: fill-box; transform-origin: 50% 100%; animation: fam-breathe 5s ease-in-out infinite; }
+.fam-grass { transform-box: fill-box; transform-origin: 50% 100%; animation: fam-sway 2.8s ease-in-out infinite; }
+.fam-rays { transform-origin: 50% 50%; animation: ic-spin 30s linear infinite; }
+.fam-flower { transform-origin: 50% 100%; animation: fam-sway 3s ease-in-out infinite; }
+.fam-wing-l { transform-origin: 100% 50%; animation: fam-flap .18s ease-in-out infinite alternate; }
+.fam-wing-r { transform-origin: 0% 50%; animation: fam-flap .18s ease-in-out infinite alternate; }
+@keyframes fam-flap { to { transform: scaleX(.25); } }
+.fam-crown { transform-origin: 50% 100%; }
+.fam-tree.do-rustle .fam-crown { animation: fam-shake .6s ease-in-out; }
+.chalk-bar { transform-origin: 50% 100%; }
+
+.fam-night-sky, .fam-stars, .fam-moon, .fam-fireflies, .fam-tint { opacity: 0; transition: opacity 1.2s ease; }
+.fam-sun { transition: opacity 1.2s ease; }
+.fam-sun-in { transform-origin: 50% 50%; transition: transform 1.2s ease; }
+.fam.is-night .fam-night-sky, .fam.is-night .fam-stars, .fam.is-night .fam-moon, .fam.is-night .fam-fireflies { opacity: 1; }
+.fam.is-night .fam-tint { opacity: .28; }
+.fam.is-night .fam-sun { opacity: 0; }
+.fam.is-night .fam-sun-in { transform: translateY(60px) scale(.5); }
+.fam-star { transform-origin: 50% 50%; animation: ic-twinkle 1.6s ease-in-out infinite alternate; }
+.fam-firefly { animation: fam-firefly 3s ease-in-out infinite; }
+@keyframes fam-firefly { 0%, 100% { opacity: .1; transform: none; } 50% { opacity: 1; transform: translate(var(--fx, 10px), -14px); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .family-stage * { animation: none !important; transition: none !important; }
+  .ic-draw { stroke-dashoffset: 0; }
+}

@@ -81,11 +81,13 @@ const DiagStepper = (() => {
   let idx = 0;
   let items = [];
   let form = null;
+  let board = null;      // papan tulis per soal (static/js/whiteboard.js)
 
   function answered(fs) { return !!fs.querySelector('input[type=radio]:checked'); }
 
   function update() {
     items.forEach((fs, i) => fs.classList.toggle('active', i === idx));
+    if (board) board.load(`diag:${items[idx].dataset.index}`);
     const done = items.filter(answered).length;
     const bar = document.getElementById('diag-progress');
     if (bar) bar.style.width = `${Math.round((done / items.length) * 100)}%`;
@@ -116,6 +118,7 @@ const DiagStepper = (() => {
     items = [...form.querySelectorAll('fieldset.dq')];
     if (!items.length) return;
     form.classList.add('stepper-on');
+    if (typeof Whiteboard !== 'undefined') board = Whiteboard.mount(document.getElementById('diag-board'));
     // Mulai dari soal pertama yang belum dijawab (mis. setelah validasi gagal).
     const firstOpen = items.findIndex((fs) => !answered(fs));
     idx = firstOpen === -1 ? items.length - 1 : firstOpen;

@@ -10,8 +10,9 @@ from django.core.management import call_command
 from django.test import TestCase, Client
 
 from . import content
+from .content import bank
 from .models import (
-    Faculty, SourceDocument, SkillNode, LessonSection, Question, UserProfile, UserProgress,
+    Faculty, SourceDocument, SkillNode, LessonSection, Question, Topic, UserProfile, UserProgress,
 )
 
 
@@ -69,7 +70,7 @@ class ContentSeedTests(TestCase):
         call_command("seed_gamification", stdout=io.StringIO())
 
     def test_one_document_per_source_file(self):
-        pdfs = SourceDocument.objects.exclude(category="buku")
+        pdfs = SourceDocument.objects.exclude(category="buku").exclude(slug__in=[d["slug"] for d in bank.DOCUMENTS])
         self.assertEqual(pdfs.count(), 7)
         self.assertEqual(
             list(pdfs.values_list("filename", flat=True)),
@@ -96,7 +97,8 @@ class ContentSeedTests(TestCase):
             self.assertEqual(sum(o.is_correct for o in q.options.all()), 1, q.code)
             self.assertTrue(q.steps, q.code)
             self.assertTrue(q.answer, q.code)
-            self.assertTrue(q.graphs, f"{q.code} belum punya grafik slider")
+            if not q.code.startswith(("WH-", "ST-", "CB-")):   # bank soal (content/bank) belum memakai grafik
+                self.assertTrue(q.graphs, f"{q.code} belum punya grafik slider")
 
     def test_graph_specs_have_valid_params(self):
         specs = [g for q in Question.objects.all() for g in q.graphs]
@@ -152,7 +154,7 @@ class GamificationApiTests(TestCase):
         self.assertEqual(len(codes), 10)
         levels = [q["difficulty"] for q in data["questions"]]
         self.assertEqual((levels.count("basic"), levels.count("medium"), levels.count("high")), (5, 3, 2))
-        self.assertTrue(all(c.startswith(("FK-", "U-")) for c in codes))
+        self.assertTrue(all(not c.startswith(("FT-", "FM-")) for c in codes))   # tidak ada soal prodi lain
         for q in data["questions"]:
             self.assertNotIn("steps", q)
             for o in q["options"]:
@@ -193,54 +195,71 @@ class GamificationApiTests(TestCase):
 
 
 class AuthOnboardingTests(TestCase):
-    """Alur: splash → login/daftar → pilih fakultas → tawaran tes → tes 10 soal → hasil → beranda."""
+    """Alur: homepage → login/daftar → pilih fakultas → tawaran tes → tes 10 soal → hasil → beranda."""
 
     @classmethod
     def setUpTestData(cls):
         call_command("seed_gamification", stdout=io.StringIO())
 
-    def _register(self, username="budi", email="budi@mail.com"):
+    def _register(self, username="budi"):
         return self.client.post("/auth/daftar/", {
-            "reg-first_name": "Budi Santoso",
             "reg-username": username,
-            "reg-email": email,
             "reg-password1": "KalkulusAsik123",
             "reg-password2": "KalkulusAsik123",
         })
 
-    def test_home_requires_login(self):
-        self.assertRedirects(self.client.get("/"), "/auth/")
+    def test_guest_sees_public_homepage(self):
+        response = self.client.get("/")
+        self.assertTemplateUsed(response, "home/homepage.html")
+        self.assertContains(response, 'href="/auth/masuk/"')                 # Masuk (kanan atas)
+        self.assertContains(response, 'href="/auth/masuk/?tab=daftar"')      # Daftar
+        self.assertContains(response, 'id="trial-root"')                      # kuis coba
+        self.assertContains(response, 'data-video="tour"')                    # video pengenalan
+        self.assertContains(response, '<meta name="description"')
+        self.assertContains(response, "js/mathfrac.js")                       # pecahan bertumpuk
 
-    def test_splash_links_to_login(self):
-        response = self.client.get("/auth/")
-        self.assertContains(response, "Archie")
-        self.assertContains(response, 'href="/auth/masuk/"')
+    def test_old_splash_redirects_to_homepage(self):
+        self.assertRedirects(self.client.get("/auth/"), "/")
+
+    def test_login_page_can_open_register_tab(self):
+        self.assertEqual(self.client.get("/auth/masuk/?tab=daftar").context["active_tab"], "daftar")
+        self.assertEqual(self.client.get("/auth/masuk/").context["active_tab"], "masuk")
+
+    def test_logout_returns_to_homepage(self):
+        self._register()
+        self.assertRedirects(self.client.post("/auth/keluar/"), "/")
 
     def test_register_saves_user_and_goes_to_faculty(self):
         response = self._register()
         self.assertRedirects(response, "/auth/fakultas/")
         user = User.objects.get(username="budi")
-        self.assertEqual(user.email, "budi@mail.com")
+        self.assertEqual(user.email, "")   # daftar manual tanpa email
         self.assertTrue(UserProfile.objects.filter(user=user, faculty=None).exists())
         # Belum pilih fakultas → beranda mengarahkan ke pilih fakultas
         self.assertRedirects(self.client.get("/"), "/auth/fakultas/")
 
-    def test_register_rejects_duplicate_email(self):
+    def test_register_rejects_mismatched_password(self):
+        response = self.client.post("/auth/daftar/", {
+            "reg-username": "budi", "reg-password1": "KalkulusAsik123", "reg-password2": "BedaSandi456"})
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(User.objects.filter(username="budi").exists())
+
+    def test_register_rejects_duplicate_username(self):
         self._register()
         self.client.post("/auth/keluar/")
-        response = self._register(username="budi2")
+        response = self._register()
         self.assertEqual(response.status_code, 400)
-        self.assertContains(response, "Email ini sudah terdaftar", status_code=400)
+        self.assertEqual(User.objects.filter(username="budi").count(), 1)
 
     def test_login_existing_user_goes_home(self):
         self._register()
         self.client.post("/auth/fakultas/", {"faculty": "ft"})
         self.client.post("/auth/keluar/")
-        response = self.client.post("/auth/masuk/", {"login-username": "budi@mail.com", "login-password": "KalkulusAsik123"})
+        response = self.client.post("/auth/masuk/", {"login-username": "budi", "login-password": "KalkulusAsik123"})
         self.assertRedirects(response, "/")
         home = self.client.get("/")
         self.assertContains(home, 'id="server-profile"')
-        self.assertContains(home, "Budi Santoso")
+        self.assertContains(home, "budi")
 
     def test_login_wrong_password(self):
         self._register()
@@ -298,9 +317,19 @@ class AuthOnboardingTests(TestCase):
     def test_diagnostic_incomplete_answers_rejected(self):
         self._register()
         self.client.post("/auth/fakultas/", {"faculty": "ft"})
+        shown = [q.code for q in self.client.get("/auth/tes-awal/mulai/").context["questions"]]
         response = self.client.post("/auth/tes-awal/mulai/", {})
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Jawab semua soal")
+        # Soal yang sama ditampilkan ulang, bukan undian baru.
+        self.assertEqual([q.code for q in response.context["questions"]], shown)
+
+    def test_diagnostic_post_without_shown_questions_draws_new_set(self):
+        self._register()
+        self.client.post("/auth/fakultas/", {"faculty": "ft"})
+        response = self.client.post("/auth/tes-awal/mulai/", {})
+        self.assertContains(response, "Sesi tes kedaluwarsa")
+        self.assertEqual(len(response.context["questions"]), 10)
 
     def test_set_faculty_api_requires_login_and_saves(self):
         self.assertEqual(self.client.post("/api/profile/faculty/", "{}", content_type="application/json").status_code, 302)
@@ -549,3 +578,376 @@ class FacultyFixedQuestionTests(TestCase):
     def test_ft_question_only_for_ft(self):
         self.assertIn("FT-S1", self._codes("ft"))
         self.assertNotIn("FT-S1", self._codes("fasilkom"))
+
+
+import random  # noqa: E402
+
+from . import sessions  # noqa: E402
+from .models import Faculty, Question  # noqa: E402
+
+
+class ShuffleTests(TestCase):
+    """Pengacakan soal: diagnostik & opsi soal PDF bervariasi, tetapi penilaian tetap benar."""
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_gamification", stdout=io.StringIO())
+        cls.faculty = Faculty.objects.get(slug="ft")
+        cls.user = User.objects.create_user("acak", password="x")
+
+    def test_diagnostic_keeps_plan_but_varies_questions(self):
+        """Komposisi 5/3/2 tetap, tetapi isi dan urutan soal berganti antar-percobaan."""
+        sets, orders = set(), set()
+        for s in range(20):
+            qs = services.diagnostic_questions(self.faculty, random.Random(s))
+            counts = {lvl: sum(q.difficulty == lvl for q in qs) for lvl, _ in services.DIAGNOSTIC_PLAN}
+            self.assertEqual(counts, dict(services.DIAGNOSTIC_PLAN))
+            self.assertEqual(len({q.code for q in qs}), len(qs))      # tidak ada soal ganda
+            self.assertTrue(any(q.faculty_id == self.faculty.id for q in qs))  # konteks prodi tetap ada
+            sets.add(frozenset(q.code for q in qs))
+            orders.add(tuple(q.code for q in qs))
+        self.assertGreater(len(sets), 10)
+        self.assertGreater(len(orders), 10)
+
+    def test_diagnostic_grading_unaffected_by_shuffle(self):
+        qs = services.diagnostic_questions(self.faculty, random.Random(7))
+        answers = [{"code": q.code, "option_id": next(o.id for o in q.shuffled_options if o.is_correct)} for q in qs]
+        result = services.evaluate_diagnostic(self.faculty, answers)
+        self.assertEqual(result["score"], len(qs))
+
+    def test_fixed_question_options_shuffled_and_regradable(self):
+        q = Question.objects.filter(session__isnull=False).first()
+        correct_positions = set()
+        for seed in range(30):
+            a = sessions._fixed_question_payload(q, seed)
+            b = sessions._fixed_question_payload(q, seed)
+            self.assertEqual(a["options"], b["options"])          # seed sama → urutan sama (penilaian aman)
+            correct_positions.add(next(o["id"] for o in a["options"] if o["is_correct"]))
+        self.assertGreater(len(correct_positions), 1)              # jawaban benar tidak selalu di posisi yang sama
+
+    def test_session_attempts_give_different_questions(self):
+        session = PracticeSession.objects.filter(number=1).order_by("id").first()
+        first = [q["id"] for q in sessions.build_quiz(session, self.user.id, 0)]
+        second = [q["id"] for q in sessions.build_quiz(session, self.user.id, 1)]
+        self.assertEqual(first, [q["id"] for q in sessions.build_quiz(session, self.user.id, 0)])
+        self.assertNotEqual(first, second)
+
+    def test_session_pool_is_varied(self):
+        """Setiap percobaan memuat ≥6 jenis soal, termasuk sesi topik pertama (tanpa topik sebelumnya)."""
+        for slug in ("pre-bilangan-real", "kd-lim-konsep"):
+            for session in PracticeSession.objects.filter(topic__slug=slug):
+                for attempt in range(3):
+                    quiz = sessions.build_quiz(session, self.user.id, attempt)
+                    self.assertEqual(len(quiz), session.question_count)
+                    self.assertGreaterEqual(len({q["id"].split(":")[1] for q in quiz}), 6)
+
+    def test_borrowed_generators_are_graded_consistently(self):
+        """Soal pinjaman (tingkat lain) dibangun ulang sama persis saat penilaian."""
+        session = PracticeSession.objects.get(topic__slug="pre-bilangan-real", number=1)
+        a = sessions.build_quiz(session, self.user.id, 5)
+        b = sessions.build_quiz(session, self.user.id, 5)
+        self.assertEqual([(q["id"], q["options"]) for q in a], [(q["id"], q["options"]) for q in b])
+
+
+
+class BookBankTests(TestCase):
+    """Bank soal buku referensi (content/bank) termuat dan terpasang ke sesi yang benar."""
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_gamification", stdout=io.StringIO())
+
+    def test_all_bank_questions_seeded_to_matching_session(self):
+        codes = [d["code"] for d in bank.QUESTIONS]
+        self.assertEqual(len(codes), len(set(codes)))
+        qs = {q.code: q for q in Question.objects.filter(code__in=codes).select_related("session__topic", "node")}
+        self.assertEqual(len(qs), len(codes))
+        for d in bank.QUESTIONS:
+            q = qs[d["code"]]
+            self.assertEqual(q.session.topic.slug, d["topic"])
+            self.assertEqual(q.session.number, bank.TIER_OF[d["difficulty"]])
+            self.assertEqual(q.node_id, q.session.topic.node_id)
+            self.assertEqual(q.options.filter(is_correct=True).count(), 1)
+            self.assertEqual(q.options.count(), 4)
+
+    def test_every_bank_difficulty_has_diagnostic_questions(self):
+        for level, count in services.DIAGNOSTIC_PLAN:
+            n = sum(1 for d in bank.QUESTIONS if d["is_diagnostic"] and d["difficulty"] == level)
+            self.assertGreaterEqual(n, count, level)
+
+    def test_bank_questions_appear_in_sessions(self):
+        """Soal buku muncul di sesi latihan (lewat soal tetap sesi maupun bank tambahan sub-level)."""
+        user = User.objects.create_user("bank", password="x")
+        seen = set()
+        for session in PracticeSession.objects.filter(topic__slug="kd-tur-rantai"):
+            for attempt in range(10):
+                seen |= {q["id"] for q in sessions.build_quiz(session, user.id, attempt) if q["id"].startswith("q:WH-")}
+        self.assertGreater(len(seen), 5)
+
+
+class BankFacultyTests(TestCase):
+    """Soal Kalkulus Lanjut bersama disalin ke tiga jalur dan hanya terlihat oleh fakultasnya."""
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_gamification", stdout=io.StringIO())
+
+    def test_shared_topic_copied_per_faculty(self):
+        codes = set(Question.objects.filter(code__startswith="ST-13.2-6").values_list("code", "faculty__slug"))
+        self.assertEqual(codes, {("ST-13.2-6T", "ft"), ("ST-13.2-6M", "fmipa"), ("ST-13.2-6K", "fasilkom")})
+
+    def test_curriculum_lists_only_own_faculty_bank_questions(self):
+        data = services.build_curriculum(Faculty.objects.get(slug="ft"))
+        codes = {c for d in data["documents"] for c in d["items"] if isinstance(c, str) and c.startswith("ST-")}
+        self.assertTrue(codes)
+        self.assertFalse(any(c.endswith(("M", "K")) for c in codes))
+
+
+class DiagnosticBankTests(TestCase):
+    """Tes diagnostik diundi dari bank soal per level dengan aturan sebaran topik & prodi."""
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_gamification", stdout=io.StringIO())
+        cls.faculty = Faculty.objects.get(slug="fmipa")
+
+    def test_pool_uses_level_bank(self):
+        pool = services._diagnostic_pool(self.faculty)
+        self.assertGreater(sum(len(v) for v in pool.values()), 250)
+        levels = {q.node.main_level.slug for q in pool["basic"] if not q.is_diagnostic}
+        self.assertEqual(levels, {"precalculus"})
+        self.assertTrue(all(q.node.main_level.slug == "kalkulus-dasar" for q in pool["high"] if not q.is_diagnostic))
+
+    def test_one_question_per_topic_and_own_faculty_share(self):
+        for seed in range(30):
+            qs = services.diagnostic_questions(self.faculty, random.Random(seed))
+            keys = [services._topic_key(q) for q in qs]
+            self.assertEqual(len(keys), len(set(keys)))
+            self.assertGreaterEqual(sum(q.faculty_id == self.faculty.id for q in qs), 3)
+
+    def test_grading_uses_test_section_not_question_difficulty(self):
+        qs = services.diagnostic_questions(self.faculty, random.Random(3))
+        answers = [{"code": q.code, "option_id": next(o.id for o in q.shuffled_options if o.is_correct)} for q in qs]
+        result = services.evaluate_diagnostic(self.faculty, answers)
+        self.assertEqual(result["evaluation"], "mastery")
+        self.assertEqual({k: v["total"] for k, v in result["levels"].items()}, dict(services.DIAGNOSTIC_PLAN))
+
+
+from datetime import timedelta  # noqa: E402
+
+from django.utils import timezone  # noqa: E402
+
+
+class HeartsTests(TestCase):
+    """Sistem nyawa: 10 nyawa, −1 saat gagal sesi, sesi terkunci di 0, penuh lagi 24 jam setelah nyawa pertama hilang."""
+
+    setUpTestData = PracticeSessionApiTests.__dict__["setUpTestData"]
+    setUp = PracticeSessionApiTests.setUp
+    _open = PracticeSessionApiTests._open
+    _answers = PracticeSessionApiTests._answers
+    _submit = PracticeSessionApiTests._submit
+
+    def _fail(self, session):
+        data = self._open(session).json()
+        return self._submit(session, data["attempt"], self._answers(data, correct=False))
+
+    def test_new_profile_has_ten_hearts(self):
+        state = UserProfile.objects.get_or_create(user=self.user)[0].hearts_state()
+        self.assertEqual((state["hearts"], state["max_hearts"], state["refill_at"]), (10, 10, None))
+
+    def test_failing_session_costs_one_heart_and_starts_timer(self):
+        r = self._fail(self.s1).json()
+        self.assertTrue(r["heart_lost"])
+        self.assertEqual(r["hearts"]["hearts"], 9)
+        self.assertGreater(r["hearts"]["refill_in"], 23 * 3600)
+
+    def test_passing_session_keeps_hearts(self):
+        data = self._open(self.s1).json()
+        r = self._submit(self.s1, data["attempt"], self._answers(data)).json()
+        self.assertFalse(r["heart_lost"])
+        self.assertEqual(r["hearts"]["hearts"], 10)
+
+    def test_zero_hearts_blocks_open_and_submit(self):
+        data = self._open(self.s1).json()          # sesi dibuka saat nyawa masih ada
+        profile = UserProfile.objects.get(user=self.user)
+        profile.hearts, profile.hearts_lost_at = 0, timezone.now()
+        profile.save()
+        r = self._open(self.s1)
+        self.assertEqual(r.status_code, 403)
+        self.assertEqual(r.json()["status"], "no_hearts")
+        r = self._submit(self.s1, data["attempt"], self._answers(data, correct=False))
+        self.assertEqual(r.status_code, 403)
+        self.assertEqual(UserProfile.objects.get(user=self.user).hearts, 0)
+
+    def test_refill_24_hours_after_first_loss(self):
+        self._fail(self.s1)
+        self._fail(self.s1)
+        profile = UserProfile.objects.get(user=self.user)
+        first_loss = profile.hearts_lost_at
+        self.assertEqual(profile.hearts, 8)
+        profile.refresh_hearts(first_loss + timedelta(hours=23, minutes=59))
+        self.assertEqual(profile.hearts, 8)                       # belum 24 jam
+        profile.refresh_hearts(first_loss + timedelta(hours=24))
+        self.assertEqual((profile.hearts, profile.hearts_lost_at), (10, None))
+
+    def test_later_losses_do_not_restart_timer(self):
+        profile = UserProfile.objects.get_or_create(user=self.user)[0]
+        t0 = timezone.now()
+        profile.lose_heart(t0)
+        profile.lose_heart(t0 + timedelta(hours=5))
+        self.assertEqual(profile.hearts_lost_at, t0)
+
+
+from . import free_practice  # noqa: E402
+
+
+class FreePracticeTests(TestCase):
+    """Latihan Bebas: pilih topik & jumlah soal, soal acak, tanpa nyawa dan tanpa XP."""
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_gamification", stdout=io.StringIO())
+
+    def setUp(self):
+        self.user = User.objects.create_user("bebas", password="rahasia-123")
+        self.client = Client()
+        self.client.force_login(self.user)
+        self.fk = Faculty.objects.get(slug="fasilkom")
+
+    def test_catalog_lists_levels_and_only_own_faculty_topics(self):
+        data = self.client.get("/api/latihan-bebas/?faculty=fasilkom").json()
+        slugs = [t["slug"] for lvl in data["levels"] for t in lvl["topics"]]
+        self.assertEqual([lvl["slug"] for lvl in data["levels"]][0], "precalculus")
+        self.assertIn("kl-fk-gd", slugs)
+        self.assertFalse(any(s.startswith(("kl-ft-", "kl-fm-")) for s in slugs))
+
+    def test_quiz_respects_count_and_mixes_chosen_topics(self):
+        topics = ["pre-fungsi-eksponensial", "pre-bilangan-real"]
+        r = self.client.post("/api/latihan-bebas/mulai/", json.dumps({"faculty": "fasilkom", "topics": topics, "count": 15}),
+                             content_type="application/json").json()
+        qs = r["questions"]
+        self.assertEqual(len(qs), 15)
+        self.assertEqual(len({q["topic"] for q in qs}), 2)
+        self.assertTrue(all(sum(o["is_correct"] for o in q["options"]) == 1 for q in qs))
+
+    def test_count_is_clamped_and_other_faculty_topics_rejected(self):
+        self.assertEqual(len(free_practice.build_quiz(self.fk, ["pre-bilangan-real"], 99)), free_practice.MAX_QUESTIONS)
+        r = self.client.post("/api/latihan-bebas/mulai/", json.dumps({"faculty": "fasilkom", "topics": ["kl-ft-laplace"], "count": 5}),
+                             content_type="application/json")
+        self.assertEqual(r.status_code, 400)
+
+    def test_does_not_touch_hearts_or_xp(self):
+        profile = UserProfile.objects.get_or_create(user=self.user)[0]
+        profile.hearts, profile.hearts_lost_at = 0, timezone.now()
+        profile.save()
+        r = self.client.post("/api/latihan-bebas/mulai/", json.dumps({"faculty": "fasilkom", "topics": ["kd-tur-rantai"], "count": 5}),
+                             content_type="application/json")
+        self.assertEqual(r.status_code, 200)          # nyawa 0 tetap boleh latihan bebas
+        profile.refresh_from_db()
+        self.assertEqual((profile.hearts, profile.xp), (0, 0))
+
+    def test_questions_differ_between_requests(self):
+        a = free_practice.build_quiz(self.fk, ["kd-tur-rantai"], 10)
+        b = free_practice.build_quiz(self.fk, ["kd-tur-rantai"], 10)
+        self.assertNotEqual([q["prompt"] for q in a], [q["prompt"] for q in b])
+
+
+
+class TrialQuizTests(TestCase):
+    """Kuis coba di homepage: 5 soal tanpa login (3 Kalkulus Dasar + 2 Menengah, Mudah–Sedang)."""
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_gamification", stdout=io.StringIO())
+
+    def test_guest_gets_five_questions_by_plan(self):
+        response = self.client.get("/api/coba-soal/")          # tanpa login
+        self.assertEqual(response.status_code, 200)
+        qs = response.json()["questions"]
+        self.assertEqual([q["level"] for q in qs],
+                         ["Kalkulus Dasar"] * 3 + ["Kalkulus Tingkat Menengah"] * 2)
+        self.assertTrue(all(q["difficulty_label"] in ("Mudah", "Sedang") for q in qs))
+        self.assertEqual(len({q["topic"] for q in qs}), 5)       # topik berbeda-beda
+        self.assertTrue(all(sum(o["is_correct"] for o in q["options"]) == 1 for q in qs))
+
+    def test_only_general_topics(self):
+        general = set(Topic.objects.filter(node__faculty__isnull=True).values_list("title", flat=True))
+        for _ in range(5):
+            self.assertTrue({q["topic"] for q in free_practice.trial_quiz()} <= general)
+
+    def test_post_not_allowed(self):
+        self.assertEqual(self.client.post("/api/coba-soal/").status_code, 405)
+
+
+# ── Masuk dengan Google (django-allauth) ──────────────────────────────
+from allauth.account.models import EmailAddress  # noqa: E402
+from allauth.core import context as allauth_context  # noqa: E402
+from allauth.socialaccount.adapter import get_adapter as get_social_adapter  # noqa: E402
+from allauth.socialaccount.helpers import complete_social_login  # noqa: E402
+from allauth.socialaccount.models import SocialAccount, SocialLogin  # noqa: E402
+from django.contrib.auth.models import AnonymousUser  # noqa: E402
+from django.contrib.messages.storage.fallback import FallbackStorage  # noqa: E402
+from django.contrib.sessions.middleware import SessionMiddleware  # noqa: E402
+from django.test import RequestFactory, override_settings  # noqa: E402
+
+GOOGLE_TEST_SETTINGS = dict(
+    GOOGLE_CLIENT_ID="tes-id",
+    SOCIALACCOUNT_PROVIDERS={"google": {"APPS": [{"client_id": "tes-id", "secret": "tes", "key": ""}]}},
+)
+
+
+class GoogleLoginTests(TestCase):
+    """Tombol Google, akun baru via Google, dan penyambungan ke akun lama dengan email sama."""
+
+    def _google_login(self, email, uid="g-123", name="Budi"):
+        """Mensimulasikan callback Google yang sukses (tanpa menghubungi server Google)."""
+        request = RequestFactory().get("/accounts/google/login/callback/")
+        SessionMiddleware(lambda r: None).process_request(request)
+        request.session.save()
+        request.user = AnonymousUser()
+        request._messages = FallbackStorage(request)
+        with allauth_context.request_context(request):
+            sociallogin = SocialLogin(
+                provider=get_social_adapter().get_provider(request, "google"),
+                user=User(email=email, first_name=name),
+                account=SocialAccount(provider="google", uid=uid, extra_data={"email": email}),
+                email_addresses=[EmailAddress(email=email, verified=True, primary=True)],
+            )
+            return complete_social_login(request, sociallogin)
+
+    def test_google_button_disabled_without_client_id(self):
+        with override_settings(GOOGLE_CLIENT_ID=""):
+            response = self.client.get("/auth/masuk/")
+        self.assertContains(response, "Lanjutkan dengan Google", count=1)
+        self.assertContains(response, "disabled")
+        self.assertNotContains(response, 'action="/accounts/google/login/')
+
+    @override_settings(**GOOGLE_TEST_SETTINGS)
+    def test_google_button_shown_with_client_id(self):
+        response = self.client.get("/auth/masuk/")
+        self.assertContains(response, "Lanjutkan dengan Google", count=1)
+        self.assertContains(response, 'action="/accounts/google/login/')
+
+    def test_login_page_has_field_icons_and_new_title(self):
+        response = self.client.get("/auth/masuk/")
+        self.assertContains(response, "Siap melanjutkan quest kalkulusmu hari ini?")
+        self.assertContains(response, 'class="auth-input-icon"', count=5)   # 2 di Masuk + 3 di Daftar
+        self.assertContains(response, 'id="mascot-card"')
+
+    @override_settings(**GOOGLE_TEST_SETTINGS)
+    def test_new_google_user_created_and_goes_to_faculty(self):
+        response = self._google_login("budi@gmail.com")
+        self.assertEqual(response.url, "/auth/fakultas/")
+        user = User.objects.get(email="budi@gmail.com")
+        self.assertTrue(SocialAccount.objects.filter(user=user, provider="google").exists())
+
+    @override_settings(**GOOGLE_TEST_SETTINGS)
+    def test_google_connects_to_existing_account_with_same_email(self):
+        lama = User.objects.create_user("budilama", "budi@gmail.com", "KalkulusAsik123")
+        self._google_login("budi@gmail.com")
+        self.assertEqual(User.objects.filter(email__iexact="budi@gmail.com").count(), 1)
+        self.assertTrue(SocialAccount.objects.filter(user=lama, provider="google").exists())
+
+    def test_allauth_signup_page_closed(self):
+        response = self.client.get("/accounts/signup/")
+        self.assertNotContains(response, 'name="password1"')

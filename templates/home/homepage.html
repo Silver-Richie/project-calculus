@@ -1,0 +1,286 @@
+{% extends 'base.html' %}
+{% load assets %}
+{% comment %}
+  HALAMAN: Homepage publik — tampilan pertama tamu (dari Google / tautan langsung), tanpa login.
+  Isi    : navigasi (Masuk / Daftar kanan atas) · hero Archie · kartu fitur + "video" animasi
+           (static/js/home_video.js) · kuis coba 5 soal (static/js/home.js, API /api/coba-soal/)
+           · cara kerja · FAQ · footer.
+  Pengguna yang sudah login tidak melihat halaman ini (views.landing_page → beranda aplikasi).
+{% endcomment %}
+
+{% block title %}Calculus Bridge — Belajar Kalkulus Interaktif bersama Archie{% endblock %}
+
+{% block head_meta %}
+<meta name="description" content="Calculus Bridge: belajar kalkulus untuk mahasiswa baru FT, FMIPA, dan Fasilkom lewat peta level, soal acak dengan pembahasan bertahap, grafik interaktif, dan papan coret-coret. Coba 5 soal tanpa daftar.">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Calculus Bridge — Belajar Kalkulus Interaktif bersama Archie">
+<meta property="og:description" content="Peta level, soal acak + pembahasan, grafik interaktif, dan gamifikasi. Coba 5 soal tanpa daftar.">
+<meta property="og:url" content="{{ request.build_absolute_uri }}">
+<meta name="theme-color" content="#2563EB">
+{% endblock %}
+
+{% block extra_css %}
+<script src="{% asset 'js/theme.js' %}"></script>
+<link rel="stylesheet" href="{% asset 'css/home.css' %}">
+{% endblock %}
+
+{% block body_class %}home-body{% endblock %}
+
+{% block content %}
+<a class="hp-skip" href="#coba">Lewati ke coba soal</a>
+
+<!-- ═══ Navigasi: brand · tautan bagian · tema · Masuk / Daftar ═══ -->
+<header class="hp-nav" id="hp-nav">
+  <a href="{% url 'gamification:home' %}" class="hp-brand">
+    <span class="hp-brand-icon">∫</span>Calculus<span>Bridge</span>
+  </a>
+  <nav class="hp-links" aria-label="Bagian halaman">
+    <a href="#fitur">Fitur</a>
+    <a href="#coba">Coba Soal</a>
+    <a href="#cara">Cara Kerja</a>
+    <a href="#faq">FAQ</a>
+  </nav>
+  <div class="hp-actions">
+    <button type="button" class="btn-theme" id="theme-toggle-btn" title="Ganti tema" aria-label="Ganti tema">🌙</button>
+    <a class="btn btn-outline btn-sm" href="{% url 'gamification:auth_login' %}">Masuk</a>
+    <a class="btn btn-primary btn-sm" href="{% url 'gamification:auth_login' %}?tab=daftar">Daftar</a>
+  </div>
+</header>
+
+<main>
+  <!-- ═══ Hero ═══ -->
+  <section class="hp-hero">
+    <div class="hp-hero-copy">
+      <span class="hp-eyebrow">🎓 Untuk mahasiswa baru FT · FMIPA · Fasilkom</span>
+      <h1>Seberangi jurang kalkulus <span>bersama Archie</span></h1>
+      <p class="hp-lead">Belajar limit, turunan, sampai integral lewat peta level seperti game, soal acak dengan
+        pembahasan bertahap, dan grafik yang bisa kamu geser sendiri.</p>
+      <div class="hp-cta">
+        <button type="button" class="btn btn-accent btn-lg" data-video="tour">▶ Tonton pengenalan</button>
+        <a class="btn btn-outline btn-lg" href="#coba">🎯 Coba 5 soal tanpa daftar</a>
+      </div>
+      <ul class="hp-stats">
+        <li><b>{{ level_count }}</b> level kurikulum</li>
+        <li><b>{{ topic_count }}</b> topik</li>
+        <li><b>{{ generator_count }}</b> pola soal acak</li>
+      </ul>
+    </div>
+
+    <div class="hp-hero-art">
+      <svg class="hp-bridge" viewBox="0 0 520 220" aria-hidden="true">
+        <path class="hp-cliff" d="M0 150 Q40 140 70 160 L70 220 L0 220Z"/>
+        <path class="hp-cliff" d="M450 160 Q480 140 520 150 L520 220 L450 220Z"/>
+        <path id="hp-curve" class="hp-curve" d="M60 160 C140 160 170 40 260 40 S380 160 460 160"/>
+        <circle class="hp-dot" r="7">
+          <animateMotion dur="6s" repeatCount="indefinite" rotate="auto" keyPoints="0;1;0" keyTimes="0;.5;1" calcMode="linear">
+            <mpath href="#hp-curve"/>
+          </animateMotion>
+        </circle>
+        <text class="hp-curve-label" x="268" y="28">f′(x) = 0</text>
+      </svg>
+      <span class="hp-glyph" style="--x:6%;--y:12%;--d:0s">∫</span>
+      <span class="hp-glyph" style="--x:90%;--y:34%;--d:.8s">dx</span>
+      <span class="hp-glyph" style="--x:82%;--y:64%;--d:1.6s">lim</span>
+      <span class="hp-glyph" style="--x:2%;--y:62%;--d:2.4s">π</span>
+      <span class="hp-glyph" style="--x:34%;--y:86%;--d:3.2s">∞</span>
+      <div class="hp-bubble" id="hero-bubble" aria-live="polite">Halo! Aku <b>Archie</b> 👋 Klik aku!</div>
+      <button type="button" class="hp-archie" id="hero-archie" aria-label="Klik Archie untuk tips kalkulus">
+        {% include 'components/mascot.html' with svg_class="mascot-idle" size=230 %}
+      </button>
+    </div>
+  </section>
+
+  <!-- ═══ Fitur + video animasi ═══ -->
+  <section class="hp-section" id="fitur">
+    <div class="hp-head">
+      <span class="hp-kicker">Fitur</span>
+      <h2>Semua yang kamu butuhkan untuk menaklukkan kalkulus</h2>
+      <p>Klik <b>▶ Tonton</b> di tiap kartu untuk melihat video singkat yang dipandu Archie.</p>
+    </div>
+    <div class="hp-features">
+      <article class="hp-feature" style="--c:var(--clr-primary)">
+        <span class="hp-feature-icon">🗺️</span>
+        <h3>Peta Belajar 4 Level</h3>
+        <p>Dari PreCalculus sampai Kalkulus Tingkat Lanjut. Selesaikan node untuk membuka jalan berikutnya.</p>
+        <button type="button" class="hp-play" data-video="peta">▶ Tonton <small>13 dtk</small></button>
+      </article>
+      <article class="hp-feature" style="--c:var(--clr-accent)">
+        <span class="hp-feature-icon">🎯</span>
+        <h3>Latihan &amp; Pembahasan</h3>
+        <p>Soal diacak khusus untukmu, hint bertahap, dan pembahasan langkah demi langkah. Ada juga Latihan Bebas.</p>
+        <button type="button" class="hp-play" data-video="latihan">▶ Tonton <small>18 dtk</small></button>
+      </article>
+      <article class="hp-feature" style="--c:var(--clr-growth)">
+        <span class="hp-feature-icon">📈</span>
+        <h3>Grafik Interaktif</h3>
+        <p>Geser slider dan lihat garis singgung, luas, atau kurva berubah langsung di depan matamu.</p>
+        <button type="button" class="hp-play" data-video="grafik">▶ Tonton <small>15 dtk</small></button>
+      </article>
+      <article class="hp-feature" style="--c:#8B5CF6">
+        <span class="hp-feature-icon">✏️</span>
+        <h3>Papan Coret-coret</h3>
+        <p>Hitung langsung di samping soal dengan mouse, jari, atau stylus. Coretan tersimpan per soal.</p>
+        <button type="button" class="hp-play" data-video="papan">▶ Tonton <small>13 dtk</small></button>
+      </article>
+      <article class="hp-feature" style="--c:var(--clr-danger)">
+        <span class="hp-feature-icon">🔥</span>
+        <h3>XP, Streak &amp; Nyawa</h3>
+        <p>Kumpulkan XP, jaga streak harian, hemat nyawa, dan naik di papan peringkat.</p>
+        <button type="button" class="hp-play" data-video="gamifikasi">▶ Tonton <small>13 dtk</small></button>
+      </article>
+      <article class="hp-feature" style="--c:var(--clr-gold)">
+        <span class="hp-feature-icon">🧭</span>
+        <h3>Jalur Fakultas &amp; Tes Awal</h3>
+        <p>Pilih FT, FMIPA, atau Fasilkom, lalu ikuti tes awal 10 soal untuk tahu titik mulaimu.</p>
+        <button type="button" class="hp-play" data-video="diagnostik">▶ Tonton <small>13 dtk</small></button>
+      </article>
+    </div>
+  </section>
+
+  <!-- ═══ Coba fitur: kuis 5 soal tanpa login ═══ -->
+  <section class="hp-section hp-try" id="coba">
+    <div class="hp-try-side">
+      <span class="hp-kicker">Coba sekarang</span>
+      <h2>5 soal, tanpa daftar</h2>
+      <p>3 soal <b>Kalkulus Dasar</b> dan 2 soal <b>Kalkulus Tingkat Menengah</b> (Mudah–Sedang), diambil acak
+        dari bank soal yang sama dengan aplikasinya. Hasil tidak disimpan.</p>
+      <div class="hp-coach">
+        <div class="hp-coach-archie" id="coach-archie">
+          {% include 'components/mascot.html' with svg_class="mascot-idle" size=92 %}
+        </div>
+        <p class="hp-coach-say" id="coach-say" aria-live="polite">Siap? Aku temani dari sini!</p>
+      </div>
+    </div>
+    <div class="hp-try-card" id="trial-root" data-api="{% url 'gamification:trial_quiz_api' %}"
+         data-signup="{% url 'gamification:auth_login' %}?tab=daftar">
+      <noscript><p>Aktifkan JavaScript untuk mencoba soal.</p></noscript>
+    </div>
+  </section>
+
+  <!-- ═══ Cara kerja ═══ -->
+  <section class="hp-section" id="cara">
+    <div class="hp-head">
+      <span class="hp-kicker">Cara kerja</span>
+      <h2>Mulai dalam 3 langkah</h2>
+    </div>
+    <ol class="hp-steps">
+      <li>
+        <span class="hp-step-num">1</span>
+        <h3>Daftar</h3>
+        <p>Pakai akun Google atau buat username dan kata sandi sendiri.</p>
+      </li>
+      <li>
+        <span class="hp-step-num">2</span>
+        <h3>Pilih fakultas &amp; tes awal</h3>
+        <p>Pilih FT, FMIPA, atau Fasilkom. Tes awal 10 soal (opsional) memberi rekomendasi titik mulai.</p>
+      </li>
+      <li>
+        <span class="hp-step-num">3</span>
+        <h3>Belajar &amp; naik level</h3>
+        <p>Baca materi, kerjakan 5 sesi tiap topik, kumpulkan XP, dan buka node berikutnya.</p>
+      </li>
+    </ol>
+  </section>
+
+  <!-- ═══ FAQ ═══ -->
+  <section class="hp-section" id="faq">
+    <div class="hp-head">
+      <span class="hp-kicker">FAQ</span>
+      <h2>Pertanyaan yang sering muncul</h2>
+    </div>
+    <div class="hp-faq">
+      <details>
+        <summary>Apakah harus punya akun untuk mencoba?</summary>
+        <p>Tidak. Kamu bisa langsung mengerjakan 5 soal coba di halaman ini. Akun dibutuhkan untuk menyimpan
+          progres, XP, streak, dan membuka semua level.</p>
+      </details>
+      <details>
+        <summary>Bisa daftar pakai akun Google?</summary>
+        <p>Bisa. Pilih <b>Lanjutkan dengan Google</b> di halaman Daftar, atau buat username dan kata sandi sendiri.</p>
+      </details>
+      <details>
+        <summary>Untuk siapa Calculus Bridge?</summary>
+        <p>Untuk mahasiswa baru Fakultas Teknik, FMIPA, dan Fasilkom. Materi umum sama untuk semua, ditambah
+          materi dan contoh khusus sesuai fakultasmu.</p>
+      </details>
+      <details>
+        <summary>Materinya dari mana?</summary>
+        <p>Kurikulum {{ level_count }} level disusun dengan rujukan buku Whitman, MIT (Strang), dan Stewart.</p>
+      </details>
+      <details>
+        <summary>Apakah soalnya itu-itu saja?</summary>
+        <p>Tidak. Sebagian besar soal dibangkitkan acak, jadi setiap mencoba lagi kamu mendapat angka baru,
+          lengkap dengan pembahasannya.</p>
+      </details>
+      <details>
+        <summary>Apa itu nyawa? Kalau habis bagaimana?</summary>
+        <p>Gagal lulus satu sesi mengurangi 1 nyawa (maksimal 10). Nyawa terisi penuh lagi 24 jam setelah nyawa
+          pertama hilang. Latihan Bebas tidak memakai nyawa.</p>
+      </details>
+    </div>
+  </section>
+
+  <!-- ═══ Ajakan akhir ═══ -->
+  <section class="hp-final">
+    {% include 'components/mascot.html' with svg_class="mascot-idle" size=110 %}
+    <div>
+      <h2>Siap menyeberang?</h2>
+      <p>Buat akun untuk menyimpan progres dan membuka seluruh peta belajar.</p>
+    </div>
+    <a class="btn btn-growth btn-lg" href="{% url 'gamification:auth_login' %}?tab=daftar">Daftar sekarang ➔</a>
+  </section>
+</main>
+
+<footer class="hp-footer">
+  <a href="{% url 'gamification:home' %}" class="hp-brand"><span class="hp-brand-icon">∫</span>Calculus<span>Bridge</span></a>
+  <p>Jembatan kalkulus untuk mahasiswa baru FT, FMIPA, dan Fasilkom.</p>
+  <nav aria-label="Tautan footer">
+    <a href="#fitur">Fitur</a><a href="#coba">Coba Soal</a><a href="#faq">FAQ</a>
+    <a href="{% url 'gamification:auth_login' %}">Masuk</a><a href="{% url 'gamification:auth_login' %}?tab=daftar">Daftar</a>
+  </nav>
+  <small>© {% now "Y" %} Calculus Bridge</small>
+</footer>
+
+<!-- ═══ Pemutar "video" animasi (diisi home_video.js) ═══ -->
+<div class="vp" id="vp" hidden>
+  <div class="vp-backdrop" data-vp-close></div>
+  <div class="vp-dialog" role="dialog" aria-modal="true" aria-labelledby="vp-title">
+    <div class="vp-head">
+      <h3 id="vp-title">Pengenalan Calculus Bridge</h3>
+      <button type="button" class="vp-x" data-vp-close aria-label="Tutup video">×</button>
+    </div>
+    <div class="vp-screen" id="vp-screen">
+      <div class="vp-canvas" id="vp-canvas"></div>
+      <div class="vp-end" id="vp-end" hidden>
+        <p>Selesai! Mau lanjut ke mana?</p>
+        <div>
+          <a class="btn btn-accent" href="#coba" data-vp-close>🎯 Coba 5 soal</a>
+          <a class="btn btn-primary" href="{% url 'gamification:auth_login' %}?tab=daftar">Daftar</a>
+          <button type="button" class="btn btn-outline" id="vp-replay">↺ Putar ulang</button>
+        </div>
+      </div>
+    </div>
+    <div class="vp-caption">
+      <span class="vp-narrator" id="vp-narrator">{% include 'components/mascot.html' with size=44 %}</span>
+      <p id="vp-cap" aria-live="polite"></p>
+    </div>
+    <div class="vp-controls">
+      <button type="button" class="vp-btn" id="vp-play" aria-label="Jeda">⏸</button>
+      <button type="button" class="vp-btn" id="vp-prev" aria-label="Adegan sebelumnya">⏮</button>
+      <button type="button" class="vp-btn" id="vp-next" aria-label="Adegan berikutnya">⏭</button>
+      <div class="vp-track" id="vp-track"></div>
+      <span class="vp-time" id="vp-time">0:00</span>
+    </div>
+    <div class="vp-chapters" id="vp-chapters" hidden></div>
+  </div>
+</div>
+
+{# Salinan Archie untuk adegan video (dikloning home_video.js) #}
+<template id="archie-tpl">{% include 'components/mascot.html' with size=80 %}</template>
+{% endblock %}
+
+{% block app_js %}
+<script src="{% asset 'js/graphlab.js' %}"></script>
+<script src="{% asset 'js/home_video.js' %}"></script>
+<script src="{% asset 'js/home.js' %}"></script>
+{% endblock %}

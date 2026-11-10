@@ -2,10 +2,12 @@
 Calculus Bridge - Alur autentikasi & onboarding (templates/auth/).
 
 Alur:
-    /auth/                 Splash: logo maskot Archie → klik
-    /auth/masuk/           Halaman login (tab Masuk / Daftar)
+    /                      Homepage publik untuk tamu (views.landing_page) → tombol Masuk / Daftar
+    /auth/                 Alamat lama layar pembuka → diarahkan ke homepage (/)
+    /auth/masuk/           Halaman login (tab Masuk / Daftar; ?tab=daftar membuka tab Daftar)
         ├─ Masuk berhasil  → beranda (/)            [atau pilih fakultas jika belum]
-        └─ Daftar berhasil → /auth/fakultas/
+        ├─ Daftar berhasil → /auth/fakultas/       (username + kata sandi, tanpa email)
+        └─ Tombol Google   → /accounts/google/login/ (django-allauth, lihat auth_adapters.py)
     /auth/fakultas/        Pilih FT / FMIPA / Fasilkom
     /auth/tes-awal/        Tawaran tes kemampuan awal (Ya / Lewati)
         ├─ Ya    → /auth/tes-awal/mulai/  (10 soal: 5 mudah, 3 sedang, 2 sulit)
@@ -13,6 +15,7 @@ Alur:
         └─ Lewati → beranda
 """
 
+from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import login, logout
 from django.contrib.auth.decorators import login_required
@@ -24,6 +27,7 @@ from .forms import FacultyForm, LoginForm, RegisterForm
 from .models import Faculty, SkillNode, UserProfile
 
 RESULT_SESSION_KEY = "diagnostic_result"
+DIAGNOSTIC_SESSION_KEY = "diagnostic_questions"   # soal & urutan opsi yang sedang ditampilkan
 
 
 def _profile(user):
@@ -39,10 +43,10 @@ def next_step_for(user):
 
 
 def splash(request):
-    """Layar pembuka: logo maskot CalculusBridge. Klik → halaman login."""
+    """Alamat lama layar pembuka: tamu diarahkan ke homepage publik."""
     if request.user.is_authenticated:
         return redirect(next_step_for(request.user))
-    return render(request, "auth/splash.html")
+    return redirect("gamification:home")
 
 
 def login_view(request):
@@ -58,7 +62,9 @@ def login_view(request):
     return render(request, "auth/login.html", {
         "login_form": login_form,
         "register_form": RegisterForm(prefix="reg"),
-        "active_tab": "masuk",
+        # ?tab=daftar → langsung buka tab Daftar (tautan "Daftar" di homepage).
+        "active_tab": "daftar" if request.GET.get("tab") == "daftar" else "masuk",
+        "google_enabled": bool(settings.GOOGLE_CLIENT_ID),
     })
 
 
@@ -77,13 +83,14 @@ def register_view(request):
         "login_form": LoginForm(request, prefix="login"),
         "register_form": form,
         "active_tab": "daftar",
+        "google_enabled": bool(settings.GOOGLE_CLIENT_ID),
     }, status=400)
 
 
 @require_POST
 def logout_view(request):
     logout(request)
-    return redirect("gamification:auth_splash")
+    return redirect("gamification:home")
 
 
 @login_required
@@ -135,23 +142,32 @@ def diagnostic_test(request):
     GET  : menampilkan soal (tanpa kunci jawaban).
     POST : menilai di server, menyimpan hasil ke UserProfile & UserProgress,
            lalu mengalihkan ke halaman hasil.
+
+    Soal diundi acak setiap GET; urutan soal & opsi disimpan di session
+    (DIAGNOSTIC_SESSION_KEY) agar POST menilai soal yang sama persis.
     """
     profile = _profile(request.user)
-    questions = services.diagnostic_questions(profile.faculty)
+    questions = None
 
     if request.method == "POST":
-        answers = [
-            {"code": q.code, "option_id": request.POST.get(f"q_{q.code}")}
-            for q in questions
-        ]
-        missing = [a["code"] for a in answers if not a["option_id"]]
-        if missing:
-            messages.error(request, "Jawab semua soal terlebih dahulu.")
+        # Nilai soal yang benar-benar ditampilkan (soal diundi acak setiap GET).
+        questions = services.diagnostic_from_snapshot(request.session.get(DIAGNOSTIC_SESSION_KEY))
+        if questions is None:
+            messages.error(request, "Sesi tes kedaluwarsa. Soal baru sudah disiapkan, silakan jawab ulang.")
         else:
-            result = services.evaluate_diagnostic(profile.faculty, answers)
-            services.apply_diagnostic_to_profile(request.user, profile.faculty, result)
-            request.session[RESULT_SESSION_KEY] = result
-            return redirect("gamification:auth_diagnostic_result")
+            answers = [{"code": q.code, "option_id": request.POST.get(f"q_{q.code}")} for q in questions]
+            if any(not a["option_id"] for a in answers):
+                messages.error(request, "Jawab semua soal terlebih dahulu.")
+            else:
+                result = services.evaluate_diagnostic(profile.faculty, answers)
+                services.apply_diagnostic_to_profile(request.user, profile.faculty, result)
+                request.session[RESULT_SESSION_KEY] = result
+                request.session.pop(DIAGNOSTIC_SESSION_KEY, None)
+                return redirect("gamification:auth_diagnostic_result")
+
+    if questions is None:
+        questions = services.diagnostic_questions(profile.faculty)
+        request.session[DIAGNOSTIC_SESSION_KEY] = services.diagnostic_snapshot(questions)
 
     return render(request, "auth/diagnostic_test.html", {
         "faculty": profile.faculty,

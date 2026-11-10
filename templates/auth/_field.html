@@ -1,7 +1,22 @@
-{% comment %}Satu field form dengan label, error, dan help text. {% include 'auth/_field.html' with field=form.username %}{% endcomment %}
+{% comment %}
+  Satu field form dengan label, error, dan help text.
+  Pemakaian: {% include 'auth/_field.html' with field=form.username icon="user" %}
+  icon (opsional): "user" atau "lock" — ikon kecil di dalam kolom input.
+{% endcomment %}
 <div class="auth-field{% if field.errors %} has-error{% endif %}">
   <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+  {% if icon %}
+  <div class="auth-input">
+    {% if icon == "lock" %}
+    <svg class="auth-input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+    {% else %}
+    <svg class="auth-input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>
+    {% endif %}
+    {{ field }}
+  </div>
+  {% else %}
   {{ field }}
+  {% endif %}
   {% for error in field.errors %}<p class="auth-error">{{ error }}</p>{% endfor %}
   {% if field.help_text %}<p class="auth-help">{{ field.help_text }}</p>{% endif %}
 </div>

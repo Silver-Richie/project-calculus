@@ -42,6 +42,10 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'allauth',
+    'allauth.account',
+    'allauth.socialaccount',
+    'allauth.socialaccount.providers.google',
     'gamification',
 ]
 
@@ -53,6 +57,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'allauth.account.middleware.AccountMiddleware',
 ]
 
 ROOT_URLCONF = 'project_calculus.urls'
@@ -167,4 +172,27 @@ STATICFILES_DIRS = [
 # Autentikasi (templates/auth/)
 LOGIN_URL = 'gamification:auth_login'
 LOGIN_REDIRECT_URL = 'gamification:home'
-LOGOUT_REDIRECT_URL = 'gamification:auth_splash'
+LOGOUT_REDIRECT_URL = 'gamification:home'
+
+# Masuk dengan Google (django-allauth). Kunci diisi di .env, lihat .env.example.
+# Mekanisme: tombol Google → allauth → Google → callback /accounts/google/login/callback/
+# → akun dibuat otomatis (email dari Google pasti aktif) atau disambungkan ke akun
+# lama yang emailnya sama → adapter mengarahkan ke pilih fakultas / beranda.
+GOOGLE_CLIENT_ID = os.getenv('GOOGLE_CLIENT_ID', '')
+GOOGLE_CLIENT_SECRET = os.getenv('GOOGLE_CLIENT_SECRET', '')
+AUTHENTICATION_BACKENDS = [
+    'django.contrib.auth.backends.ModelBackend',
+    'allauth.account.auth_backends.AuthenticationBackend',
+]
+SOCIALACCOUNT_PROVIDERS = {
+    'google': {
+        'APPS': [{'client_id': GOOGLE_CLIENT_ID, 'secret': GOOGLE_CLIENT_SECRET, 'key': ''}] if GOOGLE_CLIENT_ID else [],
+        'SCOPE': ['profile', 'email'],
+        'AUTH_PARAMS': {'prompt': 'select_account'},
+    }
+}
+ACCOUNT_EMAIL_VERIFICATION = 'none'            # email Google sudah terverifikasi; daftar manual tanpa email
+ACCOUNT_ADAPTER = 'gamification.auth_adapters.AccountAdapter'
+SOCIALACCOUNT_ADAPTER = 'gamification.auth_adapters.SocialAccountAdapter'
+SOCIALACCOUNT_EMAIL_AUTHENTICATION = True              # email Google = email akun lama → masuk ke akun itu
+SOCIALACCOUNT_EMAIL_AUTHENTICATION_AUTO_CONNECT = True # sekaligus sambungkan akun Google-nya

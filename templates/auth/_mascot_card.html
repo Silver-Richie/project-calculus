@@ -1,0 +1,30 @@
+{% comment %}
+  Maskot Archie di kepala kartu Masuk/Daftar, versi interaktif dari components/mascot.html.
+  Bagian yang digerakkan static/js/auth_mascot.js:
+    .mc-pupils  digeser untuk melirik ke kolom teks
+    .mc-paw-*   naik menutupi kacamata saat kolom kata sandi aktif (kelas .is-cover)
+    .mc-body    melompat saat tombol kirim diklik (kelas .is-cheer)
+{% endcomment %}
+<svg id="mascot-card" class="mascot-card" width="{{ size|default:88 }}" height="{{ size|default:88 }}" viewBox="0 0 200 200" fill="none" role="img" aria-label="Archie, maskot CalculusBridge">
+  <g class="mc-body">
+    <path d="M42 95C25 80 15 95 28 112C15 118 20 135 38 128" fill="#f43f5e" stroke="#e11d48" stroke-width="3" stroke-linecap="round"/>
+    <path d="M158 95C175 80 185 95 172 112C185 118 180 135 162 128" fill="#f43f5e" stroke="#e11d48" stroke-width="3" stroke-linecap="round"/>
+    <ellipse cx="100" cy="120" rx="58" ry="52" fill="#93C5FD" stroke="#2563EB" stroke-width="3"/>
+    <ellipse cx="100" cy="130" rx="34" ry="30" fill="#DBEAFE" opacity=".9"/>
+    <rect x="58" y="90" width="32" height="26" rx="8" fill="#1E3A5F" stroke="#38bdf8" stroke-width="3"/>
+    <rect x="110" y="90" width="32" height="26" rx="8" fill="#1E3A5F" stroke="#38bdf8" stroke-width="3"/>
+    <line x1="90" y1="102" x2="110" y2="102" stroke="#38bdf8" stroke-width="3" stroke-linecap="round"/>
+    <g class="mc-eyes"><g class="mc-pupils">
+      <ellipse cx="74" cy="103" rx="7" ry="8" fill="#38bdf8"/><circle cx="71" cy="100" r="3" fill="white"/>
+      <ellipse cx="126" cy="103" rx="7" ry="8" fill="#38bdf8"/><circle cx="123" cy="100" r="3" fill="white"/>
+    </g></g>
+    <ellipse cx="56" cy="120" rx="7" ry="4" fill="#f43f5e" opacity=".55"/>
+    <ellipse cx="144" cy="120" rx="7" ry="4" fill="#f43f5e" opacity=".55"/>
+    <path d="M93 117Q100 124 107 117" stroke="#1E3A5F" stroke-width="3" stroke-linecap="round" fill="none"/>
+    <path d="M100 50L143 66L100 82L57 66Z" fill="#1E3A5F" stroke="#6366f1" stroke-width="2.5"/>
+    <path d="M125 74L133 90" stroke="#D97706" stroke-width="2.5" stroke-linecap="round"/>
+    <circle cx="133" cy="90" r="3" fill="#D97706"/>
+    <ellipse class="mc-paw mc-paw-l" cx="56" cy="156" rx="15" ry="12" fill="#93C5FD" stroke="#2563EB" stroke-width="3"/>
+    <ellipse class="mc-paw mc-paw-r" cx="144" cy="156" rx="15" ry="12" fill="#93C5FD" stroke="#2563EB" stroke-width="3"/>
+  </g>
+</svg>

@@ -12,9 +12,12 @@
 
 {% block content %}
 <div class="auth-shell">
-  <a href="{% url 'gamification:auth_splash' %}" class="auth-brand" data-nav>
+  <a href="{% url 'gamification:home' %}" class="auth-brand" data-nav>
     <span class="hud-brand-icon">∫</span> Calculus<span>Bridge</span>
   </a>
+
+  {# Latar penuh layar (mis. animasi keluarga Archie). Di luar <main> agar tidak ikut animasi pindah halaman. #}
+  {% block auth_backdrop %}{% endblock %}
 
   <main class="auth-main" id="auth-main">
     {% if messages %}
@@ -32,5 +35,6 @@
 {% endblock %}
 
 {% block app_js %}
+<script src="{% asset 'js/whiteboard.js' %}"></script>
 <script src="{% asset 'js/auth.js' %}"></script>
 {% endblock %}

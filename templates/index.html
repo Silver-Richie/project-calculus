@@ -1,7 +1,10 @@
 {% extends 'base.html' %}
-{% load static %}
+{% load static assets %}
 
 {% block title %}Calculus Bridge — Gamifikasi Kalkulus Interaktif{% endblock %}
+
+{# Mode gelap/terang: dimuat di <head> agar tema terpasang sebelum halaman digambar. #}
+{% block extra_css %}<script src="{% asset 'js/theme.js' %}"></script>{% endblock %}
 
 {% block content %}
 
@@ -31,6 +34,11 @@
     <!-- PAGE: Lesson (Catalogue) -->
     <div class="page-section" id="page-lesson">
       {% include 'learning/lesson_catalogue.html' %}
+    </div>
+
+    <!-- PAGE: Latihan Bebas (tanpa nyawa & XP) -->
+    <div class="page-section" id="page-free">
+      {% include 'learning/free_practice.html' %}
     </div>
 
     <!-- PAGE: Rank (Leaderboard) -->

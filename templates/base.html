@@ -6,12 +6,14 @@
   <script>document.documentElement.classList.add('js');</script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{% block title %}Calculus Bridge{% endblock %}</title>
+  {% block head_meta %}{% endblock %}
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="{% asset 'css/style.css' %}">
   <link rel="stylesheet" href="{% asset 'css/practice.css' %}">
+  <link rel="stylesheet" href="{% asset 'css/whiteboard.css' %}">
   {% block extra_css %}{% endblock %}
 </head>
 <body class="{% block body_class %}{% endblock %}">
@@ -21,10 +23,14 @@
     {% block content %}{% endblock %}
   </div>
 
+  {# Pecahan bertumpuk di soal & materi (semua halaman) #}
+  <script src="{% asset 'js/mathfrac.js' %}"></script>
   {% block app_js %}
   <script src="{% asset 'js/graphlab.js' %}"></script>
+  <script src="{% asset 'js/whiteboard.js' %}"></script>
   <script src="{% asset 'js/app.js' %}"></script>
   <script src="{% asset 'js/practice.js' %}"></script>
+  <script src="{% asset 'js/free_practice.js' %}"></script>
   {% endblock %}
   {% block extra_js %}{% endblock %}
 </body>
