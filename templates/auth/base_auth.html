@@ -16,6 +16,9 @@
     <span class="hud-brand-icon">∫</span> Calculus<span>Bridge</span>
   </a>
 
+  {# Latar penuh layar (mis. animasi keluarga Archie). Di luar <main> agar tidak ikut animasi pindah halaman. #}
+  {% block auth_backdrop %}{% endblock %}
+
   <main class="auth-main" id="auth-main">
     {% if messages %}
       <div class="auth-messages">

@@ -2137,7 +2137,7 @@ html:not(.js) .auth-main { opacity: 1; transform: none; }
 .link-btn { color: var(--clr-primary); font-weight: 700; cursor: pointer; text-decoration: underline; }
 .auth-google { gap: .6rem; background: #fff; color: var(--clr-text); border: 1.5px solid var(--clr-border); margin-top: 0; }
 .auth-google:hover { border-color: var(--clr-primary); }
-.auth-or { display: flex; align-items: center; gap: .75rem; margin: 1rem 0; color: var(--clr-muted); font-size: .8rem; }
+.auth-or { display: flex; align-items: center; gap: .75rem; color: var(--clr-muted); font-size: .78rem; font-weight: 700; letter-spacing: .08em; }
 .auth-or::before, .auth-or::after { content: ""; flex: 1; height: 1px; background: var(--clr-border); }
 
 /* Langkah onboarding */
