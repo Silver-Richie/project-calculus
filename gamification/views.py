@@ -12,21 +12,26 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_POST
 
-from . import free_practice, services, sessions
-from .models import Faculty, PracticeSession, SkillNode, UserProfile
+from . import free_practice, generators, services, sessions
+from .models import Faculty, MainLevel, PracticeSession, SkillNode, Topic, UserProfile
 
 
 def landing_page(request):
     """
-    Beranda (aplikasi satu halaman). Hanya untuk pengguna yang sudah login.
+    Alamat utama situs.
 
-    - Belum login        → splash autentikasi (/auth/).
+    - Belum login          → homepage publik (pengenalan fitur, video animasi, kuis coba 5 soal).
     - Belum pilih fakultas → halaman pilih fakultas.
+    - Selain itu           → beranda aplikasi (aplikasi satu halaman).
     Data profil & progres dikirim ke JS lewat json_script (`server-profile`),
     sedangkan konten kurikulum dimuat lewat /api/curriculum/.
     """
     if not request.user.is_authenticated:
-        return redirect("gamification:auth_splash")
+        return render(request, "home/homepage.html", {
+            "level_count": MainLevel.objects.count(),
+            "topic_count": Topic.objects.count(),
+            "generator_count": len(generators.REGISTRY),
+        })
     profile, _ = UserProfile.objects.get_or_create(user=request.user)
     if not profile.faculty_id:
         return redirect("gamification:auth_faculty")
@@ -170,6 +175,13 @@ def complete_node_api(request):
         return JsonResponse({"status": "error", "message": "Node tidak dikenal."}, status=400)
     sessions.mark_node_completed(request.user, node)
     return JsonResponse({"status": "success", "slug": node.slug})
+
+
+# ── Kuis coba di homepage (tanpa login) ─────────────────────────────────────
+@require_GET
+def trial_quiz_api(request):
+    """GET /api/coba-soal/ — 5 soal coba acak untuk tamu (lihat free_practice.trial_quiz)."""
+    return JsonResponse({"status": "success", "questions": free_practice.trial_quiz()})
 
 
 # ── Latihan Bebas (tanpa nyawa & tanpa XP) ──────────────────────────────────

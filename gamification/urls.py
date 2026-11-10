@@ -8,7 +8,7 @@ from . import auth_views
 from .views import (
     landing_page, get_curriculum_api, get_diagnostic_api, submit_diagnostic_api, set_faculty_api,
     session_api, submit_session_api, complete_node_api,
-    free_practice_catalog_api, free_practice_start_api,
+    free_practice_catalog_api, free_practice_start_api, trial_quiz_api,
 )
 
 app_name = 'gamification'
@@ -27,6 +27,7 @@ urlpatterns = [
     path('auth/tes-awal/hasil/', auth_views.diagnostic_result, name='auth_diagnostic_result'),
 
     # API
+    path('api/coba-soal/', trial_quiz_api, name='trial_quiz_api'),
     path('api/curriculum/', get_curriculum_api, name='curriculum_api'),
     path('api/latihan-bebas/', free_practice_catalog_api, name='free_practice_catalog'),
     path('api/latihan-bebas/mulai/', free_practice_start_api, name='free_practice_start'),

@@ -2,8 +2,9 @@
 Calculus Bridge - Alur autentikasi & onboarding (templates/auth/).
 
 Alur:
-    /auth/                 Splash: logo maskot Archie → klik
-    /auth/masuk/           Halaman login (tab Masuk / Daftar)
+    /                      Homepage publik untuk tamu (views.landing_page) → tombol Masuk / Daftar
+    /auth/                 Alamat lama layar pembuka → diarahkan ke homepage (/)
+    /auth/masuk/           Halaman login (tab Masuk / Daftar; ?tab=daftar membuka tab Daftar)
         ├─ Masuk berhasil  → beranda (/)            [atau pilih fakultas jika belum]
         ├─ Daftar berhasil → /auth/fakultas/       (username + kata sandi, tanpa email)
         └─ Tombol Google   → /accounts/google/login/ (django-allauth, lihat auth_adapters.py)
@@ -42,10 +43,10 @@ def next_step_for(user):
 
 
 def splash(request):
-    """Layar pembuka: logo maskot CalculusBridge. Klik → halaman login."""
+    """Alamat lama layar pembuka: tamu diarahkan ke homepage publik."""
     if request.user.is_authenticated:
         return redirect(next_step_for(request.user))
-    return render(request, "auth/splash.html")
+    return redirect("gamification:home")
 
 
 def login_view(request):
@@ -61,7 +62,8 @@ def login_view(request):
     return render(request, "auth/login.html", {
         "login_form": login_form,
         "register_form": RegisterForm(prefix="reg"),
-        "active_tab": "masuk",
+        # ?tab=daftar → langsung buka tab Daftar (tautan "Daftar" di homepage).
+        "active_tab": "daftar" if request.GET.get("tab") == "daftar" else "masuk",
         "google_enabled": bool(settings.GOOGLE_CLIENT_ID),
     })
 
@@ -88,7 +90,7 @@ def register_view(request):
 @require_POST
 def logout_view(request):
     logout(request)
-    return redirect("gamification:auth_splash")
+    return redirect("gamification:home")
 
 
 @login_required
