@@ -201,11 +201,9 @@ class AuthOnboardingTests(TestCase):
     def setUpTestData(cls):
         call_command("seed_gamification", stdout=io.StringIO())
 
-    def _register(self, username="budi", email="budi@mail.com"):
+    def _register(self, username="budi"):
         return self.client.post("/auth/daftar/", {
-            "reg-first_name": "Budi Santoso",
             "reg-username": username,
-            "reg-email": email,
             "reg-password1": "KalkulusAsik123",
             "reg-password2": "KalkulusAsik123",
         })
@@ -222,27 +220,33 @@ class AuthOnboardingTests(TestCase):
         response = self._register()
         self.assertRedirects(response, "/auth/fakultas/")
         user = User.objects.get(username="budi")
-        self.assertEqual(user.email, "budi@mail.com")
+        self.assertEqual(user.email, "")   # daftar manual tanpa email
         self.assertTrue(UserProfile.objects.filter(user=user, faculty=None).exists())
         # Belum pilih fakultas → beranda mengarahkan ke pilih fakultas
         self.assertRedirects(self.client.get("/"), "/auth/fakultas/")
 
-    def test_register_rejects_duplicate_email(self):
+    def test_register_rejects_mismatched_password(self):
+        response = self.client.post("/auth/daftar/", {
+            "reg-username": "budi", "reg-password1": "KalkulusAsik123", "reg-password2": "BedaSandi456"})
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(User.objects.filter(username="budi").exists())
+
+    def test_register_rejects_duplicate_username(self):
         self._register()
         self.client.post("/auth/keluar/")
-        response = self._register(username="budi2")
+        response = self._register()
         self.assertEqual(response.status_code, 400)
-        self.assertContains(response, "Email ini sudah terdaftar", status_code=400)
+        self.assertEqual(User.objects.filter(username="budi").count(), 1)
 
     def test_login_existing_user_goes_home(self):
         self._register()
         self.client.post("/auth/fakultas/", {"faculty": "ft"})
         self.client.post("/auth/keluar/")
-        response = self.client.post("/auth/masuk/", {"login-username": "budi@mail.com", "login-password": "KalkulusAsik123"})
+        response = self.client.post("/auth/masuk/", {"login-username": "budi", "login-password": "KalkulusAsik123"})
         self.assertRedirects(response, "/")
         home = self.client.get("/")
         self.assertContains(home, 'id="server-profile"')
-        self.assertContains(home, "Budi Santoso")
+        self.assertContains(home, "budi")
 
     def test_login_wrong_password(self):
         self._register()
@@ -833,3 +837,68 @@ class FreePracticeTests(TestCase):
         a = free_practice.build_quiz(self.fk, ["kd-tur-rantai"], 10)
         b = free_practice.build_quiz(self.fk, ["kd-tur-rantai"], 10)
         self.assertNotEqual([q["prompt"] for q in a], [q["prompt"] for q in b])
+
+
+# ── Masuk dengan Google (django-allauth) ──────────────────────────────
+from allauth.account.models import EmailAddress  # noqa: E402
+from allauth.core import context as allauth_context  # noqa: E402
+from allauth.socialaccount.adapter import get_adapter as get_social_adapter  # noqa: E402
+from allauth.socialaccount.helpers import complete_social_login  # noqa: E402
+from allauth.socialaccount.models import SocialAccount, SocialLogin  # noqa: E402
+from django.contrib.auth.models import AnonymousUser  # noqa: E402
+from django.contrib.messages.storage.fallback import FallbackStorage  # noqa: E402
+from django.contrib.sessions.middleware import SessionMiddleware  # noqa: E402
+from django.test import RequestFactory, override_settings  # noqa: E402
+
+GOOGLE_TEST_SETTINGS = dict(
+    GOOGLE_CLIENT_ID="tes-id",
+    SOCIALACCOUNT_PROVIDERS={"google": {"APPS": [{"client_id": "tes-id", "secret": "tes", "key": ""}]}},
+)
+
+
+class GoogleLoginTests(TestCase):
+    """Tombol Google, akun baru via Google, dan penyambungan ke akun lama dengan email sama."""
+
+    def _google_login(self, email, uid="g-123", name="Budi"):
+        """Mensimulasikan callback Google yang sukses (tanpa menghubungi server Google)."""
+        request = RequestFactory().get("/accounts/google/login/callback/")
+        SessionMiddleware(lambda r: None).process_request(request)
+        request.session.save()
+        request.user = AnonymousUser()
+        request._messages = FallbackStorage(request)
+        with allauth_context.request_context(request):
+            sociallogin = SocialLogin(
+                provider=get_social_adapter().get_provider(request, "google"),
+                user=User(email=email, first_name=name),
+                account=SocialAccount(provider="google", uid=uid, extra_data={"email": email}),
+                email_addresses=[EmailAddress(email=email, verified=True, primary=True)],
+            )
+            return complete_social_login(request, sociallogin)
+
+    def test_google_button_hidden_without_client_id(self):
+        with override_settings(GOOGLE_CLIENT_ID=""):
+            self.assertNotContains(self.client.get("/auth/masuk/"), "Lanjutkan dengan Google")
+
+    @override_settings(**GOOGLE_TEST_SETTINGS)
+    def test_google_button_shown_with_client_id(self):
+        response = self.client.get("/auth/masuk/")
+        self.assertContains(response, "Lanjutkan dengan Google")
+        self.assertContains(response, 'action="/accounts/google/login/')
+
+    @override_settings(**GOOGLE_TEST_SETTINGS)
+    def test_new_google_user_created_and_goes_to_faculty(self):
+        response = self._google_login("budi@gmail.com")
+        self.assertEqual(response.url, "/auth/fakultas/")
+        user = User.objects.get(email="budi@gmail.com")
+        self.assertTrue(SocialAccount.objects.filter(user=user, provider="google").exists())
+
+    @override_settings(**GOOGLE_TEST_SETTINGS)
+    def test_google_connects_to_existing_account_with_same_email(self):
+        lama = User.objects.create_user("budilama", "budi@gmail.com", "KalkulusAsik123")
+        self._google_login("budi@gmail.com")
+        self.assertEqual(User.objects.filter(email__iexact="budi@gmail.com").count(), 1)
+        self.assertTrue(SocialAccount.objects.filter(user=lama, provider="google").exists())
+
+    def test_allauth_signup_page_closed(self):
+        response = self.client.get("/accounts/signup/")
+        self.assertNotContains(response, 'name="password1"')
