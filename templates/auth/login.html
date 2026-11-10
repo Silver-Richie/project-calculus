@@ -3,8 +3,8 @@
 {% comment %}
   HALAMAN: Login — tab "Masuk" (akun yang sudah ada) dan "Daftar" (akun baru).
   Masuk  → beranda.   Daftar → pilih fakultas.
-  Latar : adegan keluarga Archie (static/js/archie_family.js): penuh layar di ≥ 768px,
-          banner ringkas di atas kartu pada HP.
+  Latar : adegan Tim Archie di jembatan kalkulus (static/js/archie_family.js): penuh layar
+          di ≥ 768px, banner ringkas di atas kartu pada HP.
   Kartu : kaca (auth_card.css); maskot kartu bereaksi pada form (static/js/auth_mascot.js).
   Google: tombol di atas form; nonaktif jika GOOGLE_CLIENT_ID belum diisi di .env.
 {% endcomment %}
@@ -17,7 +17,7 @@
 {% endblock %}
 
 {% block auth_backdrop %}
-<aside class="family-stage" id="family-stage" aria-label="Animasi keluarga Archie. Klik tokoh, papan, pohon, matahari, atau area kosong.">
+<aside class="family-stage" id="family-stage" aria-label="Animasi Tim Archie menyeberangi jembatan kalkulus. Klik tokoh, papan, pohon, jembatan, matahari, atau item berkilau.">
   {# Tanpa JS: maskot statis. archie_family.js menggantinya dengan adegan animasi. #}
   <div class="family-fallback">{% include 'components/mascot.html' with svg_class="mascot-idle" size=220 %}</div>
 </aside>
