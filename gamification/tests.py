@@ -875,15 +875,24 @@ class GoogleLoginTests(TestCase):
             )
             return complete_social_login(request, sociallogin)
 
-    def test_google_button_hidden_without_client_id(self):
+    def test_google_button_disabled_without_client_id(self):
         with override_settings(GOOGLE_CLIENT_ID=""):
-            self.assertNotContains(self.client.get("/auth/masuk/"), "Lanjutkan dengan Google")
+            response = self.client.get("/auth/masuk/")
+        self.assertContains(response, "Lanjutkan dengan Google", count=1)
+        self.assertContains(response, "disabled")
+        self.assertNotContains(response, 'action="/accounts/google/login/')
 
     @override_settings(**GOOGLE_TEST_SETTINGS)
     def test_google_button_shown_with_client_id(self):
         response = self.client.get("/auth/masuk/")
-        self.assertContains(response, "Lanjutkan dengan Google")
+        self.assertContains(response, "Lanjutkan dengan Google", count=1)
         self.assertContains(response, 'action="/accounts/google/login/')
+
+    def test_login_page_has_field_icons_and_new_title(self):
+        response = self.client.get("/auth/masuk/")
+        self.assertContains(response, "Siap melanjutkan quest kalkulusmu hari ini?")
+        self.assertContains(response, 'class="auth-input-icon"', count=5)   # 2 di Masuk + 3 di Daftar
+        self.assertContains(response, 'id="mascot-card"')
 
     @override_settings(**GOOGLE_TEST_SETTINGS)
     def test_new_google_user_created_and_goes_to_faculty(self):
