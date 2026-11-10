@@ -59,6 +59,59 @@
   --shadow-3d-accent: 0 4px 0 var(--clr-accent-d);
 }
 
+/* ── Mode gelap (beranda) ─────────────────────────────────────────────────────
+   Aktif bila <html data-theme="dark">; diatur oleh static/js/theme.js.
+   Warna "-l" (latar lembut) dibuat transparan agar menyatu dengan latar gelap. */
+[data-theme="dark"] {
+  color-scheme: dark;
+  --clr-bg: #0F172A;
+  --clr-surface: #1E293B;
+  --clr-cream: #273449;
+  --clr-border: #334155;
+  --clr-muted: #94A3B8;
+  --clr-text: #E2E8F0;
+  --clr-text-sec: #CBD5E1;
+
+  --clr-primary: #3B82F6;
+  --clr-primary-d: #1D4ED8;
+  --clr-primary-l: rgba(59, 130, 246, .18);
+  --clr-growth: #22C55E;
+  --clr-growth-d: #15803D;
+  --clr-growth-l: rgba(34, 197, 94, .16);
+  --clr-sidebar: #0B1220;
+
+  --clr-accent-l: rgba(249, 115, 22, .15);
+  --clr-danger: #F87171;
+  --clr-danger-l: rgba(248, 113, 113, .15);
+  --clr-gold: #F59E0B;
+
+  --shadow-card: 0 2px 12px rgba(0, 0, 0, .35);
+  --shadow-pop: 0 8px 30px rgba(0, 0, 0, .5);
+}
+
+/* Warna terang yang ditulis langsung di aturan lain */
+[data-theme="dark"] .hud-pill.streak { border-color: rgba(249, 115, 22, .3); background: var(--clr-accent-l); }
+[data-theme="dark"] .diff-medium { background: rgba(234, 179, 8, .16); color: #FACC15; }
+[data-theme="dark"] .gl-svg { background: #0F172A; }
+[data-theme="dark"] .gl-grid { stroke: #1E293B; }
+[data-theme="dark"] .gl-axis { stroke: #64748B; }
+[data-theme="dark"] .gl-label { stroke: #0F172A; }
+[data-theme="dark"] .auth-field input:focus { background: var(--clr-surface); }
+
+/* Tombol ganti tema (HUD) */
+.btn-theme {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-full);
+  background: var(--clr-cream);
+  border: 1px solid var(--clr-border);
+  font-size: 1rem;
+  line-height: 1;
+  transition: background .2s, transform .2s;
+}
+
+.btn-theme:hover { background: var(--clr-border); transform: rotate(-15deg); }
+
 /* ── Reset ─────────────────────────────────────────────────────────────────── */
 *,
 *::before,
