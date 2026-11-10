@@ -1,7 +1,10 @@
 {% extends 'base.html' %}
-{% load static %}
+{% load static assets %}
 
 {% block title %}Calculus Bridge — Gamifikasi Kalkulus Interaktif{% endblock %}
+
+{# Mode gelap/terang: dimuat di <head> agar tema terpasang sebelum halaman digambar. #}
+{% block extra_css %}<script src="{% asset 'js/theme.js' %}"></script>{% endblock %}
 
 {% block content %}
 
