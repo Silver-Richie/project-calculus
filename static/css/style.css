@@ -1977,6 +1977,17 @@ img {
 }
 .option-btn sup, .option-btn sub, .quiz-prompt sup, .quiz-prompt sub { font-size: .72em; }
 
+/* Pecahan bertumpuk (static/js/mathfrac.js): pembilang di atas garis, penyebut di bawah */
+.mfrac {
+  display: inline-flex; flex-direction: column; align-items: stretch;
+  vertical-align: middle; text-align: center;
+  font-size: .9em; line-height: 1.2; margin: .1em .12em;
+}
+.mfrac-n { padding: 0 .2em .08em; }
+.mfrac-d { padding: .1em .2em 0; border-top: max(1px, .07em) solid currentColor; }
+.mfrac .mfrac { font-size: .92em; }
+.mfrac-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+
 /* Diagnostik */
 .diag-title { font-family: var(--font-head); font-size: 1.3rem; margin-bottom: .5rem; }
 .diag-sub { font-size: .88rem; color: var(--clr-text-sec); margin-bottom: 1.25rem; }

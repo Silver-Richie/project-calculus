@@ -23,6 +23,8 @@
     {% block content %}{% endblock %}
   </div>
 
+  {# Pecahan bertumpuk di soal & materi (semua halaman) #}
+  <script src="{% asset 'js/mathfrac.js' %}"></script>
   {% block app_js %}
   <script src="{% asset 'js/graphlab.js' %}"></script>
   <script src="{% asset 'js/whiteboard.js' %}"></script>
