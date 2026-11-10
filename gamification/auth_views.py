@@ -5,7 +5,8 @@ Alur:
     /auth/                 Splash: logo maskot Archie → klik
     /auth/masuk/           Halaman login (tab Masuk / Daftar)
         ├─ Masuk berhasil  → beranda (/)            [atau pilih fakultas jika belum]
-        └─ Daftar berhasil → /auth/fakultas/
+        ├─ Daftar berhasil → /auth/fakultas/       (username + kata sandi, tanpa email)
+        └─ Tombol Google   → /accounts/google/login/ (django-allauth, lihat auth_adapters.py)
     /auth/fakultas/        Pilih FT / FMIPA / Fasilkom
     /auth/tes-awal/        Tawaran tes kemampuan awal (Ya / Lewati)
         ├─ Ya    → /auth/tes-awal/mulai/  (10 soal: 5 mudah, 3 sedang, 2 sulit)
@@ -13,6 +14,7 @@ Alur:
         └─ Lewati → beranda
 """
 
+from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import login, logout
 from django.contrib.auth.decorators import login_required
@@ -60,6 +62,7 @@ def login_view(request):
         "login_form": login_form,
         "register_form": RegisterForm(prefix="reg"),
         "active_tab": "masuk",
+        "google_enabled": bool(settings.GOOGLE_CLIENT_ID),
     })
 
 
@@ -78,6 +81,7 @@ def register_view(request):
         "login_form": LoginForm(request, prefix="login"),
         "register_form": form,
         "active_tab": "daftar",
+        "google_enabled": bool(settings.GOOGLE_CLIENT_ID),
     }, status=400)
 
 

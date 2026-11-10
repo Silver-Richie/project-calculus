@@ -38,15 +38,15 @@ class LoginForm(AuthenticationForm):
 
 
 class RegisterForm(UserCreationForm):
-    """Pendaftaran akun baru. Akun disimpan di tabel auth_user Django."""
-
-    first_name = forms.CharField(label="Nama lengkap", max_length=150,
-                                 widget=forms.TextInput(attrs={"placeholder": "Nama kamu"}))
-    email = forms.EmailField(label="Email", widget=forms.EmailInput(attrs={"placeholder": "nama@email.com"}))
+    """
+    Pendaftaran manual: username + kata sandi + konfirmasi, tanpa email.
+    Mekanisme: email yang tersimpan hanya berasal dari Google (pasti aktif),
+    sehingga form ini tidak menerima email yang tidak bisa diverifikasi.
+    """
 
     class Meta(UserCreationForm.Meta):
         model = User
-        fields = ("first_name", "username", "email")
+        fields = ("username",)
         labels = {"username": "Username"}
         help_texts = {"username": "Huruf, angka, dan @/./+/-/_ saja."}
 
@@ -57,20 +57,6 @@ class RegisterForm(UserCreationForm):
         self.fields["password1"].help_text = "Minimal 8 karakter, tidak boleh hanya angka."
         self.fields["password2"].label = "Ulangi kata sandi"
         self.fields["password2"].help_text = ""
-
-    def clean_email(self):
-        email = self.cleaned_data["email"].lower()
-        if User.objects.filter(email__iexact=email).exists():
-            raise forms.ValidationError("Email ini sudah terdaftar. Silakan masuk.")
-        return email
-
-    def save(self, commit=True):
-        user = super().save(commit=False)
-        user.email = self.cleaned_data["email"]
-        user.first_name = self.cleaned_data["first_name"]
-        if commit:
-            user.save()
-        return user
 
 
 class FacultyForm(forms.Form):
