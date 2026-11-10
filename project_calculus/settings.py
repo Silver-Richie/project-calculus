@@ -172,7 +172,7 @@ STATICFILES_DIRS = [
 # Autentikasi (templates/auth/)
 LOGIN_URL = 'gamification:auth_login'
 LOGIN_REDIRECT_URL = 'gamification:home'
-LOGOUT_REDIRECT_URL = 'gamification:auth_splash'
+LOGOUT_REDIRECT_URL = 'gamification:home'
 
 # Masuk dengan Google (django-allauth). Kunci diisi di .env, lihat .env.example.
 # Mekanisme: tombol Google → allauth → Google → callback /accounts/google/login/callback/

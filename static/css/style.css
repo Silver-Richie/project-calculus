@@ -2104,40 +2104,6 @@ html:not(.js) .auth-main { opacity: 1; transform: none; }
 .auth-alert-success { background: var(--clr-growth-l); border-color: var(--clr-growth); }
 .auth-alert-error { background: var(--clr-danger-l); border-color: var(--clr-danger); color: var(--clr-danger); }
 
-/* Splash */
-.splash { text-align: center; display: flex; flex-direction: column; align-items: center; gap: .9rem; }
-.splash-logo {
-  position: relative;
-  display: inline-flex;
-  border-radius: 50%;
-  padding: 1.5rem;
-  background: var(--clr-surface);
-  box-shadow: 0 18px 50px rgba(37, 99, 235, .18);
-  transition: transform .25s;
-  cursor: pointer;
-}
-.splash-logo:hover { transform: scale(1.06) rotate(-3deg); }
-.splash-logo:active { transform: scale(.96); }
-.splash-halo {
-  position: absolute;
-  inset: -10px;
-  border-radius: 50%;
-  border: 3px dashed var(--clr-primary);
-  opacity: .45;
-  animation: spinRing 14s linear infinite;
-}
-.splash-title { font-family: var(--font-head); font-size: clamp(2rem, 6vw, 3rem); font-weight: 800; }
-.splash-title span { color: var(--clr-primary); }
-.splash-tagline { color: var(--clr-text-sec); max-width: 420px; }
-.splash-cta {
-  margin-top: .5rem;
-  font-weight: 700;
-  color: var(--clr-accent-d);
-  text-decoration: none;
-  animation: splashBlink 1.8s ease-in-out infinite;
-}
-@keyframes splashBlink { 0%, 100% { opacity: 1; } 50% { opacity: .45; } }
-
 /* Kartu auth */
 .auth-card {
   background: var(--clr-surface);

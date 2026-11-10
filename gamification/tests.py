@@ -12,7 +12,7 @@ from django.test import TestCase, Client
 from . import content
 from .content import bank
 from .models import (
-    Faculty, SourceDocument, SkillNode, LessonSection, Question, UserProfile, UserProgress,
+    Faculty, SourceDocument, SkillNode, LessonSection, Question, Topic, UserProfile, UserProgress,
 )
 
 
@@ -195,7 +195,7 @@ class GamificationApiTests(TestCase):
 
 
 class AuthOnboardingTests(TestCase):
-    """Alur: splash → login/daftar → pilih fakultas → tawaran tes → tes 10 soal → hasil → beranda."""
+    """Alur: homepage → login/daftar → pilih fakultas → tawaran tes → tes 10 soal → hasil → beranda."""
 
     @classmethod
     def setUpTestData(cls):
@@ -208,13 +208,25 @@ class AuthOnboardingTests(TestCase):
             "reg-password2": "KalkulusAsik123",
         })
 
-    def test_home_requires_login(self):
-        self.assertRedirects(self.client.get("/"), "/auth/")
+    def test_guest_sees_public_homepage(self):
+        response = self.client.get("/")
+        self.assertTemplateUsed(response, "home/homepage.html")
+        self.assertContains(response, 'href="/auth/masuk/"')                 # Masuk (kanan atas)
+        self.assertContains(response, 'href="/auth/masuk/?tab=daftar"')      # Daftar
+        self.assertContains(response, 'id="trial-root"')                      # kuis coba
+        self.assertContains(response, 'data-video="tour"')                    # video pengenalan
+        self.assertContains(response, '<meta name="description"')
 
-    def test_splash_links_to_login(self):
-        response = self.client.get("/auth/")
-        self.assertContains(response, "Archie")
-        self.assertContains(response, 'href="/auth/masuk/"')
+    def test_old_splash_redirects_to_homepage(self):
+        self.assertRedirects(self.client.get("/auth/"), "/")
+
+    def test_login_page_can_open_register_tab(self):
+        self.assertEqual(self.client.get("/auth/masuk/?tab=daftar").context["active_tab"], "daftar")
+        self.assertEqual(self.client.get("/auth/masuk/").context["active_tab"], "masuk")
+
+    def test_logout_returns_to_homepage(self):
+        self._register()
+        self.assertRedirects(self.client.post("/auth/keluar/"), "/")
 
     def test_register_saves_user_and_goes_to_faculty(self):
         response = self._register()
@@ -837,6 +849,33 @@ class FreePracticeTests(TestCase):
         a = free_practice.build_quiz(self.fk, ["kd-tur-rantai"], 10)
         b = free_practice.build_quiz(self.fk, ["kd-tur-rantai"], 10)
         self.assertNotEqual([q["prompt"] for q in a], [q["prompt"] for q in b])
+
+
+
+class TrialQuizTests(TestCase):
+    """Kuis coba di homepage: 5 soal tanpa login (3 Kalkulus Dasar + 2 Menengah, Mudah–Sedang)."""
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_gamification", stdout=io.StringIO())
+
+    def test_guest_gets_five_questions_by_plan(self):
+        response = self.client.get("/api/coba-soal/")          # tanpa login
+        self.assertEqual(response.status_code, 200)
+        qs = response.json()["questions"]
+        self.assertEqual([q["level"] for q in qs],
+                         ["Kalkulus Dasar"] * 3 + ["Kalkulus Tingkat Menengah"] * 2)
+        self.assertTrue(all(q["difficulty_label"] in ("Mudah", "Sedang") for q in qs))
+        self.assertEqual(len({q["topic"] for q in qs}), 5)       # topik berbeda-beda
+        self.assertTrue(all(sum(o["is_correct"] for o in q["options"]) == 1 for q in qs))
+
+    def test_only_general_topics(self):
+        general = set(Topic.objects.filter(node__faculty__isnull=True).values_list("title", flat=True))
+        for _ in range(5):
+            self.assertTrue({q["topic"] for q in free_practice.trial_quiz()} <= general)
+
+    def test_post_not_allowed(self):
+        self.assertEqual(self.client.post("/api/coba-soal/").status_code, 405)
 
 
 # ── Masuk dengan Google (django-allauth) ──────────────────────────────

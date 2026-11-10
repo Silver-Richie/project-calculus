@@ -1,5 +1,5 @@
 /**
- * Calculus Bridge — Mode gelap / terang untuk beranda.
+ * Calculus Bridge — Mode gelap / terang untuk beranda aplikasi & homepage publik.
  *
  * Dimuat di <head> (bukan di akhir body) agar tema terpasang sebelum halaman
  * digambar, sehingga tidak ada kilatan putih saat membuka beranda dalam mode gelap.

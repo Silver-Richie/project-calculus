@@ -120,3 +120,42 @@ def build_quiz(faculty, topic_slugs, count, rng=None):
         q["topic"] = titles[slug]
         out.append(q)
     return out
+
+
+# ── Kuis coba untuk tamu (homepage, tanpa login) ──────────────────────────────
+TRIAL_PLAN = (("kalkulus-dasar", 3), ("kalkulus-menengah", 2))   # (level, jumlah soal)
+TRIAL_TIERS = (1, 2)                                              # Mudah & Sedang
+
+
+def trial_quiz(rng=None):
+    """
+    5 soal coba untuk homepage: 3 dari level Kalkulus Dasar lalu 2 dari Kalkulus Tingkat
+    Menengah, tingkat Mudah/Sedang, masing-masing dari topik umum yang berbeda.
+
+    Hanya memakai generator (angka baru setiap kali). Tidak ada yang disimpan, jadi kunci
+    jawaban ikut dikirim dan penilaian dilakukan di browser — sama seperti Latihan Bebas.
+    """
+    rng = rng or random.Random()
+    out = []
+    for level_slug, n in TRIAL_PLAN:
+        topics = (Topic.objects.filter(node__faculty__isnull=True, node__main_level__slug=level_slug)
+                  .select_related("node__main_level"))
+        cands = [(t, g) for t in topics for g in generators.REGISTRY.values()
+                 if t.slug in g.topics and set(g.tiers) & set(TRIAL_TIERS)]
+        rng.shuffle(cands)
+        used = set()
+        for topic, gen in cands:
+            if len(used) == n:
+                break
+            if topic.slug in used:
+                continue
+            used.add(topic.slug)
+            tier = rng.choice([t for t in gen.tiers if t in TRIAL_TIERS])
+            seed = rng.randrange(10 ** 9)
+            q = generators.generate(gen.key, seed, tier)
+            q["code"] = f"COBA-{len(out) + 1}"
+            q["difficulty_label"] = generators.TIER_LABELS[tier]
+            q["topic"] = topic.title
+            q["level"] = topic.node.main_level.title
+            out.append(q)
+    return out
