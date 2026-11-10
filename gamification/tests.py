@@ -216,6 +216,7 @@ class AuthOnboardingTests(TestCase):
         self.assertContains(response, 'id="trial-root"')                      # kuis coba
         self.assertContains(response, 'data-video="tour"')                    # video pengenalan
         self.assertContains(response, '<meta name="description"')
+        self.assertContains(response, "js/mathfrac.js")                       # pecahan bertumpuk
 
     def test_old_splash_redirects_to_homepage(self):
         self.assertRedirects(self.client.get("/auth/"), "/")
