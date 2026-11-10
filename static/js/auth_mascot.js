@@ -7,7 +7,7 @@
  *  - Fokus di kolom kata sandi        → kedua tangan maskot naik menutupi kacamata.
  *  - Klik tombol kirim (Masuk/Daftar) → maskot melompat gembira.
  *  Tiap reaksi juga disiarkan sebagai event window ('archie:look', 'archie:cover',
- *  'archie:cheer') agar adegan latar (archie_family.js) ikut bereaksi tanpa kedua
+ *  'archie:type', 'archie:cheer') agar adegan latar (archie_family.js) ikut bereaksi tanpa kedua
  *  berkas saling bergantung. Pengiriman form sendiri tidak diubah.
  */
 (() => {
@@ -53,7 +53,10 @@
     document.querySelectorAll(FIELDS).forEach((input) => {
       input.addEventListener('focus', () => onFocus(input));
       input.addEventListener('blur', onBlur);
-      input.addEventListener('input', () => { if (input.type !== 'password') lookAtField(input); });
+      input.addEventListener('input', () => {
+        if (input.type !== 'password') lookAtField(input);
+        emit('type');   // adegan: Hijau menulis rumus, Kuning melompat memberi semangat
+      });
     });
 
     document.querySelectorAll(SUBMITS).forEach((btn) => {

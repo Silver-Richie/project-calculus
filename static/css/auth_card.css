@@ -45,6 +45,13 @@
   transition: background-color .8s ease, border-color .8s ease;
 }
 
+/* Mantra Ungu (∫ & ∞) mengenai kartu = "gerbang level berikutnya" berpendar emas sesaat. */
+.auth-split .auth-card { transition: background-color .8s ease, border-color .8s ease, box-shadow .5s ease; }
+.auth-gate .auth-split .auth-card {
+  border-color: rgba(251, 191, 36, .9);
+  box-shadow: 0 0 0 3px rgba(251, 191, 36, .55), 0 0 48px rgba(251, 191, 36, .6), 0 18px 50px rgba(15, 23, 42, .18);
+}
+
 /* ── Input berikon + glow biru saat fokus ───────────────────────── */
 .auth-input { position: relative; }
 .auth-input-icon {
