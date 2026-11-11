@@ -46,9 +46,8 @@
   color: var(--clr-muted); font-weight: 600; pointer-events: none; font-size: .9rem;
 }
 
-/* ── Kuis di drawer: layar penuh + dua kolom saat soal tampil ─────── */
+/* ── Kuis di drawer: dua kolom (soal | papan tulis) saat soal tampil ─────── */
 .quiz-board { display: none; }
-.drawer-overlay.quiz-mode .drawer-sheet { width: 100vw; }
 .drawer-overlay.quiz-mode .quiz-split {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
