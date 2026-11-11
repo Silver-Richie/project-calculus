@@ -97,6 +97,9 @@
 [data-theme="dark"] .gl-axis { stroke: #64748B; }
 [data-theme="dark"] .gl-label { stroke: #0F172A; }
 [data-theme="dark"] .auth-field input:focus { background: var(--clr-surface); }
+/* Bar umpan balik menimpa isi kuis: warna lembut (transparan) perlu alas tak tembus pandang */
+[data-theme="dark"] .feedback-bar.success { background: linear-gradient(var(--clr-growth-l), var(--clr-growth-l)) var(--clr-surface); }
+[data-theme="dark"] .feedback-bar.error { background: linear-gradient(var(--clr-danger-l), var(--clr-danger-l)) var(--clr-surface); }
 
 /* Tombol ganti tema (HUD) */
 .btn-theme {
@@ -1885,8 +1888,13 @@ img {
 }
 .loading-text { color: var(--clr-muted); font-size: .9rem; text-align: center; padding: 2rem 0; }
 
-/* Drawer lebih lebar agar grafik nyaman dibaca */
-.drawer-sheet { width: min(720px, 96vw); }
+/* Drawer satu layar penuh (peta & menu tertutup agar fokus). Isinya berada di kolom baca
+   tengah selebar --read-w; saat soal tampil (.quiz-mode) kolomnya melebar untuk papan tulis. */
+.drawer-sheet { width: 100%; --read-w: 920px; --read-pad: 1.75rem; }
+.drawer-overlay.quiz-mode .drawer-sheet { --read-w: 1440px; }
+.drawer-header, .drawer-tabs, .drawer-body, .feedback-bar {
+  padding-inline: max(var(--read-pad), calc((100% - var(--read-w)) / 2));
+}
 .drawer-body { padding-bottom: 8rem; }
 .drawer-tab[hidden] { display: none; }
 
@@ -2472,3 +2480,67 @@ form:not(.stepper-on) .dq-nav [data-step=next] { display: none; }
 .rv-options li.is-right { border-color: var(--clr-growth); background: var(--clr-growth-l); }
 .rv-options li.is-wrong { border-color: var(--clr-danger); background: var(--clr-danger-l); }
 .rv-tag { margin-left: auto; font-size: .8rem; }
+
+/* ════════════════════════════════════════════════════════════════
+   RESPONSIF — beranda aplikasi di HP, tablet, dan laptop kecil
+   · ≤ 960px : HUD menjadi dua baris (brand + tombol di atas, pil statistik di bawah)
+   · ≤ 768px : sidebar disembunyikan (aturan di atas); menu ada di navigasi bawah
+   · ≤ 560px : jarak dirapatkan; ≤ 400px label tombol suara disembunyikan
+   · HP mendatar (tinggi ≤ 480px): HUD & navigasi bawah satu baris tipis
+   · 100dvh  : tinggi mengikuti layar yang benar-benar terlihat di browser HP
+               (bilah alamat tidak menutupi navigasi bawah)
+   ════════════════════════════════════════════════════════════════ */
+@supports (height: 100dvh) {
+  #app { min-height: 100dvh; }
+  .site-main, .site-sidebar { height: calc(100dvh - var(--nav-h) - var(--bottom-nav-h)); }
+}
+
+.hud-pill, .rank-xp, .feedback-bar .btn { white-space: nowrap; flex-shrink: 0; }
+
+/* Profil: tombol turun ke baris baru bila tidak muat, nama panjang dipatahkan */
+.profile-hero { flex-wrap: wrap; }
+.profile-hero > div:nth-child(2) { flex: 1 1 180px; min-width: 0; overflow-wrap: anywhere; }
+.profile-hero > div:last-child { flex-wrap: wrap; }
+
+@media (max-width: 960px) {
+  :root { --nav-h: 98px; }
+  .site-hud { flex-wrap: wrap; align-content: center; row-gap: .4rem; padding: .5rem 1rem; }
+  .hud-info { order: 3; flex: 1 0 100%; min-width: 0; margin: 0; overflow-x: auto; scrollbar-width: none; }
+  .hud-info::-webkit-scrollbar { display: none; }
+  .hud-pill { padding: .2rem .7rem; }
+}
+
+@media (max-width: 560px) {
+  :root { --bottom-nav-h: 62px; }
+  #hud-faculty-badge { display: none; }
+  .hud-info { justify-content: space-between; }
+  .hud-brand { font-size: 1.1rem; }
+  .hud-pill { font-size: .82rem; padding: .2rem .55rem; }
+  .page-section { padding: 1.1rem 1rem; }
+  .bottom-nav-item { padding: .45rem .2rem; font-size: .7rem; }
+  .profile-hero { padding: 1.25rem; gap: 1rem; }
+  .profile-hero-name { font-size: 1.2rem; }
+  .drawer-sheet { --read-pad: 1rem; }
+  .drawer-header { padding-top: 1rem; }
+  .drawer-title { font-size: 1.15rem; }
+  .drawer-tab { padding: .7rem .4rem; }
+  .feedback-bar { gap: .75rem; padding-block: .9rem; }
+}
+
+/* HP mendatar (layar pendek): HUD & navigasi bawah satu baris tipis agar isi tetap lega */
+@media (max-height: 480px) and (min-width: 561px) and (max-width: 960px) {
+  :root { --nav-h: 52px; --bottom-nav-h: 46px; }
+  .site-hud { flex-wrap: nowrap; }
+  .hud-info { order: 0; flex: 1; margin: 0 .75rem; }
+  .hud-brand { font-size: 0; gap: 0; }
+  #hud-faculty-badge { display: none; }
+  .bottom-nav-item { flex-direction: row; justify-content: center; gap: .4rem; padding: .3rem; }
+  .drawer-header { padding-top: .6rem; padding-bottom: .4rem; }
+  .drawer-sub, .drawer-badge { display: none; }
+  .drawer-tab { padding: .5rem; }
+}
+
+@media (max-width: 400px) {
+  .snd-label { display: none; }
+  .btn-sound { width: 36px; height: 36px; padding: 0; }
+}

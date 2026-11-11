@@ -66,7 +66,7 @@ const SFX = (() => {
     toggle() {
       on = !on;
       const btn = document.getElementById('sound-toggle-btn');
-      if (btn) { btn.textContent = on ? '🔊 Suara' : '🔇 Mute'; btn.classList.toggle('muted', !on); }
+      if (btn) { btn.innerHTML = on ? '🔊<span class="snd-label"> Suara</span>' : '🔇<span class="snd-label"> Mute</span>'; btn.classList.toggle('muted', !on); }
       if (on) this.click();
       return on;
     },
@@ -381,7 +381,7 @@ const Curriculum = (() => {
 const DIFF_LABEL = { basic: 'Dasar / Mudah', medium: 'Sedang', high: 'Sulit' };
 
 /**
- * Papan tulis kuis. Saat soal tampil, drawer menjadi layar penuh (kelas .quiz-mode):
+ * Papan tulis kuis. Saat soal tampil, isi drawer melebar jadi dua kolom (kelas .quiz-mode):
  * kiri soal & jawaban, kanan papan tulis. Setiap soal memakai papan sendiri
  * (kunci = id/kode soal), jadi soal baru selalu kosong dan coretan lama kembali
  * bila soal yang sama dibuka lagi.
