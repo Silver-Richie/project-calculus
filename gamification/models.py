@@ -5,6 +5,7 @@ Defines schemas for Faculties, Learning Tree Nodes, Question Bank,
 User Gamification Profiles, and Skill Progress Records.
 """
 
+import uuid
 from datetime import timedelta
 
 from django.db import models
@@ -366,6 +367,10 @@ class UserProfile(models.Model):
         help_text="Waktu nyawa pertama hilang pada siklus ini; nyawa penuh lagi 24 jam setelahnya",
     )
     gems = models.PositiveIntegerField(default=100, help_text="Collectible gems currency")
+    campus = models.CharField(
+        max_length=120, blank=True, default="",
+        help_text="Asal kampus untuk papan peringkat per kampus; 'Umum' = bukan mahasiswa / tidak disebutkan; kosong = belum diisi",
+    )
     
     # Diagnostic status
     diagnostic_completed = models.BooleanField(default=False)
@@ -434,11 +439,137 @@ class UserProfile(models.Model):
             "refill_in": max(0, int((refill - now).total_seconds())) if refill else 0,
         }
 
+    CAMPUS_UMUM = "Umum"
+
     def add_xp(self, amount):
-        """Awards XP to user and updates level."""
+        """Menambah XP (level dihitung dari XP, lihat leveling.py)."""
         self.xp += amount
         self.save(update_fields=['xp'])
 
+    @property
+    def level_info(self):
+        from .leveling import level_info
+        return level_info(self.xp)
+
+
+
+class PlayerRank(models.Model):
+    """
+    Rank duel seorang pemain (aturan di ranking.py).
+
+    Dibuat saat pertama dibutuhkan (rank_of); pemain tanpa baris ini dianggap Terra III 0★.
+    `points` = posisi di tangga (ranking.ladder_points), disimpan agar papan peringkat bisa
+    diurutkan di database; `mmr` = nilai kemampuan tersembunyi untuk mencari lawan setara.
+    """
+    TIER_CHOICES = [(t, t.title()) for t in ("terra", "luna", "solar", "nova", "apex")]
+
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="duel_rank")
+    tier = models.CharField(max_length=10, choices=TIER_CHOICES, default="terra")
+    division = models.PositiveSmallIntegerField(null=True, blank=True, default=3, help_text="3=III, 2=II, 1=I; kosong untuk Apex")
+    stars = models.PositiveIntegerField(default=0)
+    win_streak = models.PositiveIntegerField(default=0)
+    points = models.PositiveIntegerField(default=0, db_index=True)
+    mmr = models.IntegerField(default=1000)
+    wins = models.PositiveIntegerField(default=0)
+    losses = models.PositiveIntegerField(default=0)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        from .ranking import label
+        return f"{self.user.username}: {label(self.state)} {self.stars}★"
+
+    @property
+    def state(self):
+        from .ranking import RankState
+        return RankState(self.tier, self.division, self.stars, self.win_streak)
+
+    def set_state(self, st):
+        from .ranking import ladder_points
+        self.tier, self.division, self.stars, self.win_streak = st.tier, st.division, st.stars, st.win_streak
+        self.points = ladder_points(st)
+
+    def record_draw(self, opponent_mmr):
+        """Duel seri: bintang tetap, nilai kemampuan dihitung sebagai setengah menang."""
+        from .ranking import elo_update
+        self.mmr = elo_update(self.mmr, opponent_mmr, 0.5)
+        self.save()
+
+    def record_duel(self, won, opponent_mmr, protected=False):
+        """Terapkan hasil satu duel: bintang (aturan ML) + nilai kemampuan (Elo). Mengembalikan perubahan bintang."""
+        from .ranking import apply_result, elo_update
+        st, delta = apply_result(self.state, won, protected)
+        self.set_state(st)
+        self.mmr = elo_update(self.mmr, opponent_mmr, 1 if won else 0)
+        if won:
+            self.wins += 1
+        else:
+            self.losses += 1
+        self.save()
+        return delta
+
+
+def rank_of(user):
+    """Rank duel pemain (dibuat Terra III 0★ bila belum ada)."""
+    return PlayerRank.objects.get_or_create(user=user)[0]
+
+
+class DuelQueue(models.Model):
+    """Pemain yang sedang mencari lawan duel (satu baris per pemain; lihat duel.find_opponent)."""
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="duel_queue")
+    channel_name = models.CharField(max_length=200, help_text="Kanal WebSocket pemain (untuk memberi tahu saat lawan ditemukan)")
+    mmr = models.IntegerField()
+    joined_at = models.DateTimeField(default=timezone.now)
+
+
+class DuelMatch(models.Model):
+    """
+    Satu duel kalkulus real-time (aturan di duel.py).
+
+    Soal disimpan sebagai resep generator (key, seed, tier) sehingga kedua pemain mendapat soal
+    identik dan kunci jawaban hanya pernah dihitung di server.
+    `current` = indeks soal yang sedang berjalan; `q_started_at` kosong saat jeda antarsoal.
+    """
+    ACTIVE, FINISHED = "active", "finished"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    player_a = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="duels_as_a")
+    player_b = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="duels_as_b")
+    tier = models.CharField(max_length=10, help_text="Tier yang menentukan tingkat kesulitan soal")
+    questions = models.JSONField(default=list)
+    time_limit = models.PositiveIntegerField(help_text="Detik per soal")
+    current = models.PositiveSmallIntegerField(default=0)
+    q_started_at = models.DateTimeField(null=True, blank=True)
+    status = models.CharField(max_length=10, default=ACTIVE)
+    winner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="duels_won")
+    result = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    finished_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"Duel {self.player_a} vs {self.player_b} ({self.status})"
+
+    def players(self):
+        return [self.player_a_id, self.player_b_id]
+
+    def opponent_of(self, user_id):
+        return self.player_b_id if user_id == self.player_a_id else self.player_a_id
+
+
+class DuelAnswer(models.Model):
+    """Jawaban satu pemain untuk satu soal duel (tidak menjawab = baris dengan option_id kosong)."""
+    match = models.ForeignKey(DuelMatch, on_delete=models.CASCADE, related_name="answers")
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    index = models.PositiveSmallIntegerField()
+    option_id = models.IntegerField(null=True, blank=True)
+    correct = models.BooleanField(default=False)
+    ms = models.PositiveIntegerField(help_text="Waktu menjawab (milidetik) sejak soal tampil")
+    points = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        unique_together = [("match", "user", "index")]
 
 class UserProgress(models.Model):
     """

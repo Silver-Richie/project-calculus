@@ -7,12 +7,14 @@ Views dibuat tipis: pengambilan dan pengolahan data ada di services.py.
 import json
 
 from django.contrib.auth.decorators import login_required
+from django.db.models.functions import Coalesce
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_POST
 
-from . import free_practice, generators, services, sessions
+from . import campus, free_practice, generators, ranking, services, sessions
+from .leveling import level_for
 from .models import Faculty, MainLevel, PracticeSession, SkillNode, Topic, UserProfile
 
 
@@ -38,6 +40,7 @@ def landing_page(request):
     return render(request, "index.html", {
         "faculties": Faculty.objects.all(),
         "server_profile": services.profile_bootstrap(request.user),
+        "campus_suggestions": campus.SUGGESTIONS,
     })
 
 
@@ -56,6 +59,84 @@ def set_faculty_api(request):
     profile.faculty = faculty
     profile.save(update_fields=["faculty", "updated_at"])
     return JsonResponse({"status": "success", "faculty": faculty.slug})
+
+
+
+@login_required
+@require_POST
+def set_campus_api(request):
+    """POST /api/profile/campus/ {"campus": "Universitas Indonesia"} atau {"umum": true}."""
+    body = _json_body(request)
+    name = campus.UMUM if body.get("umum") else campus.normalize(body.get("campus"))
+    if not name:
+        return JsonResponse({"status": "error", "message": "Tulis nama kampusmu, atau pilih Umum."}, status=400)
+    profile, _ = UserProfile.objects.get_or_create(user=request.user)
+    profile.campus = name
+    profile.save(update_fields=["campus", "updated_at"])
+    return JsonResponse({"status": "success", "campus": name})
+
+
+@login_required
+@require_GET
+def leaderboard_api(request):
+    """
+    GET /api/peringkat/?board=level|rank&scope=global|kampus|fakultas|apex
+
+    * board=level : urut total XP (Level dihitung dari XP).
+    * board=rank  : urut posisi tangga rank duel (ranking.ladder_points), seri dipecah nilai
+                    kemampuan; pemain yang belum pernah duel = Terra III 0★.
+                    scope=apex → Top 100 pemain Apex se-Indonesia.
+    Mengembalikan 50 (Top Apex: 100) teratas + posisi pengguna sendiri (posisi sama untuk nilai sama).
+    "kampus" butuh kampus terisi dan bukan "Umum"; "fakultas" memakai fakultas akun.
+    """
+    board = request.GET.get("board", "level")
+    scope = request.GET.get("scope", "global")
+    if board not in ("level", "rank") or scope not in ("global", "kampus", "fakultas", "apex")             or (scope == "apex" and board != "rank"):
+        return JsonResponse({"status": "error", "message": "Papan atau cakupan tidak dikenal."}, status=400)
+    me, _ = UserProfile.objects.get_or_create(user=request.user)
+    qs = (UserProfile.objects.select_related("user", "faculty", "user__duel_rank").filter(user__is_active=True)
+          .annotate(rank_points=Coalesce("user__duel_rank__points", 0), rank_mmr=Coalesce("user__duel_rank__mmr", 1000)))
+    if scope == "kampus":
+        if not me.campus or me.campus == campus.UMUM:
+            return JsonResponse({"status": "need_campus", "scope": scope, "campus": me.campus})
+        qs = qs.filter(campus=me.campus)
+    elif scope == "fakultas":
+        if not me.faculty_id:
+            return JsonResponse({"status": "error", "message": "Pilih fakultas dulu."}, status=400)
+        qs = qs.filter(faculty_id=me.faculty_id)
+    elif scope == "apex":
+        qs = qs.filter(user__duel_rank__tier="apex")
+
+    key = "xp" if board == "level" else "rank_points"
+    order = ["-xp", "user_id"] if board == "level" else ["-rank_points", "-rank_mmr", "user_id"]
+
+    def row(p, pos):
+        r = {"pos": pos, "name": p.user.first_name or p.user.username, "username": p.user.username,
+             "faculty": p.faculty.short_name if p.faculty else "", "campus": p.campus, "me": p.pk == me.pk}
+        if board == "level":
+            r.update(xp=p.xp, level=level_for(p.xp))
+        else:
+            pr = getattr(p.user, "duel_rank", None)
+            st = pr.state if pr else ranking.RankState()
+            r.update(rank=ranking.describe(st), wins=pr.wins if pr else 0, losses=pr.losses if pr else 0)
+        return r
+
+    me_row = qs.filter(pk=me.pk).first() or me
+    my_value = getattr(me_row, key, 0) if board == "rank" else me.xp
+    top = list(qs.order_by(*order)[:100 if scope == "apex" else 50])
+    rows, pos, prev = [], 0, None
+    for i, p in enumerate(top, start=1):
+        value = getattr(p, key)
+        if value != prev:
+            pos, prev = i, value
+        rows.append(row(p, pos))
+    my_pos = qs.filter(**{f"{key}__gt": my_value}).count() + 1
+    labels = {"global": "Seluruh Indonesia", "kampus": me.campus, "apex": "Top 100 Apex se-Indonesia",
+              "fakultas": me.faculty.name if me.faculty else ""}
+    return JsonResponse({
+        "status": "success", "board": board, "scope": scope, "label": labels[scope],
+        "total": qs.count(), "rows": rows, "me": row(me_row, my_pos),
+    })
 
 
 @require_GET

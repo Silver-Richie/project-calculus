@@ -36,6 +36,7 @@ PRODUCTION = os.getenv('PRODUCTION', 'False').lower() == 'true'
 # Application definition
 
 INSTALLED_APPS = [
+    'daphne',            # runserver melayani ASGI (WebSocket duel); harus paling atas
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -46,6 +47,7 @@ INSTALLED_APPS = [
     'allauth.account',
     'allauth.socialaccount',
     'allauth.socialaccount.providers.google',
+    'channels',
     'gamification',
 ]
 
@@ -78,6 +80,18 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'project_calculus.wsgi.application'
+
+# Duel real-time (Django Channels, gamification/consumers.py). Server harus ASGI (daphne/uvicorn),
+# bukan gunicorn WSGI. Tanpa REDIS_URL: lapisan kanal di memori (cukup untuk satu proses / laptop);
+# di produksi dengan beberapa proses isi REDIS_URL, mis. redis://localhost:6379/0.
+ASGI_APPLICATION = 'project_calculus.asgi.application'
+if os.getenv('REDIS_URL'):
+    CHANNEL_LAYERS = {'default': {
+        'BACKEND': 'channels_redis.core.RedisChannelLayer',
+        'CONFIG': {'hosts': [os.getenv('REDIS_URL')]},
+    }}
+else:
+    CHANNEL_LAYERS = {'default': {'BACKEND': 'channels.layers.InMemoryChannelLayer'}}
 
 
 # Database

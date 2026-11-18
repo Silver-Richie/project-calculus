@@ -22,7 +22,7 @@ from django.contrib.auth.decorators import login_required
 from django.shortcuts import redirect, render
 from django.views.decorators.http import require_POST
 
-from . import services
+from . import campus, services
 from .forms import FacultyForm, LoginForm, RegisterForm
 from .models import Faculty, SkillNode, UserProfile
 
@@ -95,18 +95,23 @@ def logout_view(request):
 
 @login_required
 def faculty_select(request):
-    """Memilih fakultas; menentukan jalur belajar dan soal diagnostik."""
+    """Memilih fakultas (jalur belajar & soal diagnostik) dan asal kampus (papan peringkat)."""
     profile = _profile(request.user)
-    form = FacultyForm(request.POST or None, initial={"faculty": profile.faculty})
+    form = FacultyForm(request.POST or None)
     if request.method == "POST" and form.is_valid():
         profile.faculty = form.cleaned_data["faculty"]
-        profile.save(update_fields=["faculty", "updated_at"])
+        profile.campus = form.cleaned_data["campus"]
+        profile.save(update_fields=["faculty", "campus", "updated_at"])
         return redirect("gamification:auth_diagnostic_offer")
 
+    posted = request.POST if request.method == "POST" else None
     return render(request, "auth/faculty_select.html", {
         "form": form,
         "faculties": Faculty.objects.all(),
-        "selected": profile.faculty.slug if profile.faculty else None,
+        "selected": posted.get("faculty") if posted else (profile.faculty.slug if profile.faculty else None),
+        "campus_value": posted.get("campus", "") if posted else ("" if profile.campus == campus.UMUM else profile.campus),
+        "campus_umum": bool(posted.get("campus_umum")) if posted else profile.campus == campus.UMUM,
+        "campus_suggestions": campus.SUGGESTIONS,
     })
 
 

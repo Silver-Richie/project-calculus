@@ -1,8 +1,9 @@
 {% extends 'auth/base_auth.html' %}
 {% comment %}
-  HALAMAN: Pemilihan fakultas (FT / FMIPA / Fasilkom)
+  HALAMAN: Pemilihan fakultas (FT / FMIPA / Fasilkom) + asal kampus
   Branch : feat/auth-onboarding
-  Fungsi : Menentukan jalur belajar (Tahap 6–8) dan soal tes diagnostik.
+  Fungsi : Fakultas menentukan jalur belajar (Tahap 6–8) dan soal tes diagnostik;
+           kampus dipakai papan peringkat per kampus ("Umum" bila bukan mahasiswa).
 {% endcomment %}
 
 {% block title %}Pilih Fakultas — Calculus Bridge{% endblock %}
@@ -36,6 +37,20 @@
         <div class="auth-alert auth-alert-error">Data fakultas belum tersedia. Jalankan <code>python manage.py seed_gamification</code> lalu muat ulang halaman ini.</div>
       {% endfor %}
     </div>
+    <fieldset class="campus-field">
+      <legend class="auth-label">Asal kampus</legend>
+      <p class="auth-help">Untuk papan peringkat antarkampus se-Indonesia. Bisa diubah nanti di Profil.</p>
+      {% for error in form.campus.errors %}<div class="auth-alert auth-alert-error">{{ error }}</div>{% endfor %}
+      <input type="text" name="campus" id="id_campus" list="campus-list" maxlength="120" autocomplete="organization"
+             placeholder="Ketik nama kampus, mis. Universitas Indonesia" value="{{ campus_value }}"
+             aria-label="Nama kampus" {% if campus_umum %}disabled{% endif %}>
+      <datalist id="campus-list">{% for c in campus_suggestions %}<option value="{{ c }}">{% endfor %}</datalist>
+      <label class="campus-umum">
+        <input type="checkbox" name="campus_umum" value="1" {% if campus_umum %}checked{% endif %}
+               onchange="var i=document.getElementById('id_campus'); i.disabled=this.checked; if(!this.checked) i.focus();">
+        Umum — saya bukan mahasiswa / tidak ingin menyebutkan kampus
+      </label>
+    </fieldset>
     <button type="submit" class="btn btn-primary btn-lg auth-submit">Lanjut ➔</button>
   </form>
 </section>

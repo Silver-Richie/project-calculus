@@ -4,15 +4,23 @@ Unit tests for Calculus Bridge Gamification models, content seed, and API endpoi
 
 import io
 import json
+from dataclasses import replace
+from datetime import timedelta
 
+from channels.db import database_sync_to_async
+from channels.routing import URLRouter
+from channels.testing import WebsocketCommunicator
 from django.contrib.auth.models import User
 from django.core.management import call_command
-from django.test import TestCase, Client
+from django.test import TestCase, TransactionTestCase, Client
+from django.utils import timezone
 
-from . import content
+from . import consumers, content, duel, generators, leveling, ranking
 from .content import bank
+from .routing import websocket_urlpatterns
 from .models import (
-    Faculty, SourceDocument, SkillNode, LessonSection, Question, Topic, UserProfile, UserProgress,
+    DuelAnswer, DuelMatch, DuelQueue, Faculty, SourceDocument, SkillNode, LessonSection, PlayerRank, Question, Topic,
+    UserProfile, UserProgress, rank_of,
 )
 
 
@@ -218,6 +226,17 @@ class AuthOnboardingTests(TestCase):
         self.assertContains(response, '<meta name="description"')
         self.assertContains(response, "js/mathfrac.js")                       # pecahan bertumpuk
 
+    def test_onboarding_requires_campus_or_umum(self):
+        self._register()
+        missing = self.client.post("/auth/fakultas/", {"faculty": "ft"})
+        self.assertEqual(missing.status_code, 200)
+        self.assertContains(missing, "Tulis nama kampusmu")
+        self.assertRedirects(self.client.post("/auth/fakultas/", {"faculty": "ft", "campus": "x", "campus_umum": "1"}),
+                             "/auth/tes-awal/")
+        self.assertEqual(User.objects.get(username="budi").gamification_profile.campus, "Umum")
+        self.client.post("/auth/fakultas/", {"faculty": "ft", "campus": "  Institut   Teknologi Bandung "})
+        self.assertEqual(User.objects.get(username="budi").gamification_profile.campus, "Institut Teknologi Bandung")
+
     def test_old_splash_redirects_to_homepage(self):
         self.assertRedirects(self.client.get("/auth/"), "/")
 
@@ -253,7 +272,7 @@ class AuthOnboardingTests(TestCase):
 
     def test_login_existing_user_goes_home(self):
         self._register()
-        self.client.post("/auth/fakultas/", {"faculty": "ft"})
+        self.client.post("/auth/fakultas/", {"faculty": "ft", "campus": "Universitas Indonesia"})
         self.client.post("/auth/keluar/")
         response = self.client.post("/auth/masuk/", {"login-username": "budi", "login-password": "KalkulusAsik123"})
         self.assertRedirects(response, "/")
@@ -270,7 +289,7 @@ class AuthOnboardingTests(TestCase):
 
     def test_faculty_then_offer_then_skip(self):
         self._register()
-        self.assertRedirects(self.client.post("/auth/fakultas/", {"faculty": "fmipa"}), "/auth/tes-awal/")
+        self.assertRedirects(self.client.post("/auth/fakultas/", {"faculty": "fmipa", "campus": "Universitas Indonesia"}), "/auth/tes-awal/")
         offer = self.client.get("/auth/tes-awal/")
         self.assertContains(offer, 'href="/auth/tes-awal/mulai/"')
         self.assertContains(offer, 'href="/"')
@@ -278,7 +297,7 @@ class AuthOnboardingTests(TestCase):
 
     def test_diagnostic_test_has_10_questions_for_faculty(self):
         self._register()
-        self.client.post("/auth/fakultas/", {"faculty": "ft"})
+        self.client.post("/auth/fakultas/", {"faculty": "ft", "campus": "Universitas Indonesia"})
         response = self.client.get("/auth/tes-awal/mulai/")
         questions = response.context["questions"]
         self.assertEqual(len(questions), 10)
@@ -289,7 +308,7 @@ class AuthOnboardingTests(TestCase):
 
     def test_diagnostic_all_correct_saves_mastery(self):
         self._register()
-        self.client.post("/auth/fakultas/", {"faculty": "fmipa"})
+        self.client.post("/auth/fakultas/", {"faculty": "fmipa", "campus": "Universitas Indonesia"})
         questions = self.client.get("/auth/tes-awal/mulai/").context["questions"]
         data = {f"q_{q.code}": q.options.get(is_correct=True).id for q in questions}
         response = self.client.post("/auth/tes-awal/mulai/", data)
@@ -298,6 +317,8 @@ class AuthOnboardingTests(TestCase):
         user = User.objects.get(username="budi")
         profile = user.gamification_profile
         self.assertTrue(profile.diagnostic_completed)
+        self.assertEqual(profile.xp, 0)                 # XP hanya dari sesi topik, bukan tes awal
+        self.assertEqual(profile.campus, "Universitas Indonesia")
         self.assertEqual(profile.recommended_node.slug, "km-teknik-integral")
         self.assertEqual(UserProgress.objects.get(user=user, node__slug="km-teknik-integral").status, "active")
         self.assertEqual(UserProgress.objects.get(user=user, node__slug="kd-limit-kekontinuan").status, "completed")
@@ -307,7 +328,7 @@ class AuthOnboardingTests(TestCase):
 
     def test_diagnostic_weak_basics_starts_at_stage_one(self):
         self._register()
-        self.client.post("/auth/fakultas/", {"faculty": "fasilkom"})
+        self.client.post("/auth/fakultas/", {"faculty": "fasilkom", "campus": "Universitas Indonesia"})
         questions = self.client.get("/auth/tes-awal/mulai/").context["questions"]
         data = {f"q_{q.code}": q.options.filter(is_correct=False).first().id for q in questions}
         self.client.post("/auth/tes-awal/mulai/", data)
@@ -316,7 +337,7 @@ class AuthOnboardingTests(TestCase):
 
     def test_diagnostic_incomplete_answers_rejected(self):
         self._register()
-        self.client.post("/auth/fakultas/", {"faculty": "ft"})
+        self.client.post("/auth/fakultas/", {"faculty": "ft", "campus": "Universitas Indonesia"})
         shown = [q.code for q in self.client.get("/auth/tes-awal/mulai/").context["questions"]]
         response = self.client.post("/auth/tes-awal/mulai/", {})
         self.assertEqual(response.status_code, 200)
@@ -326,7 +347,7 @@ class AuthOnboardingTests(TestCase):
 
     def test_diagnostic_post_without_shown_questions_draws_new_set(self):
         self._register()
-        self.client.post("/auth/fakultas/", {"faculty": "ft"})
+        self.client.post("/auth/fakultas/", {"faculty": "ft", "campus": "Universitas Indonesia"})
         response = self.client.post("/auth/tes-awal/mulai/", {})
         self.assertContains(response, "Sesi tes kedaluwarsa")
         self.assertEqual(len(response.context["questions"]), 10)
@@ -334,7 +355,7 @@ class AuthOnboardingTests(TestCase):
     def test_set_faculty_api_requires_login_and_saves(self):
         self.assertEqual(self.client.post("/api/profile/faculty/", "{}", content_type="application/json").status_code, 302)
         self._register()
-        self.client.post("/auth/fakultas/", {"faculty": "ft"})
+        self.client.post("/auth/fakultas/", {"faculty": "ft", "campus": "Universitas Indonesia"})
         r = self.client.post("/api/profile/faculty/", json.dumps({"faculty": "fasilkom"}), content_type="application/json")
         self.assertEqual(r.status_code, 200)
         self.assertEqual(User.objects.get(username="budi").gamification_profile.faculty.slug, "fasilkom")
@@ -517,6 +538,14 @@ class PracticeSessionApiTests(TestCase):
         again = self._submit(self.s1, data["attempt"], self._answers(data)).json()
         self.assertEqual(again["xp_awarded"], 0)
         self.assertEqual(UserProfile.objects.get(user=self.user).xp, 10 * self.s1.xp_per_question)
+
+    def test_session_result_reports_level(self):
+        data = self._open(self.s1).json()
+        res = self._submit(self.s1, data["attempt"], self._answers(data)).json()
+        xp = 10 * self.s1.xp_per_question
+        self.assertEqual(res["level"]["xp"], xp)
+        self.assertEqual(res["level"]["level"], leveling.level_for(xp))
+        self.assertEqual(res["leveled_up"], leveling.level_for(xp) > 1)
 
     def test_stale_attempt_rejected(self):
         data = self._open(self.s1).json()
@@ -877,6 +906,367 @@ class TrialQuizTests(TestCase):
 
     def test_post_not_allowed(self):
         self.assertEqual(self.client.post("/api/coba-soal/").status_code, 405)
+
+
+
+class LevelTests(TestCase):
+    """Level dari total XP: naik dari Level n ke n+1 butuh 100 + 50·(n−1) XP."""
+
+    def test_thresholds(self):
+        self.assertEqual([leveling.total_xp_for(n) for n in range(1, 6)], [0, 100, 250, 450, 700])
+        self.assertEqual(leveling.level_for(0), 1)
+        self.assertEqual(leveling.level_for(99), 1)
+        self.assertEqual(leveling.level_for(100), 2)
+        self.assertEqual(leveling.level_for(449), 3)
+        self.assertEqual(leveling.level_info(260), {"level": 3, "xp": 260, "into": 10, "need": 200, "percent": 5})
+
+
+class LeaderboardTests(TestCase):
+    """Papan peringkat Level (/api/peringkat/) dan isian kampus (/api/profile/campus/)."""
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_gamification", stdout=io.StringIO())
+        ft, fm = Faculty.objects.get(slug="ft"), Faculty.objects.get(slug="fmipa")
+        for name, xp, fac, kampus in [("ani", 500, ft, "Universitas Indonesia"), ("budi", 300, fm, "Universitas Indonesia"),
+                                      ("cici", 300, ft, "Institut Teknologi Bandung"), ("dedi", 50, ft, "Umum")]:
+            user = User.objects.create_user(name, password="rahasia-123")
+            UserProfile.objects.create(user=user, xp=xp, faculty=fac, campus=kampus)
+
+    def setUp(self):
+        self.client.force_login(User.objects.get(username="dedi"))
+
+    def board(self, scope):
+        return self.client.get(f"/api/peringkat/?scope={scope}").json()
+
+    def test_global_sorted_with_shared_positions(self):
+        data = self.board("global")
+        self.assertEqual([(r["name"], r["pos"], r["level"]) for r in data["rows"]],
+                         [("ani", 1, 4), ("budi", 2, 3), ("cici", 2, 3), ("dedi", 4, 1)])
+        self.assertEqual((data["me"]["pos"], data["me"]["me"]), (4, True))
+
+    def test_faculty_scope(self):
+        self.assertEqual([r["name"] for r in self.board("fakultas")["rows"]], ["ani", "cici", "dedi"])
+
+    def test_campus_scope_needs_real_campus(self):
+        self.assertEqual(self.board("kampus")["status"], "need_campus")      # dedi = Umum
+        r = self.client.post("/api/profile/campus/", json.dumps({"campus": " universitas   Indonesia"}),
+                             content_type="application/json")
+        self.assertEqual(r.json()["campus"], "universitas Indonesia")
+        self.client.post("/api/profile/campus/", json.dumps({"campus": "Universitas Indonesia"}), content_type="application/json")
+        self.assertEqual([r["name"] for r in self.board("kampus")["rows"]], ["ani", "budi", "dedi"])
+
+    def test_campus_api_validation(self):
+        bad = self.client.post("/api/profile/campus/", json.dumps({"campus": "  "}), content_type="application/json")
+        self.assertEqual(bad.status_code, 400)
+        ok = self.client.post("/api/profile/campus/", json.dumps({"umum": True}), content_type="application/json")
+        self.assertEqual(ok.json()["campus"], "Umum")
+
+    def test_requires_login(self):
+        self.client.logout()
+        self.assertEqual(self.client.get("/api/peringkat/").status_code, 302)
+
+
+
+class RankingRuleTests(TestCase):
+    """Aturan bintang rank duel (ranking.py): mirip ML + perlindungan, Apex bintang tanpa batas."""
+
+    def st(self, tier="terra", division=3, stars=0, streak=0):
+        return ranking.RankState(tier, division, stars, streak)
+
+    def test_start_is_terra_three(self):
+        start = ranking.RankState()
+        self.assertEqual((ranking.label(start), ranking.ladder_points(start)), ("Terra III", 0))
+
+    def test_full_stars_then_win_promotes_with_one_star(self):
+        new, delta = ranking.apply_result(self.st("luna", 2, 4), won=True)
+        self.assertEqual((new.tier, new.division, new.stars, delta), ("luna", 1, 1, 1))
+        new, _ = ranking.apply_result(self.st("luna", 1, 4), won=True)
+        self.assertEqual((new.tier, new.division, new.stars), ("solar", 3, 1))
+
+    def test_third_straight_win_gives_bonus_star_below_nova(self):
+        state = ranking.RankState()
+        deltas = []
+        for _ in range(3):
+            state, d = ranking.apply_result(state, won=True)
+            deltas.append(d)
+        self.assertEqual(deltas, [1, 1, 2])
+        self.assertEqual((state.tier, state.division, state.stars), ("terra", 2, 1))   # 3★ penuh → Terra II 1★
+        _, d = ranking.apply_result(self.st("nova", 2, 1, streak=2), won=True)
+        self.assertEqual(d, 1)                                                          # Nova: tanpa bonus
+
+    def test_terra_never_loses_stars(self):
+        new, delta = ranking.apply_result(self.st("terra", 1, 2, streak=4), won=False)
+        self.assertEqual((new.stars, new.win_streak, delta), (2, 0, 0))
+        new, _ = ranking.apply_result(self.st("terra", 3, 0), won=False)
+        self.assertEqual((new.tier, new.division, new.stars), ("terra", 3, 0))
+
+    def test_close_loss_is_protected(self):
+        new, delta = ranking.apply_result(self.st("solar", 2, 2), won=False, protected=True)
+        self.assertEqual((new.stars, delta), (2, 0))
+        new, delta = ranking.apply_result(self.st("solar", 2, 2), won=False)
+        self.assertEqual((new.stars, delta), (1, -1))
+
+    def test_loss_at_zero_stars_demotes(self):
+        new, _ = ranking.apply_result(self.st("solar", 2, 0), won=False)
+        self.assertEqual((new.tier, new.division, new.stars), ("solar", 3, 3))
+        new, _ = ranking.apply_result(self.st("luna", 3, 0), won=False)
+        self.assertEqual((new.tier, new.division, new.stars), ("terra", 1, 2))
+
+    def test_apex_entry_exit_and_titles(self):
+        new, _ = ranking.apply_result(self.st("nova", 1, 5), won=True)
+        self.assertEqual((new.tier, new.division, new.stars, ranking.label(new)), ("apex", None, 1, "Apex"))
+        new, _ = ranking.apply_result(self.st("apex", None, 0), won=False)
+        self.assertEqual((new.tier, new.division, new.stars), ("nova", 1, 4))
+        self.assertEqual([ranking.apex_title(n) for n in (24, 25, 50, 100, 250)], ["", "Orbit", "Galaksi", "Kosmos", "Kosmos"])
+        self.assertEqual(ranking.label(self.st("apex", None, 37)), "Apex Orbit")
+
+    def test_ladder_points_increase_one_per_star(self):
+        state, points = ranking.RankState(), [0]
+        for _ in range(60):
+            state, _ = ranking.apply_result(replace(state, win_streak=0), won=True)
+            points.append(ranking.ladder_points(state))
+        self.assertEqual(points, list(range(61)))
+        self.assertEqual(ranking.ladder_points(self.st("apex", None, 10)), 3 * (3 + 4 + 4 + 5) + 10)
+
+    def test_elo(self):
+        self.assertEqual(ranking.elo_update(1000, 1000, 1), 1016)
+        self.assertEqual(ranking.elo_update(1000, 1000, 0), 984)
+        self.assertLess(ranking.elo_update(1400, 1000, 1) - 1400, 16)   # menang lawan lemah: naik sedikit
+
+
+class RankLeaderboardTests(TestCase):
+    """Papan peringkat Rank (/api/peringkat/?board=rank) dan PlayerRank.record_duel."""
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_gamification", stdout=io.StringIO())
+        ft = Faculty.objects.get(slug="ft")
+        states = {"ani": ("apex", None, 30, 1300), "budi": ("nova", 1, 2, 1200), "cici": ("nova", 1, 2, 1250), "dedi": None}
+        for name, state in states.items():
+            user = User.objects.create_user(name, password="rahasia-123")
+            UserProfile.objects.create(user=user, faculty=ft, campus="Universitas Indonesia")
+            if state:
+                pr = PlayerRank(user=user, mmr=state[3])
+                pr.set_state(ranking.RankState(*state[:3]))
+                pr.save()
+
+    def setUp(self):
+        self.client.force_login(User.objects.get(username="dedi"))
+
+    def board(self, scope="global"):
+        return self.client.get(f"/api/peringkat/?board=rank&scope={scope}").json()
+
+    def test_sorted_by_ladder_then_hidden_rating(self):
+        data = self.board()
+        self.assertEqual([(r["name"], r["pos"], r["rank"]["label"]) for r in data["rows"]],
+                         [("ani", 1, "Apex Orbit"), ("cici", 2, "Nova I"), ("budi", 2, "Nova I"), ("dedi", 4, "Terra III")])
+        self.assertEqual(data["me"]["rank"]["stars"], 0)
+
+    def test_top_apex_only_lists_apex(self):
+        self.assertEqual([r["name"] for r in self.board("apex")["rows"]], ["ani"])
+        self.assertEqual(self.client.get("/api/peringkat/?board=level&scope=apex").status_code, 400)
+        self.assertEqual(self.client.get("/api/peringkat/?board=duel").status_code, 400)
+
+    def test_record_duel_updates_stars_points_and_rating(self):
+        pr = rank_of(User.objects.get(username="budi"))
+        delta = pr.record_duel(won=False, opponent_mmr=1200)
+        pr.refresh_from_db()
+        self.assertEqual((delta, pr.stars, pr.losses, pr.mmr, pr.points), (-1, 1, 1, 1184, ranking.ladder_points(pr.state)))
+        pr.record_duel(won=True, opponent_mmr=1200, protected=False)
+        pr.refresh_from_db()
+        self.assertEqual((pr.stars, pr.wins), (2, 1))
+
+    def test_home_bootstrap_has_rank(self):
+        response = self.client.get("/")
+        self.assertEqual(response.context["server_profile"]["rank"]["label"], "Terra III")
+        self.assertContains(response, 'id="profile-rank"')
+
+
+
+class DuelLogicTests(TestCase):
+    """Duel real-time: antrean, penilaian di server, penutupan soal, dan hasil (duel.py)."""
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_gamification", stdout=io.StringIO())
+
+    def player(self, name, xp=300, mmr=1000, state=None):
+        user = User.objects.create_user(name, password="rahasia-123")
+        UserProfile.objects.create(user=user, xp=xp)
+        pr = rank_of(user)
+        pr.mmr = mmr
+        if state:
+            pr.set_state(ranking.RankState(*state))
+        pr.save()
+        return user
+
+    def match(self):
+        a, b = self.player("ana"), self.player("bayu")
+        return duel.create_match(a, b), a, b
+
+    def correct_option(self, match, index):
+        spec = match.questions[index]
+        q = generators.generate(spec["key"], spec["seed"], spec["tier"])
+        return next(o["id"] for o in q["options"] if o["is_correct"]), next(o["id"] for o in q["options"] if not o["is_correct"])
+
+    def test_requires_level_three(self):
+        self.assertIn("Level 3", duel.eligibility(self.player("baru", xp=249)))
+        self.assertIsNone(duel.eligibility(self.player("siap", xp=250)))
+
+    def test_matchmaking_window_and_rematch_cooldown(self):
+        a, b, c = self.player("a1", mmr=1000), self.player("b1", mmr=1080), self.player("c1", mmr=1350)
+        self.assertEqual(duel.find_opponent(a, "ch-a"), (None, None))
+        self.assertEqual(duel.find_opponent(c, "ch-c"), (None, None))                 # selisih 350: belum
+        match, channel = duel.find_opponent(b, "ch-b")
+        self.assertEqual((set(match.players()), channel), ({a.id, b.id}, "ch-a"))
+        self.assertFalse(DuelQueue.objects.filter(user__in=[a, b]).exists())
+        DuelQueue.objects.filter(user=c).update(joined_at=timezone.now() - timedelta(seconds=60))
+        self.assertEqual(duel.find_opponent(a, "ch-a2")[0].players(), [a.id, c.id])   # jendela melebar
+        duel.find_opponent(b, "ch-b2")
+        self.assertEqual(duel.find_opponent(a, "ch-a3"), (None, None))               # baru saja melawan b
+
+    def test_questions_identical_and_key_not_sent(self):
+        match, a, b = self.match()
+        self.assertEqual(len({q["topic"] for q in match.questions}), duel.QUESTION_COUNT)
+        payload = duel.start_question(match.pk, 0)
+        self.assertNotIn("is_correct", json.dumps(payload))
+        self.assertIsNone(duel.start_question(match.pk, 0))                           # sekali saja
+
+    def test_answers_scored_on_server(self):
+        match, a, b = self.match()
+        duel.start_question(match.pk, 0)
+        right, wrong = self.correct_option(match, 0)
+        self.assertEqual(duel.record_answer(match.pk, a, 0, right), (True, "", False))
+        self.assertFalse(duel.record_answer(match.pk, a, 0, wrong)[0])               # sudah menjawab
+        self.assertFalse(duel.record_answer(match.pk, b, 1, wrong)[0])               # bukan soal berjalan
+        late = timezone.now() + timedelta(seconds=match.time_limit + 5)
+        self.assertEqual(duel.record_answer(match.pk, b, 0, wrong, now=late)[1], "Waktu habis.")
+        self.assertEqual(duel.record_answer(match.pk, b, 0, wrong), (True, "", True))
+        pa = DuelAnswer.objects.get(match=match, user=a)
+        self.assertTrue(pa.correct and 100 <= pa.points <= 150)
+        self.assertEqual(DuelAnswer.objects.get(match=match, user=b).points, 0)
+
+    def test_resolve_waits_then_fills_missing(self):
+        match, a, b = self.match()
+        duel.start_question(match.pk, 0)
+        right, _ = self.correct_option(match, 0)
+        duel.record_answer(match.pk, a, 0, right)
+        self.assertIsNone(duel.resolve_question(match.pk, 0))                         # b belum, waktu belum habis
+        summary = duel.resolve_question(match.pk, 0, force=True)
+        self.assertEqual((summary["correct_option"], summary["players"][str(b.id)]["option"]), (right, None))
+        self.assertIsNone(duel.resolve_question(match.pk, 0, force=True))             # sekali saja
+        self.assertEqual(DuelMatch.objects.get(pk=match.pk).current, 1)
+
+    def test_outcome_and_protection(self):
+        t = lambda pts, ms, c: {"points": pts, "ms": ms, "correct": c}
+        self.assertEqual(duel.outcome(t(500, 9000, 4), t(420, 1000, 4)), "a")
+        self.assertEqual(duel.outcome(t(400, 9000, 4), t(400, 8000, 4)), "b")        # seri poin: lebih cepat
+        self.assertEqual(duel.outcome(t(400, 8000, 4), t(400, 8000, 4)), "draw")
+        self.assertTrue(duel.is_protected(t(0, 0, 3), t(0, 0, 4)))
+        self.assertFalse(duel.is_protected(t(0, 0, 2), t(0, 0, 4)))
+
+    def test_finish_updates_ranks_and_forfeit(self):
+        a, b = self.player("lina", state=("luna", 2, 2, 0)), self.player("budi", state=("luna", 2, 2, 0))
+        match = duel.create_match(a, b)
+        for i in range(duel.QUESTION_COUNT):
+            duel.start_question(match.pk, i)
+            right, wrong = self.correct_option(match, i)
+            duel.record_answer(match.pk, a, i, right)
+            duel.record_answer(match.pk, b, i, right if i < 2 else wrong)               # b: 2 benar
+            duel.resolve_question(match.pk, i)
+        result = duel.finish_match(match.pk)
+        self.assertEqual((result["players"][str(a.id)]["verdict"], result["players"][str(a.id)]["star_delta"]), ("win", 1))
+        self.assertEqual((result["players"][str(b.id)]["star_delta"], result["players"][str(b.id)]["protected"]), (-1, False))
+        self.assertIsNone(duel.finish_match(match.pk))
+        self.assertEqual((rank_of(a).stars, rank_of(b).stars, rank_of(a).wins), (3, 1, 1))
+
+        other = duel.create_match(self.player("cici", state=("solar", 3, 1, 0)), b)
+        res = duel.finish_match(other.pk, forfeit_by=b.id)
+        self.assertEqual(res["players"][str(b.id)]["verdict"], "lose")
+        self.assertFalse(res["players"][str(b.id)]["protected"])
+        self.assertEqual(DuelMatch.objects.get(pk=other.pk).winner.username, "cici")
+
+
+class DuelWebSocketTests(TransactionTestCase):
+    """Duel ujung-ke-ujung lewat WebSocket: dua pemain dipertemukan, 5 soal, hasil; dan keluar di tengah duel."""
+
+    def setUp(self):
+        call_command("seed_gamification", stdout=io.StringIO())
+        self.a = User.objects.create_user("andi", password="rahasia-123")
+        self.b = User.objects.create_user("bela", password="rahasia-123")
+        for u in (self.a, self.b):
+            UserProfile.objects.create(user=u, xp=300)
+        self._saved = (consumers.VS_DELAY, consumers.REVEAL_DELAY, consumers.POLL_SECONDS)
+        consumers.VS_DELAY = consumers.REVEAL_DELAY = 0
+        consumers.POLL_SECONDS = 0.05
+
+    def tearDown(self):
+        consumers.VS_DELAY, consumers.REVEAL_DELAY, consumers.POLL_SECONDS = self._saved
+
+    async def connect(self, user):
+        comm = WebsocketCommunicator(URLRouter(websocket_urlpatterns), "/ws/duel/")
+        comm.scope["user"] = user
+        connected, _ = await comm.connect()
+        self.assertTrue(connected)
+        return comm
+
+    async def until(self, comm, kind, timeout=10):
+        while True:
+            msg = await comm.receive_json_from(timeout=timeout)
+            if msg["type"] == kind:
+                return msg
+
+    def answer_key(self, match_id, index):
+        match = DuelMatch.objects.get(pk=match_id)
+        spec = match.questions[index]
+        q = generators.generate(spec["key"], spec["seed"], spec["tier"])
+        return next(o["id"] for o in q["options"] if o["is_correct"])
+
+    async def matched_pair(self):
+        ca, cb = await self.connect(self.a), await self.connect(self.b)
+        await ca.send_json_to({"type": "queue"})
+        await self.until(ca, "queued")
+        await cb.send_json_to({"type": "queue"})
+        ma, mb = await self.until(ca, "matched"), await self.until(cb, "matched")
+        self.assertEqual((ma["match"], ma["opponent"]["name"], mb["opponent"]["name"]), (mb["match"], "bela", "andi"))
+        return ca, cb, ma["match"]
+
+    async def test_full_duel(self):
+        ca, cb, match_id = await self.matched_pair()
+        for i in range(duel.QUESTION_COUNT):
+            qa, qb = await self.until(ca, "question"), await self.until(cb, "question")
+            self.assertEqual((qa["index"], qb["index"], qa["prompt"]), (i, i, qb["prompt"]))
+            self.assertNotIn("is_correct", json.dumps(qa))
+            right = await database_sync_to_async(self.answer_key)(match_id, i)
+            await ca.send_json_to({"type": "answer", "index": i, "option": right})
+            self.assertEqual((await self.until(cb, "progress"))["index"], i)
+            wrong = next(o["id"] for o in qb["options"] if o["id"] != right)
+            await cb.send_json_to({"type": "answer", "index": i, "option": wrong})
+            reveal = await self.until(ca, "reveal")
+            self.assertEqual(reveal["correct_option"], right)
+        fa, fb = await self.until(ca, "finished"), await self.until(cb, "finished")
+        self.assertEqual((fa["you"]["verdict"], fb["you"]["verdict"], fa["you"]["correct"]), ("win", "lose", 5))
+        self.assertEqual(fb["you"]["star_delta"], 0)                                   # Terra: tidak kehilangan bintang
+        await ca.disconnect()
+        await cb.disconnect()
+
+    async def test_leaving_mid_duel_is_a_loss(self):
+        ca, cb, match_id = await self.matched_pair()
+        await self.until(ca, "question")
+        await ca.disconnect()
+        fb = await self.until(cb, "finished")
+        self.assertEqual((fb["you"]["verdict"], fb["forfeit"]), ("win", True))
+        await cb.disconnect()
+
+    async def test_low_level_is_refused(self):
+        low = await database_sync_to_async(User.objects.create_user)("rendah", password="rahasia-123")
+        comm = WebsocketCommunicator(URLRouter(websocket_urlpatterns), "/ws/duel/")
+        comm.scope["user"] = low
+        await comm.connect()
+        msg = await comm.receive_json_from()
+        self.assertEqual(msg["code"], "level")
+        await comm.disconnect()
 
 
 # ── Masuk dengan Google (django-allauth) ──────────────────────────────

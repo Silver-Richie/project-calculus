@@ -24,6 +24,7 @@ from django.db.models import Q
 from django.utils import timezone
 
 from . import generators
+from .leveling import level_for, level_info
 from .models import PracticeSession, Question, SkillNode, Topic, UserProfile, UserProgress, UserSessionProgress
 
 REQUIRED_SESSIONS = 3          # Sesi I–III wajib; IV–V tantangan opsional (XP ekstra)
@@ -310,6 +311,7 @@ def submit_session(user, session, attempt, answers):
         profile.lose_heart()
 
     xp = max(0, score - prev_best) * session.xp_per_question
+    level_before = level_for(profile.xp)
     if xp:
         profile.add_xp(xp)
 
@@ -331,6 +333,7 @@ def submit_session(user, session, attempt, answers):
         "heart_lost": heart_lost, "hearts": profile.hearts_state(),
         "score": score, "total": len(quiz), "pass_score": pass_score(session), "passed": score >= pass_score(session),
         "best": progress.best_score, "attempts": progress.attempts, "xp_awarded": xp, "results": results,
+        "level": level_info(profile.xp), "leveled_up": level_for(profile.xp) > level_before,
         "unlocked_next_session": newly_passed and session.number < 5,
         "topic_done": topic_done(user, session.topic),
         "node_completed": completed_node, "next_node": next_node,
