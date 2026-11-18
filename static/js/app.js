@@ -121,7 +121,9 @@ const State = (() => {
   if (SERVER) {
     applyHearts(SERVER.hearts);
     if (SERVER.faculty) s.faculty = SERVER.faculty;
-    s.xp = Math.max(s.xp || 0, SERVER.xp || 0);
+    // XP & level hanya dari server (XP didapat dari sesi topik); nilai lama di localStorage diabaikan.
+    s.xp = SERVER.xp || 0;
+    s.level = SERVER.level || null;
     const p = s.progress[s.faculty] || (s.progress[s.faculty] = { completed: [], active: null });
     (SERVER.completed || []).forEach((slug) => { if (!p.completed.includes(slug)) p.completed.push(slug); });
     // Server adalah sumber kebenaran sub-level aktif: nilai lokal bisa usang (mis. node kurikulum lama).
@@ -151,6 +153,15 @@ const State = (() => {
 
   function updateHUD() {
     setText('hud-xp', `⚡ ${s.xp} XP`);
+    if (s.level) {
+      setText('hud-level', `🎓 Lv ${s.level.level}`);
+      const lv = document.getElementById('hud-level');
+      if (lv) lv.title = `Level ${s.level.level} · ${s.level.into}/${s.level.need} XP menuju Level ${s.level.level + 1}`;
+      setText('profile-level', s.level.level);
+      setText('profile-level-text', `${s.level.into} / ${s.level.need} XP menuju Level ${s.level.level + 1}`);
+      const bar = document.getElementById('profile-level-bar');
+      if (bar) bar.style.width = `${s.level.percent}%`;
+    }
     setText('hud-streak', `🔥 ${s.streak}`);
     setText('hud-hearts-val', `${s.hearts}/${s.maxHearts}`);
     const pill = document.getElementById('hud-hearts-pill');
@@ -163,7 +174,6 @@ const State = (() => {
     setText('profile-streak', s.streak);
     setText('profile-hearts', s.hearts);
     setText('profile-gems', s.gems);
-    setText('rank-my-xp', `${s.xp} XP`);
     setText('hud-faculty-badge', FAC_LABELS[s.faculty] || 'Fasilkom');
 
     ['fasilkom', 'fmipa', 'ft'].forEach((f) => {
@@ -205,7 +215,12 @@ const State = (() => {
   return {
     get: () => s,
     progress: prog,
-    addXP(n) { s.xp += n; save(); floatXP(n); },
+    /** Terapkan XP & level hasil sesi dari server; animasi "+n XP" bila bertambah. */
+    setLevel(level, gained) {
+      if (!level) return;
+      s.xp = level.xp; s.level = level; save();
+      if (gained) floatXP(gained);
+    },
     /** Terapkan status nyawa dari server; animasi goyang bila nyawa berkurang. */
     setHearts(h) {
       const before = s.hearts;
@@ -268,6 +283,7 @@ const Nav = (() => {
         if (btn) btn.classList.toggle('active', p === page);
       });
       if (page === 'free' && typeof FreePractice !== 'undefined') FreePractice.render();
+      if (page === 'rank' && typeof Leaderboard !== 'undefined') Leaderboard.load();
     },
   };
 })();
@@ -690,14 +706,13 @@ const QuizEngine = (() => {
     SFX.fanfare();
     Confetti.burst();
     Mascot.setMood('celebrate', '🏆 Selamat! Level ini berhasil kamu taklukkan!');
-    State.addXP(50);
     finishNode();
     const next = Curriculum.nextOf(nodeSlug);
     container.innerHTML = `
       <div class="level-complete">
         <div class="trophy-anim">🏆</div>
         <h3>Level Selesai!</h3>
-        <p>Kamu mendapatkan <strong>+50 Bonus XP</strong>${next ? ' dan membuka tahap berikutnya!' : '. Semua tahap jalur ini tuntas!'}</p>
+        <p>${next ? 'Tahap berikutnya sudah terbuka!' : 'Semua tahap jalur ini tuntas!'} XP didapat dari sesi latihan tiap topik.</p>
         <button class="btn btn-growth btn-lg" onclick="Drawer.close(); Nav.go('levelup');">Kembali ke Peta Belajar 🗺️</button>
       </div>`;
   }
@@ -750,9 +765,8 @@ const QuizEngine = (() => {
       const actionLabel = mode === 'practice' ? 'Tutup' : isLast ? 'Selesai ➔' : 'Lanjut ➔';
       if (sel === correct) {
         SFX.correct();
-        if (mode === 'level') State.addXP(q.xp_reward || 20);
         Mascot.setMood('celebrate', '🎉 Jawaban tepat! Coba geser slider di pembahasan.');
-        showFeedback(true, mode === 'level' ? `+${q.xp_reward || 20} XP — Jawaban Tepat!` : 'Jawaban Tepat!',
+        showFeedback(true, 'Jawaban Tepat!',
           `Jawaban: ${q.answer}`, actionLabel);
       } else {
         SFX.wrong();
@@ -1089,7 +1103,6 @@ const DiagnosticModal = (() => {
       Mascot.setMood('celebrate', 'Kamu siap! Selamat belajar Kalkulus!');
       SFX.fanfare(); Confetti.burst();
     }
-    State.addXP(result.xp_awarded || 40);
     if (result.recommended_node) State.startFrom(result.recommended_node, Curriculum.tree);
 
     container().innerHTML = `
@@ -1183,6 +1196,33 @@ const Confetti = (() => ({
     }
     draw();
   }
+}))();
+
+/* ════════════════════════════════════════════════════════════════
+   LEVEL UP — kartu perayaan saat XP sesi membuat level naik
+   (level dihitung server dari total XP, lihat gamification/leveling.py)
+   ════════════════════════════════════════════════════════════════ */
+const LevelUp = (() => ({
+  show(level) {
+    if (!level) return;
+    document.querySelector('.levelup-overlay')?.remove();
+    const el = document.createElement('div');
+    el.className = 'levelup-overlay';
+    el.innerHTML = `
+      <div class="levelup-card" role="dialog" aria-modal="true" aria-labelledby="levelup-title">
+        <div class="levelup-badge"><small>Level</small>${level.level}</div>
+        <h3 id="levelup-title">Naik ke Level ${level.level}!</h3>
+        <p>Butuh ${level.need - level.into} XP lagi untuk Level ${level.level + 1}.</p>
+        <button type="button" class="btn btn-growth">Mantap! ➔</button>
+      </div>`;
+    const close = () => el.remove();
+    el.addEventListener('click', (e) => { if (e.target === el || e.target.closest('button')) close(); });
+    el.addEventListener('keydown', (e) => { if (e.key === 'Escape') close(); });
+    document.body.appendChild(el);
+    el.querySelector('button').focus();
+    SFX.fanfare();
+    Confetti.burst();
+  },
 }))();
 
 /* ════════════════════════════════════════════════════════════════

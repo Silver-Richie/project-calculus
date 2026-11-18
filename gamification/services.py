@@ -410,7 +410,6 @@ def evaluate_diagnostic(faculty, answers):
         "score": sum(r["is_correct"] for r in results),
         "total": len(results),
         "results": results,
-        "xp_awarded": 40,
     }
 
 
@@ -431,7 +430,6 @@ def apply_diagnostic_to_profile(user, faculty, evaluation):
     profile.diagnostic_completed = True
     profile.diagnostic_level = evaluation["evaluation_label"]
     profile.recommended_node = recommended
-    profile.xp += evaluation.get("xp_awarded", 0)
     profile.save()
 
     nodes = list(
@@ -452,9 +450,11 @@ def apply_diagnostic_to_profile(user, faculty, evaluation):
 
 def profile_bootstrap(user):
     """Data profil + progres untuk diinisialisasi ke State JS di halaman beranda."""
-    from .models import UserProfile
+    from .models import UserProfile, rank_of
+    from .ranking import describe
 
     profile, _ = UserProfile.objects.get_or_create(user=user)
+    duel = rank_of(user)
     records = user.progress_records.select_related("node")
     return {
         "username": user.username,
@@ -462,6 +462,9 @@ def profile_bootstrap(user):
         "faculty": profile.faculty.slug if profile.faculty else None,
         "faculty_name": profile.faculty.name if profile.faculty else "",
         "xp": profile.xp,
+        "level": profile.level_info,
+        "campus": profile.campus,
+        "rank": {**describe(duel.state), "wins": duel.wins, "losses": duel.losses},
         "hearts": profile.hearts_state(),
         "diagnostic_level": profile.diagnostic_level,
         "completed": [r.node.slug for r in records if r.status == "completed"],

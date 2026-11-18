@@ -262,7 +262,8 @@ const Practice = (() => {
     }
     const s = running.session;
     Curriculum.setSessionProgress(s.id, { attempts: r.attempts, best: r.best, last: r.score, passed: r.passed || !!Curriculum.sessionProgress(s.id)?.passed });
-    if (r.xp_awarded) State.addXP(r.xp_awarded);
+    State.setLevel(r.level, r.xp_awarded);
+    if (r.leveled_up) LevelUp.show(r.level);
     if (r.hearts) State.setHearts(r.hearts);
     if (r.passed) { SFX.fanfare(); Confetti.burst(); } else SFX.wrong();
     if (r.node_completed) State.completeNode(node.slug, r.next_node || Curriculum.nextOf(node.slug));
