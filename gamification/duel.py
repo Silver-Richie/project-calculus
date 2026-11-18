@@ -18,16 +18,18 @@ Alur
                Kalah dengan selisih ≤ 1 soal benar dilindungi (bintang tidak berkurang).
                Keluar di tengah duel (forfeit) = kalah tanpa perlindungan.
                Bintang & nilai kemampuan diperbarui lewat PlayerRank (aturan di ranking.py). Duel tidak memberi XP.
+               Menang (bukan karena lawan keluar) memberi +2 diamond; Perisai Bintang dari toko
+               otomatis menahan bintang saat kalah (use_shield).
 """
 
 import random
 from datetime import timedelta
 
 from django.db import transaction
-from django.db.models import Q
+from django.db.models import F, Q
 from django.utils import timezone
 
-from . import generators
+from . import generators, ranking, shop
 from .leveling import level_for
 from .models import DuelAnswer, DuelMatch, DuelQueue, Topic, UserProfile, rank_of
 from .ranking import TIERS, describe
@@ -259,6 +261,19 @@ def is_protected(loser, winner):
     return winner["correct"] - loser["correct"] <= 1
 
 
+def use_shield(user_id, state):
+    """
+    Pakai satu Perisai Bintang (toko diamond) bila kekalahan ini akan mengurangi bintang.
+
+    Mechanism: kekalahan tanpa perlindungan disimulasikan dengan ranking.apply_result; hanya
+    bila bintang berkurang, stok perisai dikurangi lewat UPDATE bersyarat (star_shields > 0)
+    sehingga perisai tidak pernah terpakai dua kali atau menjadi negatif.
+    """
+    if ranking.apply_result(state, won=False)[1] >= 0:
+        return False
+    return UserProfile.objects.filter(user_id=user_id, star_shields__gt=0).update(star_shields=F("star_shields") - 1) == 1
+
+
 def finish_match(match_id, forfeit_by=None):
     """
     Akhiri duel (sekali saja) dan perbarui rank kedua pemain.
@@ -281,15 +296,22 @@ def finish_match(match_id, forfeit_by=None):
         players = {}
         for uid, side in ((a, "a"), (b, "b")):
             opp = b if uid == a else a
+            shield_used, gems = False, 0
             if result == "draw":
                 ranks[uid].record_draw(mmr_before[opp])
                 delta, protected, verdict = 0, False, "draw"
             else:
                 won = result == side
                 protected = not won and not forfeit_by and is_protected(totals[uid], totals[opp])
+                if not won and not forfeit_by and not protected:
+                    shield_used = use_shield(uid, ranks[uid].state)
+                    protected = shield_used
                 delta = ranks[uid].record_duel(won, mmr_before[opp], protected)
                 verdict = "win" if won else "lose"
+                if won and not forfeit_by:
+                    gems = shop.award(uid, shop.DUEL_WIN_REWARD)
             players[str(uid)] = {"verdict": verdict, "star_delta": delta, "protected": protected,
+                                 "shield_used": shield_used, "gems_awarded": gems,
                                  "rank": {**describe(ranks[uid].state), "wins": ranks[uid].wins, "losses": ranks[uid].losses},
                                  **totals[uid]}
         match.winner_id = None if result == "draw" else (a if result == "a" else b)

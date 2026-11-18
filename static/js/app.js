@@ -124,6 +124,8 @@ const State = (() => {
     // XP & level hanya dari server (XP didapat dari sesi topik); nilai lama di localStorage diabaikan.
     s.xp = SERVER.xp || 0;
     s.level = SERVER.level || null;
+    // Diamond juga hanya dari server (didapat & dibelanjakan di sana, lihat shop.py).
+    s.gems = SERVER.gems || 0;
     const p = s.progress[s.faculty] || (s.progress[s.faculty] = { completed: [], active: null });
     (SERVER.completed || []).forEach((slug) => { if (!p.completed.includes(slug)) p.completed.push(slug); });
     // Server adalah sumber kebenaran sub-level aktif: nilai lokal bisa usang (mis. node kurikulum lama).
@@ -200,13 +202,13 @@ const State = (() => {
     } else if (s.heartsRefillAt) updateHUD();
   }, 30000);
 
-  function floatXP(amount) {
-    const el = document.getElementById('hud-xp');
+  function floatXP(amount, unit = 'XP', target = 'hud-xp') {
+    const el = document.getElementById(target);
     if (!el) return;
     const r = el.getBoundingClientRect();
     const tag = document.createElement('span');
     tag.className = 'float-xp';
-    tag.textContent = `+${amount} XP!`;
+    tag.textContent = `+${amount} ${unit}!`;
     tag.style.cssText = `left:${r.left + 8}px;top:${r.top - 10}px;`;
     document.body.appendChild(tag);
     setTimeout(() => tag.remove(), 1200);
@@ -229,6 +231,12 @@ const State = (() => {
       if (p && s.hearts < before) { p.classList.add('hearts-shake'); setTimeout(() => p.classList.remove('hearts-shake'), 500); }
     },
     hasHearts: () => s.hearts > 0,
+    /** Saldo diamond dari server; animasi "+n 💎" bila bertambah. */
+    setGems(n) {
+      const gained = n - s.gems;
+      s.gems = n; save();
+      if (gained > 0) floatXP(gained, '💎', 'hud-gems');
+    },
     refillText,
     setFaculty(f) {
       if (s.faculty === f) return;
@@ -270,7 +278,7 @@ const State = (() => {
    NAV — Bottom navigation + page routing
    ════════════════════════════════════════════════════════════════ */
 const Nav = (() => {
-  const pages = ['levelup', 'lesson', 'free', 'rank', 'user'];
+  const pages = ['levelup', 'lesson', 'free', 'rank', 'user', 'shop'];
 
   return {
     go(page) {
@@ -284,6 +292,7 @@ const Nav = (() => {
       });
       if (page === 'free' && typeof FreePractice !== 'undefined') FreePractice.render();
       if (page === 'rank' && typeof Leaderboard !== 'undefined') Leaderboard.load();
+      if (page === 'shop' && typeof Shop !== 'undefined') Shop.load();
     },
   };
 })();
@@ -1192,7 +1201,7 @@ const Confetti = (() => ({
    (level dihitung server dari total XP, lihat gamification/leveling.py)
    ════════════════════════════════════════════════════════════════ */
 const LevelUp = (() => ({
-  show(level) {
+  show(level, gems = 0) {
     if (!level) return;
     document.querySelector('.levelup-overlay')?.remove();
     const el = document.createElement('div');
@@ -1201,6 +1210,7 @@ const LevelUp = (() => ({
       <div class="levelup-card" role="dialog" aria-modal="true" aria-labelledby="levelup-title">
         <div class="levelup-badge"><small>Level</small>${level.level}</div>
         <h3 id="levelup-title">Naik ke Level ${level.level}!</h3>
+        ${gems ? `<p class="levelup-gems">💎 +${gems} diamond</p>` : ''}
         <p>Butuh ${level.need - level.into} XP lagi untuk Level ${level.level + 1}.</p>
         <button type="button" class="btn btn-growth">Mantap! ➔</button>
       </div>`;

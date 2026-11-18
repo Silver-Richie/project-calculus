@@ -181,6 +181,7 @@ const Practice = (() => {
           <strong>${State.refillText()}</strong>.</p>
         <p class="lesson-note">Sambil menunggu, kamu tetap bisa membaca materi dan berlatih di Bank Soal (tanpa nyawa).</p>
         <div class="offer-actions">
+          <button class="btn btn-accent" onclick="Shop.refillHearts()">💖 Isi penuh nyawa · ${Shop.price('hearts-full')}</button>
           <button class="btn btn-outline" onclick="Drawer.switchTab('materi')">📖 Baca materi</button>
           <button class="btn btn-outline" onclick="Practice.renderSessions()">Daftar sesi</button>
         </div>
@@ -274,7 +275,8 @@ const Practice = (() => {
     const s = running.session;
     Curriculum.setSessionProgress(s.id, { attempts: r.attempts, best: r.best, last: r.score, passed: r.passed || !!Curriculum.sessionProgress(s.id)?.passed });
     State.setLevel(r.level, r.xp_awarded);
-    if (r.leveled_up) LevelUp.show(r.level);
+    if (r.leveled_up) LevelUp.show(r.level, r.gems_awarded);
+    if (r.gems != null) State.setGems(r.gems);
     if (r.hearts) State.setHearts(r.hearts);
     if (r.passed) { SFX.fanfare(); Confetti.burst(); } else SFX.wrong();
     if (r.node_completed) State.completeNode(node.slug, r.next_node || Curriculum.nextOf(node.slug));
@@ -289,7 +291,7 @@ const Practice = (() => {
         <div class="trophy-anim">${r.passed ? '🏆' : '📚'}</div>
         <h3>${s.title}: ${r.score}/${r.total}</h3>
         <p>${r.passed ? 'Lulus!' : `Belum lulus — perlu minimal ${r.pass_score} benar.`}
-           ${r.xp_awarded ? ` <strong>+${r.xp_awarded} XP</strong>` : ''}</p>
+           ${r.xp_awarded ? ` <strong>+${r.xp_awarded} XP</strong>` : ''}${r.gems_awarded ? ` <strong>+${r.gems_awarded} 💎</strong>` : ''}</p>
         ${r.heart_lost ? `<p class="lesson-note hearts-note">💔 −1 Nyawa · sisa ${State.get().hearts}/${State.get().maxHearts}${
           State.hasHearts() ? '' : `. Nyawa habis, penuh lagi dalam ${State.refillText()}.`}</p>` : ''}
         ${r.node_completed ? '<p class="lesson-note">🎉 Semua topik sub-level ini tuntas! Sub-level berikutnya terbuka di Peta Belajar.</p>'
