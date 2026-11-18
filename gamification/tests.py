@@ -1341,3 +1341,131 @@ class GoogleLoginTests(TestCase):
     def test_allauth_signup_page_closed(self):
         response = self.client.get("/accounts/signup/")
         self.assertNotContains(response, 'name="password1"')
+
+
+from . import shop  # noqa: E402
+
+
+class ShopEconomyTests(TestCase):
+    """Diamond: hadiah naik level (10·level), topik tuntas (+5) — lihat shop.py."""
+
+    setUpTestData = PracticeSessionApiTests.__dict__["setUpTestData"]
+    setUp = PracticeSessionApiTests.setUp
+    _open = PracticeSessionApiTests._open
+    _answers = PracticeSessionApiTests._answers
+    _submit = PracticeSessionApiTests._submit
+
+    def _pass(self, session):
+        data = self._open(session).json()
+        return self._submit(session, data["attempt"], self._answers(data)).json()
+
+    def test_new_account_starts_with_zero_gems(self):
+        self.assertEqual(UserProfile.objects.get_or_create(user=self.user)[0].gems, 0)
+
+    def test_level_reward_formula(self):
+        self.assertEqual([shop.level_reward(n) for n in (2, 3, 5)], [20, 30, 50])
+        self.assertEqual(shop.level_rewards_between(1, 4), 20 + 30 + 40)
+        self.assertEqual(shop.level_rewards_between(3, 3), 0)
+
+    def test_level_up_awards_gems(self):
+        UserProfile.objects.create(user=self.user, xp=99)
+        r = self._pass(self.s1)                       # Sesi I: bukan sesi wajib terakhir → tanpa bonus topik
+        self.assertTrue(r["leveled_up"])
+        expected = shop.level_rewards_between(1, r["level"]["level"])
+        self.assertEqual((r["gems_awarded"], r["gems"]), (expected, expected))
+        self.assertEqual(UserProfile.objects.get(user=self.user).gems, expected)
+
+    def test_topic_done_awards_bonus_once(self):
+        topic = self.s1.topic
+        for number in (1, 2):
+            self._pass(topic.sessions.get(number=number))
+        before = UserProfile.objects.get(user=self.user)
+        s3 = topic.sessions.get(number=3)
+        r = self._pass(s3)
+        lv = shop.level_rewards_between(leveling.level_for(before.xp), r["level"]["level"])
+        self.assertEqual(r["gems_awarded"], lv + shop.TOPIC_REWARD)
+        r = self._pass(s3)                            # ulang: sudah lulus & skor sama → tanpa hadiah
+        self.assertEqual(r["gems_awarded"], 0)
+
+
+class ShopApiTests(TestCase):
+    """Belanja & memasang kosmetik lewat /api/toko/."""
+
+    def setUp(self):
+        self.user = User.objects.create_user("dewi", password="rahasia-123")
+        self.profile = UserProfile.objects.create(user=self.user, gems=100)
+        self.client = Client()
+        self.client.force_login(self.user)
+
+    def post(self, url, body):
+        return self.client.post(url, data=json.dumps(body), content_type="application/json")
+
+    def test_catalog_lists_items(self):
+        data = self.client.get("/api/toko/").json()
+        self.assertEqual(data["gems"], 100)
+        self.assertEqual(len(data["items"]), len(shop.CATALOG))
+        self.assertFalse(any(it["owned"] for it in data["items"]))
+
+    def test_insufficient_gems_rejected(self):
+        r = self.post("/api/toko/beli/", {"item": "frame-pelangi"})
+        self.assertEqual(r.status_code, 400)
+        self.assertEqual(UserProfile.objects.get(pk=self.profile.pk).gems, 100)
+
+    def test_hearts_refill(self):
+        self.assertEqual(self.post("/api/toko/beli/", {"item": "hearts-full"}).status_code, 400)   # sudah penuh
+        self.profile.hearts, self.profile.hearts_lost_at = 3, timezone.now()
+        self.profile.save()
+        self.assertEqual(self.post("/api/toko/beli/", {"item": "hearts-one"}).json()["hearts"]["hearts"], 4)
+        data = self.post("/api/toko/beli/", {"item": "hearts-full"}).json()
+        self.assertEqual((data["hearts"]["hearts"], data["hearts"]["refill_at"], data["gems"]), (10, None, 100 - 6 - 30))
+
+    def test_shield_stock_capped(self):
+        UserProfile.objects.filter(pk=self.profile.pk).update(star_shields=shop.MAX_SHIELDS)
+        self.assertEqual(self.post("/api/toko/beli/", {"item": "star-shield"}).status_code, 400)
+
+    def test_cosmetic_buy_equip_and_leaderboard(self):
+        data = self.post("/api/toko/beli/", {"item": "title-limit"}).json()
+        self.assertEqual((data["gems"], data["equipped"]["title"], data["equipped"]["title_text"]), (80, "title-limit", "Pejuang Limit"))
+        self.assertEqual(self.post("/api/toko/beli/", {"item": "title-limit"}).status_code, 400)       # sudah dimiliki
+        self.assertEqual(self.post("/api/toko/pakai/", {"item": "frame-emas"}).status_code, 400)       # belum dibeli
+        row = self.client.get("/api/peringkat/?board=level").json()["me"]
+        self.assertEqual(row["title"], "Pejuang Limit")
+        data = self.post("/api/toko/pakai/", {"item": "title-limit", "on": False}).json()
+        self.assertNotIn("title", data["equipped"])
+
+
+class ShopDuelTests(TestCase):
+    """Perisai Bintang dipakai otomatis saat kalah duel; menang duel memberi diamond."""
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_gamification", stdout=io.StringIO())
+
+    player = DuelLogicTests.player
+    correct_option = DuelLogicTests.correct_option
+
+    def play(self, a, b, b_correct):
+        match = duel.create_match(a, b)
+        for i in range(duel.QUESTION_COUNT):
+            duel.start_question(match.pk, i)
+            right, wrong = self.correct_option(match, i)
+            duel.record_answer(match.pk, a, i, right)
+            duel.record_answer(match.pk, b, i, right if i < b_correct else wrong)
+            duel.resolve_question(match.pk, i)
+        return duel.finish_match(match.pk)["players"]
+
+    def test_shield_saves_star_and_winner_gets_gems(self):
+        a, b = self.player("lina", state=("luna", 2, 2, 0)), self.player("budi", state=("luna", 2, 2, 0))
+        UserProfile.objects.filter(user=b).update(star_shields=1)
+        res = self.play(a, b, 2)
+        self.assertEqual((res[str(b.id)]["shield_used"], res[str(b.id)]["star_delta"]), (True, 0))
+        self.assertEqual((rank_of(b).stars, UserProfile.objects.get(user=b).star_shields), (2, 0))
+        self.assertEqual(res[str(a.id)]["gems_awarded"], shop.DUEL_WIN_REWARD)
+        self.assertEqual(UserProfile.objects.get(user=a).gems, shop.DUEL_WIN_REWARD)
+
+    def test_shield_not_spent_when_no_star_at_risk(self):
+        a, b = self.player("tia", state=("terra", 3, 1, 0)), self.player("uli", state=("terra", 3, 1, 0))
+        UserProfile.objects.filter(user=b).update(star_shields=1)
+        res = self.play(a, b, 2)                       # Terra: kalah tidak mengurangi bintang
+        self.assertFalse(res[str(b.id)]["shield_used"])
+        self.assertEqual(UserProfile.objects.get(user=b).star_shields, 1)

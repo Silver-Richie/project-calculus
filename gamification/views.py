@@ -13,7 +13,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_POST
 
-from . import campus, free_practice, generators, ranking, services, sessions
+from . import campus, free_practice, generators, ranking, services, sessions, shop
 from .leveling import level_for
 from .models import Faculty, MainLevel, PracticeSession, SkillNode, Topic, UserProfile
 
@@ -111,8 +111,10 @@ def leaderboard_api(request):
     order = ["-xp", "user_id"] if board == "level" else ["-rank_points", "-rank_mmr", "user_id"]
 
     def row(p, pos):
+        look = shop.appearance(p)
         r = {"pos": pos, "name": p.user.first_name or p.user.username, "username": p.user.username,
-             "faculty": p.faculty.short_name if p.faculty else "", "campus": p.campus, "me": p.pk == me.pk}
+             "faculty": p.faculty.short_name if p.faculty else "", "campus": p.campus, "me": p.pk == me.pk,
+             "frame": look.get("frame", ""), "title": look["title_text"]}
         if board == "level":
             r.update(xp=p.xp, level=level_for(p.xp))
         else:
@@ -291,3 +293,35 @@ def free_practice_start_api(request):
     except (TypeError, ValueError) as err:
         return JsonResponse({"status": "error", "message": str(err) or "Permintaan tidak valid."}, status=400)
     return JsonResponse({"status": "success", "questions": questions})
+
+
+# ── Toko Diamond (shop.py) ──────────────────────────────────────────────────
+@login_required
+@require_GET
+def shop_api(request):
+    """GET /api/toko/ — saldo diamond, stok perisai, nyawa, dan katalog bertanda dimiliki/terpasang."""
+    profile, _ = UserProfile.objects.get_or_create(user=request.user)
+    return JsonResponse({"status": "success", **shop.state(profile)})
+
+
+@login_required
+@require_POST
+def shop_buy_api(request):
+    """POST /api/toko/beli/ {"item": "hearts-full"} — beli satu barang (dinilai & dikunci di server)."""
+    try:
+        data = shop.buy(request.user, _json_body(request).get("item"))
+    except shop.ShopError as err:
+        return JsonResponse({"status": "error", "message": str(err)}, status=400)
+    return JsonResponse({"status": "success", **data})
+
+
+@login_required
+@require_POST
+def shop_equip_api(request):
+    """POST /api/toko/pakai/ {"item": "acc-mahkota", "on": true} — pasang/lepas kosmetik milik sendiri."""
+    body = _json_body(request)
+    try:
+        data = shop.equip(request.user, body.get("item"), bool(body.get("on", True)))
+    except shop.ShopError as err:
+        return JsonResponse({"status": "error", "message": str(err)}, status=400)
+    return JsonResponse({"status": "success", **data})

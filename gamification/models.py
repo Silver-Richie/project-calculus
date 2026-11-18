@@ -366,7 +366,10 @@ class UserProfile(models.Model):
         null=True, blank=True,
         help_text="Waktu nyawa pertama hilang pada siklus ini; nyawa penuh lagi 24 jam setelahnya",
     )
-    gems = models.PositiveIntegerField(default=100, help_text="Collectible gems currency")
+    gems = models.PositiveIntegerField(default=0, help_text="Diamond 💎: didapat saat naik level, topik tuntas, menang duel (shop.py)")
+    star_shields = models.PositiveIntegerField(default=0, help_text="Perisai Bintang: otomatis menahan bintang saat kalah duel")
+    equipped = models.JSONField(default=dict, blank=True,
+                                help_text="Kosmetik terpasang per slot: head/face/neck/frame/title → kunci barang toko")
     campus = models.CharField(
         max_length=120, blank=True, default="",
         help_text="Asal kampus untuk papan peringkat per kampus; 'Umum' = bukan mahasiswa / tidak disebutkan; kosong = belum diisi",
@@ -451,6 +454,20 @@ class UserProfile(models.Model):
         from .leveling import level_info
         return level_info(self.xp)
 
+
+
+class OwnedItem(models.Model):
+    """Barang kosmetik toko (aksesori Archie, bingkai, gelar) yang sudah dibeli; katalog di shop.py."""
+
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="owned_items")
+    item = models.CharField(max_length=40)
+    purchased_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["user", "item"], name="unique_owned_item")]
+
+    def __str__(self):
+        return f"{self.user} · {self.item}"
 
 
 class PlayerRank(models.Model):

@@ -51,8 +51,8 @@ const Leaderboard = (() => {
     return `
       <li class="lb-row${r.rank ? ' is-rank' : ''}${r.me ? ' me' : ''}">
         <span class="lb-pos">${medal || r.pos}</span>
-        <span class="lb-avatar" style="background:${colorOf(r.username)}">${esc(r.name[0] || '?').toUpperCase()}</span>
-        <span class="lb-who"><b>${esc(r.name)}${r.me ? ' <em>(kamu)</em>' : ''}</b><small>${esc(sub) || '&nbsp;'}</small></span>
+        <span class="lb-avatar${r.frame ? ` frame ${esc(r.frame)}` : ''}" style="background:${colorOf(r.username)}">${esc(r.name[0] || '?').toUpperCase()}</span>
+        <span class="lb-who"><b>${esc(r.name)}${r.me ? ' <em>(kamu)</em>' : ''}</b>${r.title ? `<span class="lb-title">${esc(r.title)}</span>` : ''}<small>${esc(sub) || '&nbsp;'}</small></span>
         ${score}
       </li>`;
   }
