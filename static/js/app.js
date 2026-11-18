@@ -359,6 +359,7 @@ const Curriculum = (() => {
     if (desc) desc.innerHTML = FAC_DESC[faculty] || '';
     SkillTree.render();
     Catalogue.render();
+    if (typeof Lessons !== 'undefined') Lessons.render();
   }
 
   return {
@@ -508,20 +509,8 @@ const Catalogue = (() => {
   function render() {
     const box = document.getElementById('lesson-catalogue');
     if (!box) return;
-    const levelNodes = Curriculum.tree.filter((n) => (n.topics || []).length);
-    const levelsHTML = levelNodes.length ? `
-      <section class="doc-section">
-        <header class="doc-header">
-          <span class="doc-icon">🏔️</span>
-          <div>
-            <div class="doc-filename">Kurikulum 4 Level · Whitman · MIT (Strang) · Stewart</div>
-            <h3 class="doc-title">Level Utama → Sub-level → Topik → 5 Sesi Latihan</h3>
-            <p class="doc-sub">Soal tiap sesi diacak khusus untuk akunmu, lengkap dengan pembahasan &amp; grafik slider.</p>
-          </div>
-        </header>
-        <div class="lesson-grid">${levelNodes.map(nodeCard).join('')}</div>
-      </section>` : '';
-    box.innerHTML = levelsHTML + Curriculum.documents.map((doc) => `
+    // Kurikulum 4 level kini dipelajari lewat tab "Kelas Interaktif" (Lessons, lessons.js).
+    box.innerHTML = Curriculum.documents.map((doc) => `
       <section class="doc-section">
         <header class="doc-header">
           <span class="doc-icon">${CAT_ICON[doc.category] || '📄'}</span>

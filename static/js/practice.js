@@ -2,7 +2,7 @@
  * Calculus Bridge — Practice (kurikulum 4 level)
  *
  * Menangani node sub-level yang memiliki Topik:
- *   Drawer → daftar topik → materi topik (grafik slider) → 5 sesi latihan berlapis.
+ *   Drawer → daftar topik → ringkasan topik (materi lengkap: slide di halaman Pelajaran) → 5 sesi latihan berlapis.
  *
  * Mechanism:
  *   - Soal sesi diambil dari GET /api/session/<id>/ (diacak per akun oleh server).
@@ -16,7 +16,7 @@
  *     (pathHTML) dengan 5 titik sesi; Archie berdiri di samping topik aktif.
  *
  * Bergantung pada modul global di app.js: Curriculum, Drawer, QuizEngine, State,
- * Mascot, SFX, Confetti, renderSections, postJSON.
+ * Mascot, SFX, Confetti, postJSON; dan Lessons (lessons.js) untuk tombol materi.
  */
 const Practice = (() => {
   let node = null;
@@ -149,12 +149,23 @@ const Practice = (() => {
     if (startBtn) startBtn.hidden = true;
   }
 
+  /** Ringkasan topik; materi lengkap dipelajari sebagai slide di halaman Pelajaran (Lessons, lessons.js). */
   function renderTopic() {
     const box = document.getElementById('drawer-lesson-content');
-    renderSections(box, { sections: topic.sections });
-    box.insertAdjacentHTML('afterbegin', `
+    const read = Lessons.status(topic.slug);
+    const graphs = topic.sections.reduce((a, s) => a + (s.graphs || []).length, 0);
+    box.innerHTML = `
       <button class="btn btn-outline btn-sm btn-back" onclick="Practice.backToTopics()">← Semua topik</button>
-      ${topic.references ? `<div class="source-tag">📚 ${topic.references}</div>` : ''}`);
+      ${topic.references ? `<div class="source-tag">📚 ${topic.references}</div>` : ''}
+      <div class="lesson-brief">
+        ${topic.summary ? `<p class="lesson-brief-sum">${topic.summary}</p>` : ''}
+        <h4>Yang dipelajari di topik ini</h4>
+        <ul class="lesson-brief-list">${[...new Set(topic.sections.map((s) => s.heading))].map((h) => `<li>${h}</li>`).join('')}</ul>
+        <p class="lesson-brief-status status-${read}">${read === 'done' ? '✓ Materi sudah kamu pelajari'
+          : read === 'started' ? '▶ Materi sedang kamu pelajari' : '📖 Materi belum dipelajari'}</p>
+        <button class="btn btn-primary" onclick="Lessons.openFromDrawer('${topic.slug}')">
+          🎬 ${read === 'done' ? 'Ulangi' : read === 'started' ? 'Lanjutkan' : 'Pelajari'} materi${graphs ? ` · ${graphs} grafik interaktif` : ''}</button>
+      </div>`;
     const startBtn = document.getElementById('drawer-start-quiz');
     if (startBtn) { startBtn.hidden = false; startBtn.textContent = 'Lanjut ke Latihan Bertahap ➔'; }
   }

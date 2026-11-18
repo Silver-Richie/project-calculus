@@ -1,0 +1,214 @@
+/* ════════════════════════════════════════════════════════════════
+   PELAJARAN — Kelas Interaktif (static/js/lessons.js)
+   Tata letak: daftar isi (kiri) + panggung slide (kanan).
+   ≤ 900px: satu kolom; saat slide diputar, daftar isi disembunyikan.
+   Warna memakai token di style.css, jadi mode gelap ikut otomatis.
+   ════════════════════════════════════════════════════════════════ */
+
+/* ── tab halaman ─────────────────────────────────────────────────── */
+.lesson-tabs { display: flex; gap: .5rem; margin: -1rem 0 1.25rem; flex-wrap: wrap; }
+.lesson-tab {
+  border: 2px solid var(--clr-border); background: var(--clr-surface); color: var(--clr-text-sec);
+  border-radius: var(--radius-full); padding: .45rem 1rem; font: 600 .88rem var(--font-body); cursor: pointer;
+}
+.lesson-tab.active { border-color: var(--clr-primary); background: var(--clr-primary-l); color: var(--clr-primary); }
+.lesson-pane { display: none; }
+.lesson-pane.active { display: block; }
+
+/* ── kerangka ────────────────────────────────────────────────────── */
+.lp { display: grid; grid-template-columns: 290px minmax(0, 1fr); gap: 1.25rem; align-items: start; }
+
+.lp-outline {
+  position: sticky; top: 0; background: var(--clr-surface); border: 1px solid var(--clr-border);
+  border-radius: var(--radius-lg); box-shadow: var(--shadow-card);
+  max-height: calc(100dvh - var(--nav-h) - var(--bottom-nav-h) - 2rem); display: flex; flex-direction: column;
+}
+.lp-outline-head { padding: 1rem 1rem .75rem; border-bottom: 1px solid var(--clr-border); }
+.lp-outline-head h3 { font: 700 1rem var(--font-head); margin-bottom: .5rem; color: var(--clr-text); }
+.lp-overall span { font-size: .78rem; color: var(--clr-text-sec); }
+.lp-outline-body { overflow-y: auto; padding: .5rem; }
+
+.lp-meter { display: block; height: 8px; background: var(--clr-cream); border-radius: var(--radius-full); overflow: hidden; margin-bottom: .35rem; }
+.lp-meter i { display: block; height: 100%; background: var(--clr-growth); border-radius: inherit; transition: width .4s ease; }
+
+.lp-level { border-radius: var(--radius-md); margin-bottom: .25rem; }
+.lp-level > summary {
+  list-style: none; display: flex; align-items: center; gap: .6rem; padding: .55rem .6rem; cursor: pointer;
+  border-radius: var(--radius-md); color: var(--clr-text);
+}
+.lp-level > summary::-webkit-details-marker { display: none; }
+.lp-level > summary:hover { background: var(--clr-cream); }
+.lp-level-icon { font-size: 1.3rem; }
+.lp-level-name { flex: 1; min-width: 0; font: 700 .9rem var(--font-head); line-height: 1.2; }
+.lp-level-name small { display: block; font: 600 .68rem var(--font-body); color: var(--clr-muted); text-transform: uppercase; letter-spacing: .04em; }
+.lp-level-count { font-size: .75rem; color: var(--clr-text-sec); background: var(--clr-cream); border-radius: var(--radius-full); padding: .1rem .5rem; }
+
+.lp-unit { padding: .1rem 0 .4rem .5rem; }
+.lp-unit-title { font-size: .72rem; font-weight: 700; color: var(--clr-muted); text-transform: uppercase; letter-spacing: .04em; padding: .45rem .5rem .25rem; }
+.lp-topic {
+  display: flex; align-items: center; gap: .55rem; width: 100%; text-align: left; border: 0; background: none;
+  padding: .45rem .5rem; border-radius: var(--radius-sm); cursor: pointer; color: var(--clr-text); font: 500 .85rem var(--font-body);
+}
+.lp-topic:hover { background: var(--clr-cream); }
+.lp-topic.current { background: var(--clr-primary-l); color: var(--clr-primary); font-weight: 700; }
+.lp-topic-icon {
+  flex: 0 0 28px; height: 28px; display: grid; place-items: center; border-radius: 50%;
+  background: var(--clr-cream); font-size: .9rem;
+}
+.lp-topic.done .lp-topic-icon { background: var(--clr-growth); color: #fff; font-weight: 800; }
+.lp-topic.started .lp-topic-icon { box-shadow: 0 0 0 2px var(--clr-accent); }
+.lp-topic-title { flex: 1; min-width: 0; }
+.lp-topic small { font-size: .7rem; color: var(--clr-accent); font-weight: 700; }
+
+/* ── layar sambutan ──────────────────────────────────────────────── */
+.lp-hero {
+  background: linear-gradient(135deg, var(--clr-primary-l), var(--clr-growth-l));
+  border: 1px solid var(--clr-border); border-radius: var(--radius-lg); padding: 2rem; margin-bottom: 1.25rem;
+}
+.lp-hero h2 { font: 800 clamp(1.4rem, 3vw, 2rem) var(--font-head); color: var(--clr-text); margin: .25rem 0 .6rem; line-height: 1.15; }
+.lp-hero .btn { margin-top: 1rem; }
+.lp-level-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: .9rem; }
+.lp-level-card {
+  display: flex; flex-direction: column; gap: .25rem; text-align: left; cursor: pointer; padding: 1.1rem;
+  background: var(--clr-surface); border: 2px solid var(--clr-border); border-radius: var(--radius-lg);
+  color: var(--clr-text); font: 500 .85rem var(--font-body); transition: transform .15s, border-color .15s;
+}
+.lp-level-card:hover { transform: translateY(-3px); border-color: var(--clr-primary); }
+.lp-level-card-icon { font-size: 2rem; }
+.lp-level-card small { font-size: .7rem; color: var(--clr-muted); text-transform: uppercase; font-weight: 700; letter-spacing: .04em; }
+.lp-level-card b { font: 700 1.05rem var(--font-head); }
+.lp-level-card-sub { font-size: .78rem; color: var(--clr-text-sec); }
+.lp-level-card .lp-meter { margin: .4rem 0 0; }
+
+/* ── pemutar ─────────────────────────────────────────────────────── */
+.lp-player {
+  background: var(--clr-surface); border: 1px solid var(--clr-border); border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card); display: flex; flex-direction: column; overflow: hidden;
+  min-height: calc(100dvh - var(--nav-h) - var(--bottom-nav-h) - 9rem);
+}
+.lp-head { padding: 1rem 1.25rem .75rem; border-bottom: 1px solid var(--clr-border); }
+.lp-head-row { display: flex; align-items: center; gap: .75rem; }
+.lp-head-text { min-width: 0; }
+.lp-back { display: none; flex-shrink: 0; }
+.lp-crumb { font-size: .75rem; color: var(--clr-muted); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lp-title { font: 700 1.1rem var(--font-head); color: var(--clr-text); }
+
+.lp-progress { display: flex; gap: 4px; margin-top: .75rem; }
+.lp-seg { flex: 1; height: 7px; border: 0; padding: 0; border-radius: var(--radius-full); background: var(--clr-cream); cursor: pointer; transition: background .25s; }
+.lp-seg.done { background: var(--clr-growth); }
+.lp-seg.now { background: var(--clr-primary); }
+.lp-seg-check.done, .lp-seg-check.now { background: var(--clr-accent); }
+
+.lp-viewport { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 1.5rem clamp(1rem, 4vw, 2.5rem); }
+.lp-slide { max-width: 760px; margin: 0 auto; animation: lpSlideR .35s ease both; }
+.lp-slide.from-left { animation-name: lpSlideL; }
+@keyframes lpSlideR { from { opacity: 0; transform: translateX(40px); } to { opacity: 1; transform: none; } }
+@keyframes lpSlideL { from { opacity: 0; transform: translateX(-40px); } to { opacity: 1; transform: none; } }
+
+.lp-kicker { font-size: .75rem; font-weight: 700; color: var(--clr-primary); text-transform: uppercase; letter-spacing: .05em; }
+.lp-slide-title { font: 800 clamp(1.25rem, 2.6vw, 1.7rem) var(--font-head); color: var(--clr-text); margin: .3rem 0 1rem; line-height: 1.2; }
+.lp-lead { font-size: 1.02rem; color: var(--clr-text-sec); line-height: 1.6; }
+.lp-hint { font-size: .85rem; color: var(--clr-muted); margin-bottom: 1rem; }
+.lp-body { font-size: 1.02rem; }
+.lp-body .lesson-list { padding-left: 1.2rem; }
+.lp-body li { margin-bottom: .45rem; }
+
+/* langkah tampil bertahap */
+.lp-step { opacity: 0; transform: translateY(14px); transition: opacity .4s ease, transform .4s ease; }
+.lp-step:not(.lp-shown) { visibility: hidden; }
+.lp-step.lp-shown { opacity: 1; transform: none; visibility: visible; }
+/* masuk berurutan (slide pembuka & rangkuman) */
+.lp-in { animation: lpIn .5s ease both; animation-delay: calc(var(--i, 0) * 110ms); }
+@keyframes lpIn { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
+
+.lp-intro, .lp-done { text-align: center; }
+.lp-intro-icon, .lp-done-badge {
+  width: 96px; height: 96px; margin: .5rem auto 1rem; display: grid; place-items: center; font-size: 3rem;
+  border-radius: 50%; background: var(--clr-primary-l); box-shadow: 0 6px 0 var(--clr-primary-d);
+}
+.lp-done-badge { background: var(--clr-growth-l); box-shadow: 0 6px 0 var(--clr-growth-d); }
+.lp-intro h2, .lp-done h2 { font: 800 clamp(1.5rem, 3.2vw, 2.1rem) var(--font-head); color: var(--clr-text); margin: .3rem 0 .6rem; }
+.lp-agenda, .lp-refs {
+  text-align: left; max-width: 520px; margin: 1.25rem auto; padding: 1rem 1.25rem;
+  background: var(--clr-cream); border-radius: var(--radius-md);
+}
+.lp-agenda h4, .lp-refs h4 { font: 700 .9rem var(--font-head); color: var(--clr-text); margin-bottom: .5rem; }
+.lp-agenda ol { padding-left: 1.2rem; color: var(--clr-text-sec); }
+.lp-agenda li { margin-bottom: .25rem; }
+.lp-refs p { font-size: .85rem; color: var(--clr-text-sec); margin-bottom: .25rem; }
+.lp-chips { display: flex; flex-wrap: wrap; gap: .5rem; justify-content: center; margin-top: .75rem; }
+.lp-hero .lp-chips { justify-content: flex-start; }
+.lp-chips span {
+  font-size: .8rem; font-weight: 600; padding: .3rem .75rem; border-radius: var(--radius-full);
+  background: var(--clr-surface); border: 1px solid var(--clr-border); color: var(--clr-text-sec);
+}
+
+.lp-recap { list-style: none; max-width: 520px; margin: 1rem auto; text-align: left; padding: 0; }
+.lp-recap li { padding: .5rem .75rem; border-radius: var(--radius-sm); color: var(--clr-text); }
+.lp-recap li::before { content: '✓ '; color: var(--clr-growth); font-weight: 800; }
+.lp-recap li:nth-child(odd) { background: var(--clr-cream); }
+.lp-score { color: var(--clr-text-sec); }
+.lp-done-actions { display: flex; flex-wrap: wrap; gap: .6rem; justify-content: center; margin-top: 1.25rem; }
+
+/* cek pemahaman */
+.lp-check-head { display: flex; justify-content: space-between; align-items: center; font-size: .8rem; font-weight: 700; color: var(--clr-muted); margin-bottom: .6rem; }
+.lp-check-dots { display: flex; gap: 5px; }
+.lp-check-dots i { width: 10px; height: 10px; border-radius: 50%; background: var(--clr-cream); }
+.lp-check-dots i.on { background: var(--clr-growth); }
+.lp-check-dots i.now { background: var(--clr-accent); }
+.lp-options { display: grid; gap: .6rem; margin-top: 1rem; }
+.lp-fb { margin-top: 1rem; padding: 1rem 1.25rem; border-radius: var(--radius-md); border: 2px solid var(--clr-growth); background: var(--clr-growth-l); }
+.lp-fb.no { border-color: var(--clr-danger); background: var(--clr-danger-l); }
+.lp-fb h5 { font: 700 1rem var(--font-head); margin-bottom: .5rem; color: var(--clr-text); }
+.lp-fb .btn { margin-top: .75rem; }
+.lp-check-result { text-align: center; padding: 1rem 0; }
+.lp-check-big { font: 800 3rem var(--font-head); color: var(--clr-primary); }
+
+/* narator & tombol */
+.lp-narrator { display: flex; align-items: center; gap: .75rem; padding: .6rem 1.25rem; border-top: 1px solid var(--clr-border); background: var(--clr-bg); }
+.lp-archie { flex-shrink: 0; cursor: pointer; animation: archieBob 2.4s ease-in-out infinite; }
+.lp-bubble {
+  position: relative; flex: 1; margin: 0; padding: .55rem .85rem; font-size: .88rem; line-height: 1.45;
+  background: var(--clr-surface); border: 1px solid var(--clr-border); border-radius: var(--radius-md); color: var(--clr-text);
+}
+.lp-bubble::before {
+  content: ''; position: absolute; left: -7px; top: 50%; width: 12px; height: 12px; transform: translateY(-50%) rotate(45deg);
+  background: inherit; border-left: 1px solid var(--clr-border); border-bottom: 1px solid var(--clr-border);
+}
+.lp-controls { display: flex; align-items: center; justify-content: space-between; gap: .75rem; padding: .75rem 1.25rem; border-top: 1px solid var(--clr-border); }
+.lp-count { font-size: .85rem; font-weight: 700; color: var(--clr-muted); }
+
+/* ── ringkasan topik di drawer skill tree (practice.js) ─────────── */
+.lesson-brief { background: var(--clr-surface); border: 1px solid var(--clr-border); border-radius: var(--radius-lg); padding: 1.25rem; margin-top: 1rem; }
+.lesson-brief-sum { font-size: 1rem; color: var(--clr-text); margin-bottom: 1rem; }
+.lesson-brief h4 { font: 700 .9rem var(--font-head); color: var(--clr-text); margin-bottom: .4rem; }
+.lesson-brief-list { padding-left: 1.2rem; color: var(--clr-text-sec); margin-bottom: 1rem; }
+.lesson-brief-status { font-size: .85rem; font-weight: 600; color: var(--clr-muted); margin-bottom: .75rem; }
+.lesson-brief-status.status-done { color: var(--clr-growth); }
+.lesson-brief-status.status-started { color: var(--clr-accent); }
+
+/* ── responsif ───────────────────────────────────────────────────── */
+@media (max-width: 900px) {
+  .lp { grid-template-columns: minmax(0, 1fr); }
+  .lp-outline { position: static; max-height: none; }
+  .lp-playing .lp-outline { display: none; }
+  .lp:not(.lp-playing) .lp-stage { order: -1; }
+  .lp-back { display: inline-flex; }
+}
+@media (min-width: 901px) {
+  .lp-playing .lp-back { display: inline-flex; }
+}
+@media (max-width: 560px) {
+  .lesson-tabs { margin-top: -.75rem; }
+  .lp-hero { padding: 1.25rem; }
+  .lp-head, .lp-narrator, .lp-controls { padding-inline: .9rem; }
+  .lp-viewport { padding: 1.1rem .9rem; }
+  .lp-btn-label { display: none; }
+  .lp-archie svg { width: 44px; height: 44px; }
+  .lp-intro-icon, .lp-done-badge { width: 76px; height: 76px; font-size: 2.4rem; }
+  .lp-done-actions .btn { width: 100%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .lp-slide, .lp-in, .lp-archie { animation: none; }
+  .lp-step { transition: none; transform: none; }
+}
