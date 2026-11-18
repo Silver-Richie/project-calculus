@@ -1,13 +1,68 @@
 <!-- =========================================================================
-     MODUL: Lesson Catalogue  (Page: Lesson)
-     Branch : feat/calculus-content
-     Isi    : Materi, bank soal, dan lampiran dikelompokkan per berkas sumber.
-              Dirender oleh Catalogue.render() dari /api/curriculum/ sesuai fakultas.
+     MODUL: Pelajaran  (Page: Lesson)
+     Isi    : Tab "Kelas Interaktif" — seluruh kurikulum sebagai slide (Lessons, static/js/lessons.js)
+              Tab "Bank Soal & Referensi" — berkas soal & lampiran per sumber (Catalogue.render() di app.js)
      ========================================================================= -->
 
-<h2 class="page-heading">Semua Pelajaran</h2>
-<p class="page-subheading">Materi dan bank soal disusun per berkas sumber. Hanya materi umum dan materi fakultasmu yang ditampilkan.</p>
+<h2 class="page-heading">Pelajaran</h2>
+<p class="page-subheading">Pelajari seluruh kurikulum kalkulus lewat slide interaktif. Latihan dan sesi ada di Peta Belajar.</p>
 
-<div id="lesson-catalogue">
-  <p class="loading-text">Memuat materi…</p>
+<div class="lesson-tabs" role="tablist">
+  <button class="lesson-tab active" data-ltab="kelas" role="tab" onclick="Lessons.tab('kelas')">🎬 Kelas Interaktif</button>
+  <button class="lesson-tab" data-ltab="arsip" role="tab" onclick="Lessons.tab('arsip')">📚 Bank Soal &amp; Referensi</button>
+</div>
+
+<div class="lesson-pane active" id="lesson-pane-kelas">
+  <div class="lp" id="lesson-player">
+
+    <aside class="lp-outline" aria-label="Daftar isi kurikulum">
+      <div class="lp-outline-head">
+        <h3>Daftar Isi</h3>
+        <div class="lp-overall" id="lp-overall"></div>
+      </div>
+      <div class="lp-outline-body" id="lp-outline-body">
+        <p class="loading-text">Memuat kurikulum…</p>
+      </div>
+    </aside>
+
+    <section class="lp-stage">
+      <div id="lp-welcome"></div>
+
+      <div class="lp-player" id="lp-player" hidden>
+        <header class="lp-head">
+          <div class="lp-head-row">
+            <button class="btn btn-outline btn-sm lp-back" onclick="Lessons.close()">☰ Daftar isi</button>
+            <div class="lp-head-text">
+              <div class="lp-crumb" id="lp-crumb"></div>
+              <h3 class="lp-title" id="lp-title"></h3>
+            </div>
+          </div>
+          <div class="lp-progress" id="lp-progress"></div>
+        </header>
+
+        <div class="lp-viewport" id="lp-viewport"></div>
+
+        <div class="lp-narrator">
+          <div class="lp-archie" onclick="Mascot.randomQuote()" title="Archie">
+            {% include 'components/mascot.html' with svg_id="lp-archie-svg" svg_class="mascot-idle" size=56 %}
+          </div>
+          <p class="lp-bubble" id="lp-bubble"></p>
+        </div>
+
+        <footer class="lp-controls">
+          <button class="btn btn-outline" id="lp-prev" onclick="Lessons.prev()">◀<span class="lp-btn-label"> Sebelumnya</span></button>
+          <span class="lp-count" id="lp-count"></span>
+          <button class="btn btn-primary" id="lp-next" onclick="Lessons.next()">Lanjut ▶</button>
+        </footer>
+      </div>
+    </section>
+
+  </div>
+</div>
+
+<div class="lesson-pane" id="lesson-pane-arsip">
+  <p class="page-subheading">Bank soal dan lampiran disusun per berkas sumber. Hanya materi umum dan materi fakultasmu yang ditampilkan.</p>
+  <div id="lesson-catalogue">
+    <p class="loading-text">Memuat materi…</p>
+  </div>
 </div>
