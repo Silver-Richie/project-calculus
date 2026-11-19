@@ -366,7 +366,10 @@ class UserProfile(models.Model):
         null=True, blank=True,
         help_text="Waktu nyawa pertama hilang pada siklus ini; nyawa penuh lagi 24 jam setelahnya",
     )
-    gems = models.PositiveIntegerField(default=100, help_text="Collectible gems currency")
+    gems = models.PositiveIntegerField(default=0, help_text="Diamond 💎: didapat saat naik level, topik tuntas, menang duel (shop.py)")
+    star_shields = models.PositiveIntegerField(default=0, help_text="Perisai Bintang: otomatis menahan bintang saat kalah duel")
+    equipped = models.JSONField(default=dict, blank=True,
+                                help_text="Kosmetik terpasang per slot: head/face/neck/frame/title → kunci barang toko")
     campus = models.CharField(
         max_length=120, blank=True, default="",
         help_text="Asal kampus untuk papan peringkat per kampus; 'Umum' = bukan mahasiswa / tidak disebutkan; kosong = belum diisi",
@@ -453,6 +456,20 @@ class UserProfile(models.Model):
 
 
 
+class OwnedItem(models.Model):
+    """Barang kosmetik toko (aksesori Archie, bingkai, gelar) yang sudah dibeli; katalog di shop.py."""
+
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="owned_items")
+    item = models.CharField(max_length=40)
+    purchased_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["user", "item"], name="unique_owned_item")]
+
+    def __str__(self):
+        return f"{self.user} · {self.item}"
+
+
 class PlayerRank(models.Model):
     """
     Rank duel seorang pemain (aturan di ranking.py).
@@ -528,6 +545,7 @@ class DuelMatch(models.Model):
     Soal disimpan sebagai resep generator (key, seed, tier) sehingga kedua pemain mendapat soal
     identik dan kunci jawaban hanya pernah dihitung di server.
     `current` = indeks soal yang sedang berjalan; `q_started_at` kosong saat jeda antarsoal.
+    `tab_leaves` = {user_id: berapa kali keluar tab} (anti-curang, duel.leave_tab).
     """
     ACTIVE, FINISHED = "active", "finished"
 
@@ -542,6 +560,7 @@ class DuelMatch(models.Model):
     status = models.CharField(max_length=10, default=ACTIVE)
     winner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="duels_won")
     result = models.JSONField(default=dict, blank=True)
+    tab_leaves = models.JSONField(default=dict, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     finished_at = models.DateTimeField(null=True, blank=True)
 
@@ -643,6 +662,8 @@ class UserSessionProgress(models.Model):
 
     Mechanism: `attempts` ikut menentukan seed soal, jadi setiap percobaan ulang
     memberi angka baru. Sesi berikutnya terbuka bila `passed` = True.
+    `tab_leaves` = berapa kali keluar tab pada percobaan berjalan (anti-curang, sessions.leave_tab);
+    kembali 0 setiap percobaan selesai.
     """
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
                              related_name="session_progress")
@@ -652,6 +673,7 @@ class UserSessionProgress(models.Model):
     best_score = models.PositiveSmallIntegerField(default=0)
     passed = models.BooleanField(default=False)
     passed_at = models.DateTimeField(null=True, blank=True)
+    tab_leaves = models.PositiveSmallIntegerField(default=0, help_text="Keluar tab pada percobaan berjalan")
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:

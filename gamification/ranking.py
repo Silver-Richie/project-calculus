@@ -110,6 +110,14 @@ def label(st):
     return f"{TIER_NAMES[st.tier]} {ROMAN[st.division]}"
 
 
+def next_label(st):
+    """Sub-rank berikutnya, mis. 'Luna II'; di Apex gelar Apex berikutnya ('' bila sudah Kosmos)."""
+    if st.tier == "apex":
+        title = next((name for minimum, name in reversed(APEX_TITLES) if st.stars < minimum), "")
+        return f"Apex {title}" if title else ""
+    return label(_promote(st))
+
+
 def ladder_points(st):
     """Posisi di tangga sebagai satu angka (bintang kumulatif sejak Terra III 0★)."""
     pts = 0
@@ -128,7 +136,7 @@ def describe(st):
         "tier": st.tier, "tier_name": TIER_NAMES[st.tier], "division": st.division,
         "division_roman": ROMAN.get(st.division, ""), "stars": st.stars,
         "max_stars": STARS.get(st.tier),           # None untuk Apex (tanpa batas)
-        "label": label(st), "apex_title": apex_title(st.stars) if st.tier == "apex" else "",
+        "label": label(st), "apex_title": apex_title(st.stars) if st.tier == "apex" else "", "next_label": next_label(st),
         "win_streak": st.win_streak, "points": ladder_points(st),
     }
 

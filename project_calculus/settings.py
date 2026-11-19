@@ -42,7 +42,7 @@ ALLOWED_HOSTS = ["localhost", "127.0.0.1"] + [h.strip() for h in os.getenv('ALLO
 CSRF_TRUSTED_ORIGINS = [f"https://{h}" for h in ALLOWED_HOSTS if h not in ("localhost", "127.0.0.1")]
 
 # Duel real-time butuh server ASGI (WebSocket). PythonAnywhere memakai WSGI, jadi di sana
-# DUEL_ENABLED=False: tombol "Cari Lawan" diganti "segera hadir".
+# DUEL_ENABLED=False: tombol duel (halaman Ranked & Peringkat) diganti "Segera hadir".
 DUEL_ENABLED = os.getenv('DUEL_ENABLED', 'True').lower() == 'true'
 
 if PRODUCTION:

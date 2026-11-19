@@ -1,0 +1,23 @@
+<!-- =========================================================================
+     MODUL: Toko Diamond  (Page: Shop)
+     Isi    : Saldo & cara mendapat diamond, pratinjau Archie, katalog per kelompok.
+              Dirender oleh Shop.render() (static/js/shop.js) dari /api/toko/.
+     ========================================================================= -->
+
+<h2 class="page-heading">💎 Toko Diamond</h2>
+<p class="page-subheading">Diamond didapat dari naik level, topik tuntas, dan menang duel. Belanjakan untuk penguat dan gaya Archie.</p>
+
+<div class="shop-top">
+  <div class="shop-wallet">
+    <div class="shop-balance"><span>💎</span><b id="shop-gems">0</b></div>
+    <ul class="shop-earn" id="shop-earn"></ul>
+  </div>
+  <div class="shop-preview" aria-label="Pratinjau Archie">
+    {% include 'components/mascot.html' with svg_id="shop-archie-svg" svg_class="mascot-idle" size=150 %}
+    <div class="shop-preview-name" id="shop-preview-name"></div>
+  </div>
+</div>
+
+<div id="shop-catalog">
+  <p class="loading-text">Memuat toko…</p>
+</div>

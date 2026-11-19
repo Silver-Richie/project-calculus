@@ -8,6 +8,7 @@
   <div class="profile-avatar-lg" id="profile-avatar-lg">{{ server_profile.display_name|first|upper|default:"M" }}</div>
   <div>
     <div class="profile-hero-name" id="profile-name">{{ server_profile.display_name|default:"Mahasiswa Baru" }}</div>
+    <div class="profile-title" id="profile-title">{{ server_profile.look.title_text }}</div>
     <div class="profile-hero-fac"  id="profile-fac-label">{{ server_profile.faculty_name }}{% if server_profile.diagnostic_level %} · {{ server_profile.diagnostic_level }}{% endif %}</div>
   </div>
   <div style="margin-left:auto; display:flex; gap:.75rem; align-items:center;">
@@ -56,7 +57,7 @@
   </div>
   <div class="stat-box">
     <div class="stat-box-val" id="profile-gems" style="color:var(--clr-growth);">120</div>
-    <div class="stat-box-lbl">Permata</div>
+    <div class="stat-box-lbl">Diamond</div>
   </div>
 </div>
 

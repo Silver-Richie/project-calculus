@@ -18,16 +18,21 @@ Alur
                Kalah dengan selisih ≤ 1 soal benar dilindungi (bintang tidak berkurang).
                Keluar di tengah duel (forfeit) = kalah tanpa perlindungan.
                Bintang & nilai kemampuan diperbarui lewat PlayerRank (aturan di ranking.py). Duel tidak memberi XP.
+               Menang (bukan karena lawan keluar) memberi +2 diamond; Perisai Bintang dari toko
+               otomatis menahan bintang saat kalah (use_shield).
+6. Anti-curang: browser melapor saat pemain keluar tab/jendela (leave_tab). Keluar pertama =
+               soal yang sedang berjalan dianggap salah (bila belum dijawab) + peringatan;
+               keluar ke-MAX_TAB_LEAVES = keluar dari duel (forfeit).
 """
 
 import random
 from datetime import timedelta
 
 from django.db import transaction
-from django.db.models import Q
+from django.db.models import F, Q
 from django.utils import timezone
 
-from . import generators
+from . import generators, ranking, shop
 from .leveling import level_for
 from .models import DuelAnswer, DuelMatch, DuelQueue, Topic, UserProfile, rank_of
 from .ranking import TIERS, describe
@@ -39,6 +44,7 @@ REMATCH_COOLDOWN = timedelta(minutes=10)
 QUEUE_TIMEOUT = 60            # detik menunggu lawan sebelum menyerah
 GRACE_MS = 1500               # toleransi latensi jaringan setelah waktu soal habis
 BASE_POINTS, SPEED_BONUS = 100, 50
+MAX_TAB_LEAVES = 2            # keluar tab ke-2 = kalah (forfeit)
 
 # Tier → (level kurikulum sumber soal, tingkat generator) dan waktu per soal (detik).
 POOLS = {
@@ -201,6 +207,34 @@ def record_answer(match_id, user, index, option_id, now=None):
         return True, "", both
 
 
+def leave_tab(match_id, user):
+    """
+    Catat pemain keluar tab/jendela di tengah duel.
+
+    Mengembalikan None bila duel tidak aktif, {"forfeit": True} bila batas tercapai (pemanggil
+    mengakhiri duel lewat finish_match), selain itu {"forfeit": False, "tab_leaves", "max_tab_leaves",
+    "voided": indeks soal yang dianggap salah atau None, "both": kedua pemain sudah menjawab soal itu}.
+    """
+    with transaction.atomic():
+        match = DuelMatch.objects.select_for_update().filter(pk=match_id, status=DuelMatch.ACTIVE).first()
+        if not match or user.id not in match.players():
+            return None
+        key = str(user.id)
+        match.tab_leaves = {**match.tab_leaves, key: match.tab_leaves.get(key, 0) + 1}
+        match.save(update_fields=["tab_leaves"])
+        if match.tab_leaves[key] >= MAX_TAB_LEAVES:
+            return {"forfeit": True}
+        voided, both = None, False
+        if match.q_started_at is not None:
+            _, created = DuelAnswer.objects.get_or_create(match=match, user=user, index=match.current,
+                                                          defaults={"ms": match.time_limit * 1000})
+            if created:
+                voided = match.current
+                both = DuelAnswer.objects.filter(match=match, index=match.current).count() == 2
+        return {"forfeit": False, "tab_leaves": match.tab_leaves[key], "max_tab_leaves": MAX_TAB_LEAVES,
+                "voided": voided, "both": both}
+
+
 def _totals(match):
     totals = {uid: {"points": 0, "correct": 0, "ms": 0} for uid in match.players()}
     for a in match.answers.all():
@@ -259,6 +293,19 @@ def is_protected(loser, winner):
     return winner["correct"] - loser["correct"] <= 1
 
 
+def use_shield(user_id, state):
+    """
+    Pakai satu Perisai Bintang (toko diamond) bila kekalahan ini akan mengurangi bintang.
+
+    Mechanism: kekalahan tanpa perlindungan disimulasikan dengan ranking.apply_result; hanya
+    bila bintang berkurang, stok perisai dikurangi lewat UPDATE bersyarat (star_shields > 0)
+    sehingga perisai tidak pernah terpakai dua kali atau menjadi negatif.
+    """
+    if ranking.apply_result(state, won=False)[1] >= 0:
+        return False
+    return UserProfile.objects.filter(user_id=user_id, star_shields__gt=0).update(star_shields=F("star_shields") - 1) == 1
+
+
 def finish_match(match_id, forfeit_by=None):
     """
     Akhiri duel (sekali saja) dan perbarui rank kedua pemain.
@@ -281,21 +328,44 @@ def finish_match(match_id, forfeit_by=None):
         players = {}
         for uid, side in ((a, "a"), (b, "b")):
             opp = b if uid == a else a
+            shield_used, gems = False, 0
             if result == "draw":
                 ranks[uid].record_draw(mmr_before[opp])
                 delta, protected, verdict = 0, False, "draw"
             else:
                 won = result == side
                 protected = not won and not forfeit_by and is_protected(totals[uid], totals[opp])
+                if not won and not forfeit_by and not protected:
+                    shield_used = use_shield(uid, ranks[uid].state)
+                    protected = shield_used
                 delta = ranks[uid].record_duel(won, mmr_before[opp], protected)
                 verdict = "win" if won else "lose"
+                if won and not forfeit_by:
+                    gems = shop.award(uid, shop.DUEL_WIN_REWARD)
             players[str(uid)] = {"verdict": verdict, "star_delta": delta, "protected": protected,
+                                 "shield_used": shield_used, "gems_awarded": gems,
                                  "rank": {**describe(ranks[uid].state), "wins": ranks[uid].wins, "losses": ranks[uid].losses},
                                  **totals[uid]}
         match.winner_id = None if result == "draw" else (a if result == "a" else b)
         match.result = {"players": players, "forfeit_by": forfeit_by}
         match.save(update_fields=["winner", "result"])
         return match.result
+
+
+def recent_results(user_ids, n=5):
+    """
+    Hasil n duel terakhir tiap pemain, urut lama → baru: 'w' menang, 'l' kalah, 'd' imbang.
+    Satu kueri untuk semua pemain (papan peringkat), dibatasi agar tetap ringan.
+    """
+    out = {uid: [] for uid in user_ids}
+    matches = (DuelMatch.objects.filter(status=DuelMatch.FINISHED)
+               .filter(Q(player_a_id__in=user_ids) | Q(player_b_id__in=user_ids))
+               .order_by("-finished_at").values_list("player_a_id", "player_b_id", "winner_id")[:n * len(user_ids) * 4])
+    for a, b, winner in matches:
+        for uid in (a, b):
+            if uid in out and len(out[uid]) < n:
+                out[uid].append("d" if winner is None else "w" if winner == uid else "l")
+    return {uid: res[::-1] for uid, res in out.items()}
 
 
 def active_match_of(user):

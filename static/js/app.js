@@ -124,6 +124,8 @@ const State = (() => {
     // XP & level hanya dari server (XP didapat dari sesi topik); nilai lama di localStorage diabaikan.
     s.xp = SERVER.xp || 0;
     s.level = SERVER.level || null;
+    // Diamond juga hanya dari server (didapat & dibelanjakan di sana, lihat shop.py).
+    s.gems = SERVER.gems || 0;
     const p = s.progress[s.faculty] || (s.progress[s.faculty] = { completed: [], active: null });
     (SERVER.completed || []).forEach((slug) => { if (!p.completed.includes(slug)) p.completed.push(slug); });
     // Server adalah sumber kebenaran sub-level aktif: nilai lokal bisa usang (mis. node kurikulum lama).
@@ -200,13 +202,13 @@ const State = (() => {
     } else if (s.heartsRefillAt) updateHUD();
   }, 30000);
 
-  function floatXP(amount) {
-    const el = document.getElementById('hud-xp');
+  function floatXP(amount, unit = 'XP', target = 'hud-xp') {
+    const el = document.getElementById(target);
     if (!el) return;
     const r = el.getBoundingClientRect();
     const tag = document.createElement('span');
     tag.className = 'float-xp';
-    tag.textContent = `+${amount} XP!`;
+    tag.textContent = `+${amount} ${unit}!`;
     tag.style.cssText = `left:${r.left + 8}px;top:${r.top - 10}px;`;
     document.body.appendChild(tag);
     setTimeout(() => tag.remove(), 1200);
@@ -229,6 +231,12 @@ const State = (() => {
       if (p && s.hearts < before) { p.classList.add('hearts-shake'); setTimeout(() => p.classList.remove('hearts-shake'), 500); }
     },
     hasHearts: () => s.hearts > 0,
+    /** Saldo diamond dari server; animasi "+n 💎" bila bertambah. */
+    setGems(n) {
+      const gained = n - s.gems;
+      s.gems = n; save();
+      if (gained > 0) floatXP(gained, '💎', 'hud-gems');
+    },
     refillText,
     setFaculty(f) {
       if (s.faculty === f) return;
@@ -270,7 +278,7 @@ const State = (() => {
    NAV — Bottom navigation + page routing
    ════════════════════════════════════════════════════════════════ */
 const Nav = (() => {
-  const pages = ['levelup', 'lesson', 'free', 'rank', 'user'];
+  const pages = ['levelup', 'lesson', 'free', 'ranked', 'rank', 'user', 'shop'];
 
   return {
     go(page) {
@@ -284,6 +292,8 @@ const Nav = (() => {
       });
       if (page === 'free' && typeof FreePractice !== 'undefined') FreePractice.render();
       if (page === 'rank' && typeof Leaderboard !== 'undefined') Leaderboard.load();
+      if (page === 'ranked' && typeof Ranked !== 'undefined') Ranked.render();
+      if (page === 'shop' && typeof Shop !== 'undefined') Shop.load();
     },
   };
 })();
@@ -359,6 +369,7 @@ const Curriculum = (() => {
     if (desc) desc.innerHTML = FAC_DESC[faculty] || '';
     SkillTree.render();
     Catalogue.render();
+    if (typeof Lessons !== 'undefined') Lessons.render();
   }
 
   return {
@@ -508,20 +519,8 @@ const Catalogue = (() => {
   function render() {
     const box = document.getElementById('lesson-catalogue');
     if (!box) return;
-    const levelNodes = Curriculum.tree.filter((n) => (n.topics || []).length);
-    const levelsHTML = levelNodes.length ? `
-      <section class="doc-section">
-        <header class="doc-header">
-          <span class="doc-icon">🏔️</span>
-          <div>
-            <div class="doc-filename">Kurikulum 4 Level · Whitman · MIT (Strang) · Stewart</div>
-            <h3 class="doc-title">Level Utama → Sub-level → Topik → 5 Sesi Latihan</h3>
-            <p class="doc-sub">Soal tiap sesi diacak khusus untuk akunmu, lengkap dengan pembahasan &amp; grafik slider.</p>
-          </div>
-        </header>
-        <div class="lesson-grid">${levelNodes.map(nodeCard).join('')}</div>
-      </section>` : '';
-    box.innerHTML = levelsHTML + Curriculum.documents.map((doc) => `
+    // Kurikulum 4 level kini dipelajari lewat tab "Kelas Interaktif" (Lessons, lessons.js).
+    box.innerHTML = Curriculum.documents.map((doc) => `
       <section class="doc-section">
         <header class="doc-header">
           <span class="doc-icon">${CAT_ICON[doc.category] || '📄'}</span>
@@ -929,11 +928,14 @@ const Drawer = (() => {
       show();
     },
 
+    /** Tutup drawer. false bila dibatalkan (sesi latihan yang berjalan tidak jadi ditinggalkan). */
     close() {
+      if (!Practice.confirmLeave()) return false;
       QuizBoard.hide();
       document.getElementById('lesson-drawer').classList.remove('open');
       hideFeedback();
       SFX.click();
+      return true;
     },
 
     switchTab(tab) {
@@ -1203,7 +1205,7 @@ const Confetti = (() => ({
    (level dihitung server dari total XP, lihat gamification/leveling.py)
    ════════════════════════════════════════════════════════════════ */
 const LevelUp = (() => ({
-  show(level) {
+  show(level, gems = 0) {
     if (!level) return;
     document.querySelector('.levelup-overlay')?.remove();
     const el = document.createElement('div');
@@ -1212,6 +1214,7 @@ const LevelUp = (() => ({
       <div class="levelup-card" role="dialog" aria-modal="true" aria-labelledby="levelup-title">
         <div class="levelup-badge"><small>Level</small>${level.level}</div>
         <h3 id="levelup-title">Naik ke Level ${level.level}!</h3>
+        ${gems ? `<p class="levelup-gems">💎 +${gems} diamond</p>` : ''}
         <p>Butuh ${level.need - level.into} XP lagi untuk Level ${level.level + 1}.</p>
         <button type="button" class="btn btn-growth">Mantap! ➔</button>
       </div>`;
@@ -1224,6 +1227,67 @@ const LevelUp = (() => ({
     Confetti.burst();
   },
 }))();
+
+/* ════════════════════════════════════════════════════════════════
+   FOCUS GUARD — anti-curang: deteksi keluar tab/jendela saat soal dinilai
+   (sesi skill tree di practice.js, duel ranked di duel.js)
+   ════════════════════════════════════════════════════════════════ */
+/**
+ * Mechanism: "keluar" = tab tersembunyi (pindah tab, minimize, layar terkunci) ATAU jendela
+ * kehilangan fokus (klik jendela lain, mis. chatbot di split-screen). Satu kali keluar dilaporkan
+ * sekali ke setiap pengawas sampai pengguna kembali. Hukumannya diputuskan server
+ * (sessions.leave_tab / duel.leave_tab); modul ini hanya mendeteksi dan menampilkan peringatan.
+ * Pengawas: { leave(), unload() } — unload dipanggil saat halaman ditutup/dimuat ulang.
+ */
+const FocusGuard = (() => {
+  const watchers = new Set();
+  let away = false;
+  let muted = 0;
+
+  function leave() {
+    if (away || muted || !watchers.size) return;
+    away = true;
+    watchers.forEach((w) => w.leave());
+  }
+  function back() {
+    if (!document.hidden && document.hasFocus()) away = false;
+  }
+  document.addEventListener('visibilitychange', () => (document.hidden ? leave() : back()));
+  window.addEventListener('blur', leave);
+  window.addEventListener('focus', back);
+  window.addEventListener('pagehide', () => watchers.forEach((w) => w.unload?.()));
+
+  return {
+    /** Mulai mengawasi; mengembalikan fungsi untuk berhenti. */
+    watch(w) {
+      watchers.add(w);
+      return () => watchers.delete(w);
+    },
+    /** window.confirm yang tidak dihitung sebagai keluar tab (dialog bisa membuat jendela blur). */
+    confirm(message) {
+      muted += 1;
+      try { return window.confirm(message); } finally { setTimeout(() => { muted -= 1; }, 300); }
+    },
+    /** Kartu peringatan di atas semua layar (termasuk duel). */
+    warn(title, text) {
+      document.querySelector('.tabwarn-overlay')?.remove();
+      const el = document.createElement('div');
+      el.className = 'levelup-overlay tabwarn-overlay';
+      el.innerHTML = `
+        <div class="levelup-card" role="alertdialog" aria-modal="true" aria-labelledby="tabwarn-title">
+          <div class="tabwarn-icon" aria-hidden="true">⚠️</div>
+          <h3 id="tabwarn-title">${title}</h3>
+          <p>${text}</p>
+          <button type="button" class="btn btn-accent">Saya mengerti, lanjutkan</button>
+        </div>`;
+      el.addEventListener('click', (e) => { if (e.target.closest('button')) el.remove(); });
+      document.body.appendChild(el);
+      el.querySelector('button').focus();
+      SFX.wrong();
+    },
+    dismiss() { document.querySelector('.tabwarn-overlay')?.remove(); },
+  };
+})();
 
 /* ════════════════════════════════════════════════════════════════
    BOOT
