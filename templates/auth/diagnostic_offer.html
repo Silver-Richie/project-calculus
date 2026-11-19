@@ -1,4 +1,5 @@
 {% extends 'auth/base_auth.html' %}
+{% load icons %}
 {% comment %}
   HALAMAN: Tawaran tes kemampuan awal.  Ya → tes 10 soal.  Lewati → beranda.
 {% endcomment %}
@@ -8,10 +9,10 @@
 {% block auth_content %}
 <section class="auth-card offer-card">
   {% include 'components/mascot.html' with svg_class="mascot-celebrate" size=120 %}
-  <h2 class="auth-title">Mau uji kemampuan awal dulu?</h2>
+  <h2 class="auth-title">Mau cek kemampuan awal dulu?</h2>
   <p class="auth-sub">
-    Tes singkat {{ total }} soal untuk jalur <strong>{{ faculty.icon }} {{ faculty.short_name }}</strong>.
-    Hasilnya menentukan dari tahap mana kamu mulai — jika fondasimu sudah kuat, tahap awal akan dilewati.
+    Tes singkat {{ total }} soal buat jalur <strong>{% icon_of faculty.icon %} {{ faculty.short_name }}</strong>.
+    Hasilnya nentuin kamu mulai dari tahap mana. Kalau fondasimu udah kuat, tahap awal bakal dilewatin.
   </p>
 
   <div class="offer-plan">
@@ -21,10 +22,10 @@
   </div>
 
   <div class="offer-actions">
-    <a href="{% url 'gamification:auth_diagnostic_test' %}" class="btn btn-accent btn-lg" data-nav>🧪 Ya, mulai tes</a>
-    <a href="{% url 'gamification:home' %}" class="btn btn-outline btn-lg" data-nav>Lewati, langsung ke beranda</a>
+    <a href="{% url 'gamification:auth_diagnostic_test' %}" class="btn btn-accent btn-lg" data-nav>{% icon "flask" %} Gas, mulai tes</a>
+    <a href="{% url 'gamification:home' %}" class="btn btn-outline btn-lg" data-nav>Skip, langsung ke beranda</a>
   </div>
-  <p class="auth-help">Tes juga bisa diulang kapan saja dari halaman Profil.</p>
+  <p class="auth-help">Tesnya bisa diulang kapan aja dari halaman Profil.</p>
 </section>
 {% endblock %}
 

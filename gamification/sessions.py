@@ -241,7 +241,7 @@ class NoHeartsError(PermissionError):
     def __init__(self, state):
         self.state = state
         hours, rest = divmod(state["refill_in"], 3600)
-        super().__init__(f"Nyawamu habis. Nyawa penuh kembali dalam {hours} jam {rest // 60} menit.")
+        super().__init__(f"Heart kamu habis. Penuh lagi dalam {hours} jam {rest // 60} menit.")
 
 
 def _profile_for_hearts(user, lock=False):
@@ -267,7 +267,7 @@ def open_session(user, session):
     Raise PermissionError bila sesi masih terkunci, NoHeartsError bila nyawa habis.
     """
     if not is_unlocked(user, session):
-        raise PermissionError("Selesaikan sesi/topik sebelumnya terlebih dahulu.")
+        raise PermissionError("Beresin sesi/topik sebelumnya dulu, ya.")
     require_hearts(user)
     progress, _ = UserSessionProgress.objects.get_or_create(user=user, session=session)
     return {
@@ -290,11 +290,11 @@ def submit_session(user, session, attempt, answers):
     lain sebelum nyawa habis tidak bisa dipakai untuk terus mencoba.
     """
     if not is_unlocked(user, session):
-        raise PermissionError("Sesi masih terkunci.")
+        raise PermissionError("Sesinya masih dikunci.")
     profile = require_hearts(user, lock=True)
     progress, _ = UserSessionProgress.objects.select_for_update().get_or_create(user=user, session=session)
     if attempt != progress.attempts:
-        raise ValueError("Percobaan sudah kedaluwarsa. Muat ulang sesi.")
+        raise ValueError("Sesi ini udah kedaluwarsa. Buka ulang sesinya, ya.")
 
     quiz = build_quiz(session, user.id, attempt)
     key = {q["id"]: next(o["id"] for o in q["options"] if o["is_correct"]) for q in quiz}

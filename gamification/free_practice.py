@@ -76,7 +76,7 @@ def build_quiz(faculty, topic_slugs, count, rng=None):
     pools = {t.slug: _pool(t, faculty) for t in topics}
     pools = {slug: items for slug, items in pools.items() if items}
     if not pools:
-        raise ValueError("Pilih minimal satu topik yang tersedia.")
+        raise ValueError("Pilih minimal satu topik dulu, ya.")
     titles = {t.slug: t.title for t in topics}
 
     order = list(pools)

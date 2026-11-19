@@ -1,3 +1,4 @@
+{% load icons %}
 <!-- =========================================================================
      MODUL: Lesson Drawer (satu layar penuh, masuk dari kanan)
      Branch : feat/learning-path
@@ -19,8 +20,8 @@
 
     <!-- Tabs -->
     <div class="drawer-tabs">
-      <button class="drawer-tab active" data-tab="materi" onclick="Drawer.switchTab('materi')">📖 Materi</button>
-      <button class="drawer-tab"        data-tab="kuis"   onclick="Drawer.switchTab('kuis')">🎯 Kuis</button>
+      <button class="drawer-tab active" data-tab="materi" onclick="Drawer.switchTab('materi')">{% icon "book" %} Materi</button>
+      <button class="drawer-tab"        data-tab="kuis"   onclick="Drawer.switchTab('kuis')">{% icon "target" %} Kuis</button>
     </div>
 
     <!-- Body (scrollable) -->
@@ -54,8 +55,8 @@
     <!-- Bottom feedback bar (Duolingo style) -->
     <div class="feedback-bar" id="feedback-bar">
       <div>
-        <h4 id="feedback-title" class="success-text">Jawabanmu Tepat!</h4>
-        <p  id="feedback-body">Penjelasan akan muncul di sini.</p>
+        <h4 id="feedback-title" class="success-text">Jawabanmu bener!</h4>
+        <p  id="feedback-body">Penjelasannya muncul di sini.</p>
       </div>
       <button class="btn btn-growth btn-sm" id="feedback-action-btn" onclick="QuizEngine.nextQuestion()">
         Lanjut ➔

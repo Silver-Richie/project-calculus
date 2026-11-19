@@ -63,7 +63,7 @@ def eligibility(user):
     profile = UserProfile.objects.filter(user=user).first()
     level = level_for(profile.xp if profile else 0)
     if level < MIN_LEVEL:
-        return f"Duel terbuka mulai Level {MIN_LEVEL}. Levelmu sekarang {level}: selesaikan sesi latihan topik untuk menambah XP."
+        return f"Duel kebuka di Level {MIN_LEVEL} (Level kamu: {level}). Kumpulin XP dulu dari sesi latihan topik."
     return None
 
 
@@ -188,9 +188,9 @@ def record_answer(match_id, user, index, option_id, now=None):
     with transaction.atomic():
         match = DuelMatch.objects.filter(pk=match_id, status=DuelMatch.ACTIVE).first()
         if not match or user.id not in match.players():
-            return False, "Duel tidak ditemukan.", False
+            return False, "Duel-nya gak ketemu.", False
         if match.current != index or match.q_started_at is None:
-            return False, "Soal ini sudah ditutup.", False
+            return False, "Soal ini udah ditutup.", False
         ms = int((now - match.q_started_at).total_seconds() * 1000)
         limit_ms = match.time_limit * 1000
         if ms > limit_ms + GRACE_MS:
@@ -202,7 +202,7 @@ def record_answer(match_id, user, index, option_id, now=None):
             defaults={"option_id": option_id, "correct": correct, "ms": min(ms, limit_ms),
                       "points": points_for(correct, min(ms, limit_ms), limit_ms)})
         if not created:
-            return False, "Kamu sudah menjawab soal ini.", False
+            return False, "Kamu udah jawab soal ini.", False
         both = DuelAnswer.objects.filter(match=match, index=index).count() == 2
         return True, "", both
 

@@ -100,7 +100,7 @@ class DuelConsumer(AsyncJsonWebsocketConsumer):
                 return
             if await db(duel.queue_expired)(self.user):
                 await db(duel.leave_queue)(self.user)
-                await self.send_json({"type": "no_opponent", "message": "Belum ada lawan online yang setara. Coba lagi sebentar lagi."})
+                await self.send_json({"type": "no_opponent", "message": "Belum ada lawan online yang selevel. Coba lagi bentar, ya."})
                 return
             await self.search()
 

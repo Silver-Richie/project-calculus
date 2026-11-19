@@ -6,11 +6,12 @@
               Diisi static/js/ranked.js dari server-profile; duel dimainkan lewat static/js/duel.js.
      ========================================================================= -->
 
+{% load icons %}
 <section class="ranked-hero" id="ranked-hero" aria-label="Rank duel kamu"{% if not duel_enabled %} data-duel-off{% endif %}>
   <header class="ranked-top">
     <div>
-      <h2 class="ranked-title">⚔️ Ranked Duel</h2>
-      <small>Duel kalkulus 1 lawan 1 · 5 soal identik · adu cepat &amp; tepat</small>
+      <h2 class="ranked-title">{% icon "swords" %} Ranked Duel</h2>
+      <small>Duel kalkulus 1 lawan 1 · 5 soal yang sama · adu cepat &amp; tepat</small>
     </div>
     <button type="button" class="ranked-help" data-ranked="info" aria-label="Cara naik rank">?</button>
   </header>
@@ -30,41 +31,41 @@
     <aside class="ranked-stats" aria-label="Statistik duel">
       <div class="ranked-stat"><b id="ranked-winrate">–</b><small>Win Rate</small></div>
       <div class="ranked-stat"><b id="ranked-total">0</b><small>Total Duel</small></div>
-      <div class="ranked-stat"><b id="ranked-streak">0</b><small>Menang Beruntun</small></div>
+      <div class="ranked-stat"><b id="ranked-streak">0</b><small>Win Streak</small></div>
       <div class="ranked-shield">
-        <span>🛡️ Perisai Bintang <b id="ranked-shields">0/5</b></span>
+        <span>{% icon "shield" %} Streak Shield <b id="ranked-shields">0/5</b></span>
         <div class="ranked-shield-track"><div class="ranked-shield-bar" id="ranked-shield-bar"></div></div>
       </div>
     </aside>
   </div>
 
   <div class="ranked-actions">
-    <button type="button" class="ranked-link" data-ranked="info">📜<span>Info Rank</span></button>
+    <button type="button" class="ranked-link" data-ranked="info">{% icon "doc" %}<span>Info Rank</span></button>
     {% if not duel_enabled %}
       <button type="button" class="ranked-play locked" disabled title="Duel real-time sedang disiapkan untuk server online">
-        ⏳ Segera hadir<small>duel online menyusul</small></button>
+        <span>{% icon "clock" %} Segera hadir</span><small>duel online menyusul</small></button>
     {% elif server_profile.level.level >= 3 %}
       <button type="button" class="ranked-play" id="duel-start-btn">Mulai Duel</button>
     {% else %}
-      <button type="button" class="ranked-play locked" disabled title="Selesaikan sesi latihan topik untuk menambah XP">
-        🔒 Terbuka di Level 3<small>kamu Lv {{ server_profile.level.level|default:1 }}</small></button>
+      <button type="button" class="ranked-play locked" disabled title="Kumpulin XP dari sesi latihan topik">
+        <span>{% icon "lock" %} Kebuka di Level 3</span><small>Level kamu: {{ server_profile.level.level|default:1 }}</small></button>
     {% endif %}
-    <button type="button" class="ranked-link" data-ranked="board">🏆<span>Papan Rank</span></button>
+    <button type="button" class="ranked-link" data-ranked="board">{% icon "podium" %}<span>Leaderboard</span></button>
   </div>
 </section>
 
-<section class="ranked-road" aria-label="Jalan menuju Apex">
-  <h3>Jalan menuju Apex</h3>
+<section class="ranked-road" aria-label="Road to Apex">
+  <h3>Road to Apex</h3>
   <ol class="ranked-road-list" id="ranked-road"></ol>
 </section>
 
 <details class="ranked-info tier-help" id="ranked-info">
   <summary>Cara naik rank</summary>
-  <p>Adu cepat dan tepat dengan soal yang sama persis dengan lawanmu. Menang +1 bintang; bintang penuh lalu
-    menang sekali lagi = naik sub-rank. Kalah −1 bintang, kecuali di Terra dan saat kalah tipis. Tiap
-    3 kemenangan beruntun di Terra–Solar memberi bonus bintang. Perisai Bintang dari Toko otomatis
-    menahan bintangmu saat kalah.</p>
-  <p>⚠️ Selama duel jangan keluar dari tab: sekali = soal itu dihitung salah, dua kali = kalah.</p>
+  <p>Kamu dan lawan dapat soal yang sama persis, yang lebih cepat dan tepat menang. Menang = +1 bintang;
+    kalau bintang udah penuh, menang sekali lagi buat naik sub-rank. Kalah = −1 bintang, kecuali di Terra
+    atau kalau kalahnya tipis. Win streak 3× di Terra–Solar dapat bonus bintang. Streak Shield dari Item Shop
+    otomatis jagain bintangmu waktu kalah.</p>
+  <p>{% icon "warning" %} Selama duel jangan pindah tab: sekali = soal itu dihitung salah, dua kali = kalah.</p>
   <ol class="tier-list">
     <li class="tier-terra"><b><span class="tier-emb" data-tier="terra"></span>Terra</b><span>Bumi · III → I · 3★ per sub-rank</span></li>
     <li class="tier-luna"><b><span class="tier-emb" data-tier="luna"></span>Luna</b><span>Bulan · III → I · 4★ per sub-rank</span></li>

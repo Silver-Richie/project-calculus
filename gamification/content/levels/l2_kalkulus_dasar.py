@@ -14,7 +14,7 @@ from ..helpers import antiderivative_family, area_graph, bullets, limit_graph, p
 from .l1_precalculus import g, ref
 
 MAIN_LEVEL = {"slug": "kalkulus-dasar", "order": 2, "title": "Kalkulus Dasar",
-              "subtitle": "Limit, turunan, aplikasi turunan, integral", "icon": "📐"}
+              "subtitle": "Limit, turunan, aplikasi turunan, integral", "icon": "lv-kalkulus-dasar"}
 
 
 def T(slug, title, icon, summary, references, sections):
@@ -27,7 +27,7 @@ def S(heading, body, graphs=None):
 
 # ═════════════════════════ Sub-level 1: Limit dan Kekontinuan ════════════════
 LIMIT = [
-    T("kd-lim-konsep", "Konsep Limit & Limit Sepihak", "🎯", "Makna limit, limit kiri/kanan, hukum limit.",
+    T("kd-lim-konsep", "Konsep Limit & Limit Sepihak", "m-limit", "Makna limit, limit kiri/kanan, hukum limit.",
       "Stewart §2.2–2.3; Whitman §2.3; Strang §2.6", [
           S("Apa arti lim f(x) = L?",
             "<p>lim<sub>x→c</sub> f(x) = L berarti nilai f(x) dapat dibuat <b>sedekat mungkin</b> dengan L dengan mengambil x cukup dekat "
@@ -42,7 +42,7 @@ LIMIT = [
                                                                    ["Pangkat/akar", "lim fⁿ = Aⁿ, lim ⁿ√f = ⁿ√A"]])
             + "<p>Untuk polinom dan fungsi rasional (penyebut ≠ 0) limit = substitusi langsung.</p>"),
       ]),
-    T("kd-lim-aljabar", "Teknik Aljabar Bentuk 0/0", "🧮", "Faktorisasi, kalikan sekawan, pecahan bersusun.",
+    T("kd-lim-aljabar", "Teknik Aljabar Bentuk 0/0", "0/0", "Faktorisasi, kalikan sekawan, pecahan bersusun.",
       "Stewart §2.3; Whitman §2.3", [
           S("Bentuk tak tentu 0/0",
             "<p>Jika substitusi menghasilkan 0/0, limit <b>belum diketahui</b>. Sederhanakan dulu:</p>"
@@ -50,7 +50,7 @@ LIMIT = [
                        "<b>Samakan penyebut</b>: (1/x − 1/2)/(x − 2) → −1/4.", "Pola umum: lim (xⁿ − aⁿ)/(x − a) = n·aⁿ⁻¹."]),
             [limit_graph("(√(x + 1) − 2)/(x − 3) → 1/4", "(sqrt(x+1)-2)/(x-3)", "3", "0.25", [-1, 8], [0, 0.6])]),
       ]),
-    T("kd-lim-takhingga", "Limit di Tak Hingga & Asimtot", "♾️", "Perilaku ujung grafik, asimtot datar & tegak, bilangan e.",
+    T("kd-lim-takhingga", "Limit di Tak Hingga & Asimtot", "m-asymptote", "Perilaku ujung grafik, asimtot datar & tegak, bilangan e.",
       "Stewart §2.6, §3.6; Whitman §4.3; Strang §6.2", [
           S("Limit di tak hingga",
             "<p>lim<sub>x→∞</sub> 1/xᵖ = 0 (p &gt; 0). Untuk fungsi rasional bandingkan derajat:</p>"
@@ -62,7 +62,7 @@ LIMIT = [
                 {"type": "vline", "x": 2, "color": "red", "dash": True}], [readout("asimtot datar y = a", "a", 2)],
                "Garis merah putus-putus = asimtot.")]),
       ]),
-    T("kd-lim-trig", "Limit Trigonometri", "📡", "lim sin x / x = 1 dan turunannya.", "Whitman §4.3; Stewart §3.3", [
+    T("kd-lim-trig", "Limit Trigonometri", "m-sine", "lim sin x / x = 1 dan turunannya.", "Whitman §4.3; Stewart §3.3", [
         S("Limit istimewa sin x / x",
           "<p><b>lim<sub>x→0</sub> sin x / x = 1</b> (x radian) dibuktikan dengan teorema apit: cos x ≤ sin x / x ≤ 1 (Whitman §4.3 “A hard limit”). "
           "Akibatnya: lim sin(ax)/(bx) = a/b, lim tan x / x = 1, lim (1 − cos x)/x² = 1/2.</p>",
@@ -71,7 +71,7 @@ LIMIT = [
               {"type": "hline", "y": 1, "color": "red", "dash": True}, {"type": "point", "x": "d", "y": "sin(d)/d", "color": "red"}],
              [readout("sin x / x", "sin(d)/d", 6)], "Kurva biru terjepit antara cos x dan 1, sehingga di x → 0 nilainya → 1.")]),
     ]),
-    T("kd-lim-kontinu", "Kekontinuan & Pembuktian Limit", "🔗", "Tiga syarat kontinu, jenis diskontinuitas, TNA, bukti ε–δ.",
+    T("kd-lim-kontinu", "Kekontinuan & Pembuktian Limit", "ε", "Tiga syarat kontinu, jenis diskontinuitas, TNA, bukti ε–δ.",
       "Stewart §2.4–2.5; Strang §2.7; Whitman §2.3", [
           S("Kekontinuan",
             "<p>f kontinu di c ⇔ (1) f(c) terdefinisi, (2) lim<sub>x→c</sub> f(x) ada, (3) lim f(x) = f(c). Diskontinuitas: <b>dapat dihapus</b> "
@@ -91,7 +91,7 @@ LIMIT = [
 
 # ═════════════════════════ Sub-level 2: Turunan ════════════════════════════
 TURUNAN = [
-    T("kd-tur-definisi", "Definisi Turunan & Garis Singgung", "📍", "Laju perubahan, limit hasil bagi selisih, keterdiferensialan.",
+    T("kd-tur-definisi", "Definisi Turunan & Garis Singgung", "m-tangent", "Laju perubahan, limit hasil bagi selisih, keterdiferensialan.",
       "Stewart §2.7–2.8; Whitman §2.1–2.4; Strang §2.1–2.3", [
           S("Turunan sebagai limit",
             "<p><b>f′(a) = lim<sub>h→0</sub> [f(a + h) − f(a)]/h</b> = gradien garis singgung = laju perubahan sesaat. "
@@ -99,7 +99,7 @@ TURUNAN = [
             "<p>Terdiferensialkan ⇒ kontinu, tetapi tidak sebaliknya: |x| kontinu di 0 namun punya sudut.</p>",
             [tangent_graph("Garis singgung y = x³ − 3x", "x**3-3*x", "3*x*x-3", "Titik a", -2.5, 2.5, 1.5, [-3, 3], [-6, 6])]),
       ]),
-    T("kd-tur-dasar", "Aturan Pangkat, Konstanta & Jumlah", "✏️", "(xⁿ)′ = nxⁿ⁻¹, turunan tingkat tinggi.", "Stewart §3.1; Whitman §3.1–3.2", [
+    T("kd-tur-dasar", "Aturan Pangkat, Konstanta & Jumlah", "xⁿ", "(xⁿ)′ = nxⁿ⁻¹, turunan tingkat tinggi.", "Stewart §3.1; Whitman §3.1–3.2", [
         S("Aturan dasar",
           table(["Fungsi", "Turunan"], [["c", "0"], ["xⁿ (n real)", "nxⁿ⁻¹"], ["c·f", "c·f′"], ["f ± g", "f′ ± g′"]])
           + "<p>Akar dan pecahan ditulis sebagai pangkat: √x = x<sup>1/2</sup>, 1/x³ = x<sup>−3</sup>. Turunan kedua f″ = (f′)′ "
@@ -108,7 +108,7 @@ TURUNAN = [
              [{"type": "fn", "expr": "x**nn", "color": "blue", "label": "xⁿ"}, {"type": "fn", "expr": "nn*x**(nn-1)", "color": "orange", "label": "nxⁿ⁻¹"}],
              None, "Di mana f naik, grafik f′ di atas sumbu-x.")]),
     ]),
-    T("kd-tur-perkalian", "Aturan Perkalian & Pembagian", "✖️", "(uv)′ = u′v + uv′, (u/v)′ = (u′v − uv′)/v².", "Stewart §3.2; Whitman §3.3–3.4", [
+    T("kd-tur-perkalian", "Aturan Perkalian & Pembagian", "u·v", "(uv)′ = u′v + uv′, (u/v)′ = (u′v − uv′)/v².", "Stewart §3.2; Whitman §3.3–3.4", [
         S("Perkalian dan pembagian",
           "<p><b>(uv)′ = u′v + uv′</b> dan <b>(u/v)′ = (u′v − uv′)/v²</b>. Turunan hasil kali bukan hasil kali turunan! "
           "Contoh: (x² sin x)′ = 2x sin x + x² cos x.</p>",
@@ -118,14 +118,14 @@ TURUNAN = [
              [readout("u·Δv + v·Δu", "3*dv+4*du", 3), readout("Δu·Δv (diabaikan)", "du*dv", 4)],
              "Δ(uv) = uΔv + vΔu + ΔuΔv; suku terakhir hilang saat dibagi Δx dan Δx → 0.")]),
     ]),
-    T("kd-tur-rantai", "Aturan Rantai", "⛓️", "Turunan fungsi komposisi.", "Stewart §3.4; Whitman §3.5; Strang §4.1", [
+    T("kd-tur-rantai", "Aturan Rantai", "m-chain", "Turunan fungsi komposisi.", "Stewart §3.4; Whitman §3.5; Strang §4.1", [
         S("Aturan rantai",
           "<p>Jika y = f(u) dan u = g(x), maka <b>dy/dx = dy/du · du/dx</b>, yaitu (f(g(x)))′ = f′(g(x))·g′(x). "
           "Contoh: ((2x + 1)⁵)′ = 5(2x + 1)⁴·2 = 10(2x + 1)⁴ (soal U-D3).</p>",
           [tangent_graph("Komposisi sin(x²)", "sin(x*x)", "2*x*cos(x*x)", "a", -2.5, 2.5, 1, [-3, 3], [-2, 2],
                          caption="Kemiringan sin(x²) = cos(x²)·2x: faktor 2x membuat osilasi makin rapat.")]),
     ]),
-    T("kd-tur-transenden", "Turunan Trig, Eksponen, Log & Implisit", "🌐", "sin, cos, tan, eˣ, ln x, turunan implisit & invers.",
+    T("kd-tur-transenden", "Turunan Trig, Eksponen, Log & Implisit", "eˣ", "sin, cos, tan, eˣ, ln x, turunan implisit & invers.",
       "Stewart §3.3, §3.5–3.6; Whitman Bab 4; Strang §4.2–4.4, §6.2", [
           S("Tabel turunan transenden",
             table(["f(x)", "f′(x)"], [["sin x", "cos x"], ["cos x", "−sin x"], ["tan x", "sec²x"], ["eˣ", "eˣ"], ["aˣ", "aˣ ln a"],
@@ -138,20 +138,20 @@ TURUNAN = [
 
 # ═════════════════════════ Sub-level 3: Aplikasi Turunan ══════════════════
 APLIKASI = [
-    T("kd-apl-singgung", "Garis Singgung, Normal & Aproksimasi", "📐", "Persamaan singgung/normal, aproksimasi linear.",
+    T("kd-apl-singgung", "Garis Singgung, Normal & Aproksimasi", "m-tangent", "Persamaan singgung/normal, aproksimasi linear.",
       "Stewart §3.10; Whitman §6.4", [
           S("Garis singgung dan linearisasi",
             "<p>Garis singgung di x₀: y = f(x₀) + f′(x₀)(x − x₀). Garis normal tegak lurus: gradien −1/f′(x₀). "
             "<b>Aproksimasi linear</b> L(x) = f(a) + f′(a)(x − a) menaksir f di dekat a, mis. √4,1 ≈ 2 + 0,1/4 = 2,025.</p>",
             [tangent_graph("√x dan garis singgungnya di a", "sqrt(x)", "1/(2*sqrt(x))", "a", 0.3, 9, 4, [0, 10], [0, 4])]),
       ]),
-    T("kd-apl-laju", "Laju Terkait", "⏱️", "Menurunkan hubungan antar besaran terhadap waktu.", "Stewart §3.9; Whitman §6.2", [
+    T("kd-apl-laju", "Laju Terkait", "clock", "Menurunkan hubungan antar besaran terhadap waktu.", "Stewart §3.9; Whitman §6.2", [
         S("Langkah laju terkait",
           "<ol class='lesson-list'><li>Gambar & beri nama variabel.</li><li>Tulis persamaan hubungan (Pythagoras, volume, sebangun).</li>"
           "<li>Turunkan terhadap t (aturan rantai).</li><li>Substitusi nilai sesaat <b>setelah</b> menurunkan.</li></ol>"
           "<p>Contoh tangga: x² + y² = L² ⇒ dy/dt = −(x/y)·dx/dt (soal U-S7).</p>"),
     ]),
-    T("kd-apl-ekstrem", "Nilai Ekstrem & Uji Turunan", "⛰️", "Titik kritis, naik/turun, uji turunan pertama & kedua.",
+    T("kd-apl-ekstrem", "Nilai Ekstrem & Uji Turunan", "m-extrema", "Titik kritis, naik/turun, uji turunan pertama & kedua.",
       "Stewart §4.1–4.3; Whitman §5.1–5.3", [
           S("Mencari ekstrem",
             bullets(["Titik kritis: f′(c) = 0 atau f′(c) tidak ada.", "f′ &gt; 0 ⇒ naik; f′ &lt; 0 ⇒ turun.",
@@ -162,7 +162,7 @@ APLIKASI = [
                 {"type": "point", "x": 0, "y": 1, "color": "red"}, {"type": "point", "x": 2, "y": -3, "color": "red"}, {"type": "hline", "y": 0, "color": "gray"}],
                None, "Ekstrem terjadi saat f′ (oranye) memotong sumbu-x.")]),
       ]),
-    T("kd-apl-cekung", "Kecekungan & Sketsa Grafik", "〰️", "Titik belok, cekung atas/bawah, membaca grafik dari f′.",
+    T("kd-apl-cekung", "Kecekungan & Sketsa Grafik", "m-concavity", "Titik belok, cekung atas/bawah, membaca grafik dari f′.",
       "Stewart §4.3–4.5; Whitman §5.4–5.5", [
           S("Kecekungan",
             "<p>f″ &gt; 0: cekung ke atas (∪), f″ &lt; 0: cekung ke bawah (∩). Titik belok: kecekungan berganti. "
@@ -172,7 +172,7 @@ APLIKASI = [
                 {"type": "fn", "expr": "(s**3-3*s)+(3*s*s-3)*(x-s)", "color": "orange", "dash": True}],
                [readout("f″(x) = 6x", "6*s", 3)], "Cekung atas: grafik di atas garis singgung; cekung bawah: di bawahnya.")]),
       ]),
-    T("kd-apl-optimasi", "Optimasi, L'Hôpital & TNR", "🏆", "Masalah maksimum/minimum, aturan L'Hôpital, Teorema Nilai Rata-rata.",
+    T("kd-apl-optimasi", "Optimasi, L'Hôpital & TNR", "trophy", "Masalah maksimum/minimum, aturan L'Hôpital, Teorema Nilai Rata-rata.",
       "Stewart §4.4, §4.7, §4.2; Whitman §6.1, §6.5", [
           S("Optimasi",
             "<p>Tentukan besaran yang dioptimalkan, nyatakan sebagai fungsi satu variabel (pakai kendala), cari titik kritis, cek ujung domain. "
@@ -189,13 +189,13 @@ APLIKASI = [
 
 # ═════════════════════════ Sub-level 4: Integral ═══════════════════════════
 INTEGRAL = [
-    T("kd-int-antiturunan", "Antiturunan & Integral Tak Tentu", "🔙", "∫ xⁿ dx, tabel integral, syarat awal.", "Stewart §4.9, §5.4; Strang §5.2", [
+    T("kd-int-antiturunan", "Antiturunan & Integral Tak Tentu", "∫", "∫ xⁿ dx, tabel integral, syarat awal.", "Stewart §4.9, §5.4; Strang §5.2", [
         S("Antiturunan",
           "<p>F antiturunan f bila F′ = f. Semua antiturunan berbentuk F(x) + C. Notasi ∫ f(x) dx = F(x) + C.</p>"
           + table(["f(x)", "∫ f(x) dx"], [["xⁿ (n ≠ −1)", "xⁿ⁺¹/(n + 1) + C"], ["1/x", "ln|x| + C"], ["eˣ", "eˣ + C"], ["sin x", "−cos x + C"], ["cos x", "sin x + C"]]),
           [antiderivative_family("Keluarga antiturunan 3x²", "3*x*x", "x**3", [-2, 2], [-10, 10])]),
     ]),
-    T("kd-int-riemann", "Notasi Sigma & Jumlah Riemann", "📊", "Σ, rumus jumlah, luas sebagai limit jumlah.", "Stewart §5.1–5.2; Whitman §7.1; Strang §5.3", [
+    T("kd-int-riemann", "Notasi Sigma & Jumlah Riemann", "m-riemann", "Σ, rumus jumlah, luas sebagai limit jumlah.", "Stewart §5.1–5.2; Whitman §7.1; Strang §5.3", [
         S("Dari jumlah ke integral",
           "<p>Bagi [a, b] menjadi n bagian Δx = (b − a)/n. Jumlah Riemann Σ f(xᵢ)Δx menaksir luas; integral tentu adalah limitnya untuk n → ∞.</p>"
           + bullets(["Σk = n(n + 1)/2", "Σk² = n(n + 1)(2n + 1)/6", "Σk³ = [n(n + 1)/2]²"]),
@@ -203,14 +203,14 @@ INTEGRAL = [
              [{"type": "riemann", "id": "R", "expr": "sin(x)", "from": 0, "to": "pi", "n": "N", "mode": "mid", "color": "amber"}, {"type": "fn", "expr": "sin(x)", "color": "blue"}],
              [readout("Jumlah titik tengah", "R", 6), readout("Eksak", "2", 6)], "Jumlah mendekati 2 saat n bertambah.")]),
     ]),
-    T("kd-int-tentu", "Integral Tentu & Sifatnya", "📏", "Luas bertanda, linearitas, nilai mutlak, simetri.", "Stewart §5.2; Whitman §7.3", [
+    T("kd-int-tentu", "Integral Tentu & Sifatnya", "lv-kalkulus-menengah", "Luas bertanda, linearitas, nilai mutlak, simetri.", "Stewart §5.2; Whitman §7.3", [
         S("Sifat integral tentu",
           bullets(["∫ₐᵇ (cf + g) = c∫ₐᵇ f + ∫ₐᵇ g", "∫ₐᶜ f = ∫ₐᵇ f + ∫ᵦᶜ f", "∫ₐᵇ f = −∫ᵦᵃ f, ∫ₐᵃ f = 0",
                    "f ganjil ⇒ ∫₋ₐᵃ f = 0; f genap ⇒ ∫₋ₐᵃ f = 2∫₀ᵃ f"]),
           [area_graph("Luas bertanda f(x) = x² − 2", "x*x-2", 0, param("b", "Batas atas b", 0, 3, 0.05, 2.5, "b"), "b**3/3-2*b", [-0.5, 3.2], [-3, 8],
                       caption="Bagian di bawah sumbu-x memberi kontribusi negatif.")]),
     ]),
-    T("kd-int-tdk", "Teorema Dasar Kalkulus", "🌉", "Jembatan turunan–integral, nilai rata-rata.", "Stewart §5.3; Whitman §7.2; Strang §5.7", [
+    T("kd-int-tdk", "Teorema Dasar Kalkulus", "∫ₐᵇ", "Jembatan turunan–integral, nilai rata-rata.", "Stewart §5.3; Whitman §7.2; Strang §5.7", [
         S("Dua bagian TDK",
           "<p><b>TDK 1</b>: g(x) = ∫ₐˣ f(t) dt ⇒ g′(x) = f(x). <b>TDK 2</b>: ∫ₐᵇ f(x) dx = F(b) − F(a) untuk antiturunan F. "
           "Nilai rata-rata f̄ = (1/(b − a))∫ₐᵇ f dx.</p>",
@@ -219,7 +219,7 @@ INTEGRAL = [
               {"type": "fn", "expr": "sin(x)", "color": "red", "dash": True, "label": "g = ∫f"}, {"type": "point", "x": "X", "y": "sin(X)", "color": "red"}],
              [readout("luas terakumulasi g(x)", "sin(X)", 4), readout("g′(x) = f(x)", "cos(X)", 4)], "Laju pertambahan luas (g′) sama dengan tinggi f di x.")]),
     ]),
-    T("kd-int-substitusi", "Integral Substitusi & Luas Daerah", "🧩", "Substitusi u, luas di bawah/antara kurva.", "Stewart §5.5, §6.1; Whitman §8.1, §9.1", [
+    T("kd-int-substitusi", "Integral Substitusi & Luas Daerah", "du", "Substitusi u, luas di bawah/antara kurva.", "Stewart §5.5, §6.1; Whitman §8.1, §9.1", [
         S("Substitusi dan luas",
           "<p><b>Substitusi</b>: ∫ f(g(x))g′(x) dx = ∫ f(u) du dengan u = g(x) (kebalikan aturan rantai). Untuk integral tentu, ubah juga batasnya.</p>"
           "<p><b>Luas antara dua kurva</b>: ∫ₐᵇ [atas − bawah] dx, dengan a, b titik potong. Luas parabola terhadap tali busurnya = |a|(q − p)³/6.</p>",
@@ -231,11 +231,11 @@ INTEGRAL = [
 ]
 
 SUBLEVELS = [
-    {"slug": "kd-limit-kekontinuan", "title": "Limit dan Kekontinuan", "subtitle": "Konsep limit sampai pembuktian ε–δ", "icon": "🎯",
+    {"slug": "kd-limit-kekontinuan", "title": "Limit dan Kekontinuan", "subtitle": "Konsep limit sampai pembuktian ε–δ", "icon": "m-limit",
      "badge_label": "Kalkulus Dasar", "summary_html": "<p>Fondasi kalkulus: limit, teknik menghitungnya, dan kekontinuan.</p>", "topics": LIMIT},
-    {"slug": "kd-turunan", "title": "Turunan (Diferensial)", "subtitle": "Definisi dan aturan-aturan turunan", "icon": "📈",
+    {"slug": "kd-turunan", "title": "Turunan (Diferensial)", "subtitle": "Definisi dan aturan-aturan turunan", "icon": "m-tangent",
      "badge_label": "Kalkulus Dasar", "summary_html": "<p>Turunan sebagai laju perubahan dan seluruh aturan diferensiasi.</p>", "topics": TURUNAN},
-    {"slug": "kd-aplikasi-turunan", "title": "Aplikasi Turunan", "subtitle": "Singgung, laju terkait, ekstrem, optimasi", "icon": "🛠️",
+    {"slug": "kd-aplikasi-turunan", "title": "Aplikasi Turunan", "subtitle": "Singgung, laju terkait, ekstrem, optimasi", "icon": "m-extrema",
      "badge_label": "Kalkulus Dasar", "summary_html": "<p>Menggunakan turunan untuk menganalisis grafik dan memecahkan masalah nyata.</p>", "topics": APLIKASI},
     {"slug": "kd-integral", "title": "Integral Tentu & Tak Tentu", "subtitle": "Antiturunan, Riemann, TDK, substitusi, luas", "icon": "∫",
      "badge_label": "Kalkulus Dasar", "summary_html": "<p>Integral sebagai antiturunan dan sebagai luas, dihubungkan oleh Teorema Dasar Kalkulus.</p>", "topics": INTEGRAL},

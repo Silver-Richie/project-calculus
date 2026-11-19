@@ -29,10 +29,10 @@ const Lessons = (() => {
   const MAX_CHARS = 650;      // bagian materi lebih panjang dari ini dipecah ke beberapa slide
   const CHECK_COUNT = 3;
   const TIPS = [
-    'Baca pelan-pelan. Kalau sudah paham, tekan <b>Lanjut</b>.',
+    'Santai aja bacanya. Kalau udah paham, tekan <b>Lanjut</b>.',
     'Coba tebak langkah berikutnya sebelum muncul.',
-    'Ambil kertas dan tulis ulang rumusnya dengan kata-katamu sendiri.',
-    'Bingung? Kembali ke slide sebelumnya tidak apa-apa.',
+    'Ambil kertas, tulis ulang rumusnya pakai bahasamu sendiri.',
+    'Bingung? Balik ke slide sebelumnya juga gapapa.',
   ];
 
   let progress = loadProgress();
@@ -104,7 +104,7 @@ const Lessons = (() => {
       const tmp = document.createElement('div');
       tmp.innerHTML = sec.body_html;
       tmp.querySelectorAll('.book-ref').forEach((r) => {
-        const txt = r.innerHTML.replace(/^📚\s*Rujukan:\s*/, '');
+        const txt = r.innerHTML.replace(/^.*?Rujukan:\s*/, '');
         if (!refs.includes(txt)) refs.push(txt);
         r.remove();
       });
@@ -142,18 +142,18 @@ const Lessons = (() => {
       const reads = slides.filter((x) => x.kind === 'content').length;
       return `
         <div class="lp-intro">
-          <div class="lp-intro-icon lp-in" style="--i:0">${topic.icon}</div>
-          <div class="lp-kicker lp-in" style="--i:1">${lvl ? `${lvl.icon} ${lvl.title} · ` : ''}${node.title} · Topik ${k}/${node.topics.length}</div>
+          <div class="lp-intro-icon lp-in" style="--i:0">${Icon.of(topic.icon)}</div>
+          <div class="lp-kicker lp-in" style="--i:1">${lvl ? `${Icon.level(lvl)} ${lvl.title} · ` : ''}${node.title} · Topik ${k}/${node.topics.length}</div>
           <h2 class="lp-in" style="--i:2">${topic.title}</h2>
           ${topic.summary ? `<p class="lp-lead lp-in" style="--i:3">${topic.summary}</p>` : ''}
           <div class="lp-agenda lp-in" style="--i:4">
-            <h4>Yang akan kamu pelajari</h4>
+            <h4>Yang bakal kamu pelajari</h4>
             <ol>${headings.map((h) => `<li>${h}</li>`).join('')}</ol>
           </div>
           <div class="lp-chips lp-in" style="--i:5">
-            <span>📖 ${reads} slide materi</span>
-            ${graphs ? `<span>🎛️ ${graphs} grafik interaktif</span>` : ''}
-            <span>✅ ${CHECK_COUNT} soal cek pemahaman</span>
+            <span>${Icon('book')} ${reads} slide materi</span>
+            ${graphs ? `<span>${Icon('sliders')} ${graphs} grafik interaktif</span>` : ''}
+            <span>${Icon('check')} ${CHECK_COUNT} soal kuis singkat</span>
           </div>
         </div>`;
     }
@@ -165,16 +165,16 @@ const Lessons = (() => {
     }
     if (s.kind === 'graph') {
       return `
-        <div class="lp-kicker">🎛️ Coba sendiri</div>
+        <div class="lp-kicker">${Icon('sliders')} Coba sendiri</div>
         <h3 class="lp-slide-title">${s.heading}</h3>
-        <p class="lp-hint">Geser slidernya dan perhatikan apa yang berubah pada grafik.</p>
+        <p class="lp-hint">Geser slidernya, terus perhatiin apa yang berubah di grafik.</p>
         <div class="lesson-graphs"></div>`;
     }
     if (s.kind === 'check') {
       return `
-        <div class="lp-kicker">✅ Cek pemahaman</div>
+        <div class="lp-kicker">${Icon('check')} Kuis singkat</div>
         <h3 class="lp-slide-title">${CHECK_COUNT} soal kilat</h3>
-        <p class="lp-hint">Tanpa nyawa dan tanpa XP. Boleh dilewati dengan tombol Lanjut.</p>
+        <p class="lp-hint">Gak pakai heart, gak dapat XP. Boleh di-skip pakai tombol Lanjut.</p>
         <div class="lp-check"></div>`;
     }
     // summary
@@ -182,20 +182,20 @@ const Lessons = (() => {
     const r = rec(topic.slug);
     return `
       <div class="lp-done">
-        <div class="lp-done-badge lp-in" style="--i:0">🏁</div>
+        <div class="lp-done-badge lp-in" style="--i:0">${Icon('flag')}</div>
         <h2 class="lp-in" style="--i:1">Topik selesai!</h2>
-        <p class="lp-lead lp-in" style="--i:2">${topic.icon} ${topic.title}</p>
+        <p class="lp-lead lp-in" style="--i:2">${Icon.of(topic.icon)} ${topic.title}</p>
         <ul class="lp-recap lp-in" style="--i:3">${headings.map((h) => `<li>${h}</li>`).join('')}</ul>
-        ${r.check != null ? `<p class="lp-score lp-in" style="--i:4">Cek pemahaman: <b>${r.check}/${r.checkTotal}</b> benar</p>` : ''}
+        ${r.check != null ? `<p class="lp-score lp-in" style="--i:4">Kuis singkat: <b>${r.check}/${r.checkTotal}</b> benar</p>` : ''}
         ${s.refs.length || topic.references ? `
           <div class="lp-refs lp-in" style="--i:5">
-            <h4>📚 Bacaan lanjut</h4>
+            <h4>${Icon('book')} Bacaan lanjut</h4>
             ${s.refs.map((x) => `<p>${x}</p>`).join('')}
             ${topic.references && !s.refs.length ? `<p>${topic.references}</p>` : ''}
           </div>` : ''}
         <div class="lp-done-actions lp-in" style="--i:6">
-          <button class="btn btn-primary" onclick="Lessons.practice()">🎯 Latihan topik ini</button>
-          ${nt ? `<button class="btn btn-growth" onclick="Lessons.open('${nt.t.slug}')">Topik berikutnya: ${nt.t.icon} ${nt.t.title} ▶</button>` : ''}
+          <button class="btn btn-primary" onclick="Lessons.practice()">${Icon('target')} Latihan topik ini</button>
+          ${nt ? `<button class="btn btn-growth" onclick="Lessons.open('${nt.t.slug}')">Topik berikutnya: ${Icon.of(nt.t.icon)} ${nt.t.title} ▶</button>` : ''}
         </div>
       </div>`;
   }
@@ -205,23 +205,23 @@ const Lessons = (() => {
     let text;
     let mood = 'mascot-idle';
     if (s.kind === 'intro') {
-      text = `Halo! Topik <b>${topic.title}</b> punya ${slides.length} slide. Tekan <b>Lanjut</b>, tombol panah →, atau geser layar.`;
+      text = `Halo! Topik <b>${topic.title}</b> ada ${slides.length} slide. Tekan <b>Lanjut</b>, tombol panah →, atau geser layar.`;
     } else if (s.kind === 'content') {
       const tmp = document.createElement('div');
       tmp.innerHTML = s.html;
       if (tmp.querySelector('table')) text = 'Tabel ini merangkum polanya. Bandingkan baris demi baris.';
-      else if (/contoh/i.test(tmp.textContent)) text = 'Ada contohnya! Coba kerjakan dulu sendiri sebelum membaca jawabannya.';
+      else if (/contoh/i.test(tmp.textContent)) text = 'Ada contoh soal! Coba kerjain sendiri dulu sebelum intip jawabannya.';
       else if (s.part > 1) text = `Masih lanjutan <b>${s.heading}</b>.`;
       else text = TIPS[i % TIPS.length];
       mood = 'mascot-thinking';
     } else if (s.kind === 'graph') {
       const cap = s.graphs.map((g) => g.caption).filter(Boolean)[0];
-      text = `🎛️ Geser slidernya!${cap ? ` ${cap}` : ''}`;
+      text = `${Icon('sliders')} Geser slidernya!${cap ? ` ${cap}` : ''}`;
     } else if (s.kind === 'check') {
-      text = 'Saatnya cek pemahaman. Santai saja, ini bukan ujian.';
+      text = 'Waktunya kuis singkat. Santai, ini bukan ujian kok.';
       mood = 'mascot-thinking';
     } else {
-      text = '🎉 Mantap! Kalau sudah siap, taklukkan latihannya di Peta Belajar.';
+      text = `${Icon('sparkle')} Mantap! Kalau udah siap, taklukin latihannya di Skill Tree.`;
       mood = 'mascot-celebrate';
     }
     const svg = document.getElementById('lp-archie-svg');
@@ -313,7 +313,7 @@ const Lessons = (() => {
     if (!box || !check) return;
     if (!check.qs) { box.innerHTML = '<p class="loading-text">Menyiapkan soal…</p>'; return; }
     if (!check.qs.length) {
-      box.innerHTML = `<p class="lp-hint">Soal untuk topik ini belum tersedia${check.error ? ` (${check.error})` : ''}. Lanjut saja ke rangkuman.</p>`;
+      box.innerHTML = `<p class="lp-hint">Soal untuk topik ini belum tersedia${check.error ? ` (${check.error})` : ''}. Langsung lanjut ke rangkuman aja.</p>`;
       return;
     }
     const n = check.qs.length;
@@ -324,13 +324,13 @@ const Lessons = (() => {
       box.innerHTML = `
         <div class="lp-check-result">
           <div class="lp-check-big">${check.score}/${n}</div>
-          <p>${good ? 'Sempurna! Kamu siap latihan.' : check.score ? 'Lumayan! Baca lagi bagian yang masih ragu.' : 'Tidak apa-apa. Ulangi materinya pelan-pelan, lalu coba lagi.'}</p>
+          <p>${good ? 'Perfect! Kamu udah siap latihan.' : check.score ? 'Lumayan! Baca lagi bagian yang masih bikin ragu.' : 'Gapapa. Ulang materinya pelan-pelan, terus coba lagi.'}</p>
           <div class="lp-done-actions">
-            <button class="btn btn-outline" onclick="Lessons.retryCheck()">🔁 Coba soal lain</button>
+            <button class="btn btn-outline" onclick="Lessons.retryCheck()">${Icon('refresh')} Coba soal lain</button>
             <button class="btn btn-primary" onclick="Lessons.next()">Rangkuman ▶</button>
           </div>
         </div>`;
-      document.getElementById('lp-bubble').innerHTML = good ? '🌟 Keren, semuanya benar!' : 'Salah itu bagian dari belajar. Pembahasannya sudah kamu baca, kan?';
+      document.getElementById('lp-bubble').innerHTML = good ? `${Icon('sparkle')} Keren, bener semua!` : 'Salah itu bagian dari belajar. Pembahasannya udah kamu baca, kan?';
       return;
     }
     const q = check.qs[check.i];
@@ -361,10 +361,10 @@ const Lessons = (() => {
     const last = check.i + 1 >= check.qs.length;
     fb.innerHTML = `
       <div class="lp-fb ${ok ? 'ok' : 'no'}">
-        <h5>${ok ? '✅ Tepat!' : '❌ Belum tepat'}</h5>
+        <h5>${ok ? `${Icon('check')} Tepat!` : `${Icon('x')} Belum tepat`}</h5>
         ${(q.steps || []).length ? `<ol class="steps-list">${q.steps.map((x) => `<li>${x}</li>`).join('')}</ol>` : ''}
         <div class="answer-box"><strong>Jawaban:</strong> ${q.answer || ''}</div>
-        ${q.explanation ? `<p class="expl-note">💬 ${q.explanation}</p>` : ''}
+        ${q.explanation ? `<p class="expl-note">${Icon('chat')} ${q.explanation}</p>` : ''}
         ${(q.graphs || []).length ? '<div class="lesson-graphs"></div>' : ''}
         <button class="btn btn-primary btn-sm" onclick="Lessons.nextQuestion()">${last ? 'Lihat hasil ▶' : 'Soal berikutnya ▶'}</button>
       </div>`;
@@ -390,7 +390,7 @@ const Lessons = (() => {
       return `
         <details class="lp-level" ${ts.includes(focus) ? 'open' : ''}>
           <summary>
-            <span class="lp-level-icon">${level.icon}</span>
+            <span class="lp-level-icon">${Icon.level(level)}</span>
             <span class="lp-level-name"><small>Level ${level.order}</small>${level.title}</span>
             <span class="lp-level-count">${d}/${ts.length}</span>
           </summary>
@@ -402,7 +402,7 @@ const Lessons = (() => {
                 const st = r.done ? 'done' : r.at ? 'started' : '';
                 return `
                   <button class="lp-topic ${st}${t === topic ? ' current' : ''}" onclick="Lessons.open('${t.slug}')">
-                    <span class="lp-topic-icon">${r.done ? '✓' : t.icon}</span>
+                    <span class="lp-topic-icon">${r.done ? Icon('check') : Icon.of(t.icon)}</span>
                     <span class="lp-topic-title">${t.title}</span>
                     ${st === 'started' ? `<small>${r.at + 1}/${r.total}</small>` : ''}
                   </button>`;
@@ -416,21 +416,21 @@ const Lessons = (() => {
     const box = document.getElementById('lp-welcome');
     if (!box) return;
     const all = allTopics();
-    if (!all.length) { box.innerHTML = '<p class="loading-text">Memuat kurikulum…</p>'; return; }
+    if (!all.length) { box.innerHTML = '<p class="loading-text">Lagi nyiapin kurikulum…</p>'; return; }
     const resume = all.find((x) => rec(x.t.slug).at && !rec(x.t.slug).done) || all.find((x) => !rec(x.t.slug).done);
     const graphs = all.reduce((sum, x) => sum + x.t.sections.reduce((a, s) => a + (s.graphs || []).length, 0), 0);
     box.innerHTML = `
       <div class="lp-hero">
         <div>
           <div class="lp-kicker">Kelas Interaktif</div>
-          <h2>Belajar kalkulus, satu slide demi satu slide</h2>
-          <p class="lp-lead">Setiap topik dibawakan Archie: materi muncul bertahap, grafik bisa kamu geser sendiri,
-            lalu ditutup cek pemahaman singkat. Setelah paham, latihan di Peta Belajar.</p>
+          <h2>Pahami kalkulus pelan-pelan, slide demi slide.</h2>
+          <p class="lp-lead">Bareng Archie, materinya dibahas bertahap. Kamu bisa geser-geser grafiknya sendiri, terus
+            ditutup kuis singkat buat ngecek pemahamanmu. Kalau udah paham, latihan di Skill Tree.</p>
           <div class="lp-chips">
-            <span>🏔️ ${groups().length} level</span><span>📚 ${all.length} topik</span><span>🎛️ ${graphs} grafik interaktif</span>
+            <span>${Icon('mountain')} ${groups().length} level</span><span>${Icon('book')} ${all.length} topik</span><span>${Icon('sliders')} ${graphs} grafik interaktif</span>
           </div>
           ${resume ? `<button class="btn btn-primary btn-lg" onclick="Lessons.open('${resume.t.slug}')">
-            ▶ ${rec(resume.t.slug).at ? 'Lanjutkan' : 'Mulai'}: ${resume.t.icon} ${resume.t.title}</button>` : ''}
+            ▶ ${rec(resume.t.slug).at ? 'Lanjutin' : 'Mulai'}: ${Icon.of(resume.t.icon)} ${resume.t.title}</button>` : ''}
         </div>
       </div>
       <div class="lp-level-cards">
@@ -440,7 +440,7 @@ const Lessons = (() => {
           const first = ts.find((t) => !rec(t.slug).done) || ts[0];
           return `
             <button class="lp-level-card" onclick="Lessons.open('${first.slug}')">
-              <span class="lp-level-card-icon">${level.icon}</span>
+              <span class="lp-level-card-icon">${Icon.level(level)}</span>
               <small>Level ${level.order}</small>
               <b>${level.title}</b>
               <span class="lp-level-card-sub">${level.subtitle || ''}</span>
@@ -503,8 +503,8 @@ const Lessons = (() => {
       document.getElementById('lp-player').hidden = false;
       document.getElementById('lesson-player').classList.add('lp-playing');
       const lvl = levelOf(node);
-      document.getElementById('lp-crumb').textContent = `${lvl ? `${lvl.icon} ${lvl.title} › ` : ''}${node.title}`;
-      document.getElementById('lp-title').textContent = `${topic.icon} ${topic.title}`;
+      document.getElementById('lp-crumb').innerHTML = `${lvl ? `${Icon.level(lvl)} ${lvl.title} › ` : ''}${node.title}`;
+      document.getElementById('lp-title').innerHTML = `${Icon.of(topic.icon)} ${topic.title}`;
       renderOutline();
       show(start);
       document.querySelector('.site-main')?.scrollTo({ top: 0 });

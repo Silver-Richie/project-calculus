@@ -15,7 +15,7 @@ button.hud-pill.gems:hover { filter: brightness(1.05); transform: translateY(-1p
   border: 1px solid var(--clr-border); border-radius: var(--radius-lg); padding: 1.25rem 1.5rem;
 }
 .shop-balance { display: flex; align-items: center; gap: .5rem; font: 800 2.4rem var(--font-head); color: var(--clr-text); }
-.shop-balance span { font-size: 2rem; }
+.shop-balance .ic { width: .85em; height: .85em; }
 .shop-earn { list-style: none; padding: 0; margin: .75rem 0 0; display: grid; gap: .4rem; }
 .shop-earn li { font-size: .9rem; color: var(--clr-text-sec); }
 .shop-earn li b { color: var(--clr-text); }
@@ -63,7 +63,12 @@ button.hud-pill.gems:hover { filter: brightness(1.05); transform: translateY(-1p
 .shop-item.owned { border-color: var(--clr-growth-l); }
 .shop-item.equipped { border-color: var(--clr-growth); }
 .shop-item.previewing { border-color: var(--clr-accent); box-shadow: 0 0 0 3px var(--clr-accent-l); }
-.shop-item-icon { font-size: 2rem; line-height: 1; height: 44px; display: flex; align-items: center; }
+.shop-item-icon { position: relative; font-size: 2rem; line-height: 1; height: 44px; display: flex; align-items: center; }
+.shop-mini-archie { display: block; margin: -4px 0 -4px -6px; }
+.shop-icon-badge {
+  margin-left: -.55rem; align-self: flex-end; padding: .05rem .35rem; border-radius: var(--radius-full);
+  background: var(--clr-surface); border: 1.5px solid var(--clr-border); font: 800 .7rem var(--font-head); color: var(--clr-text);
+}
 .shop-item-body { flex: 1; }
 .shop-item-body b { font: 700 1rem var(--font-head); color: var(--clr-text); }
 .shop-item-body p { font-size: .82rem; color: var(--clr-text-sec); margin: .2rem 0 .3rem; }
