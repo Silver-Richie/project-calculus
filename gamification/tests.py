@@ -1419,9 +1419,22 @@ class ShopApiTests(TestCase):
         data = self.post("/api/toko/beli/", {"item": "hearts-full"}).json()
         self.assertEqual((data["hearts"]["hearts"], data["hearts"]["refill_at"], data["gems"]), (10, None, 100 - 6 - 30))
 
+    def test_hearts_three_capped_at_max(self):
+        self.profile.hearts, self.profile.hearts_lost_at = 8, timezone.now()
+        self.profile.save()
+        data = self.post("/api/toko/beli/", {"item": "hearts-three"}).json()
+        self.assertEqual((data["hearts"]["hearts"], data["hearts"]["refill_at"]), (10, None))
+
     def test_shield_stock_capped(self):
         UserProfile.objects.filter(pk=self.profile.pk).update(star_shields=shop.MAX_SHIELDS)
         self.assertEqual(self.post("/api/toko/beli/", {"item": "star-shield"}).status_code, 400)
+
+    def test_shield_pack_respects_cap(self):
+        UserProfile.objects.filter(pk=self.profile.pk).update(star_shields=shop.MAX_SHIELDS - 2)
+        self.assertEqual(self.post("/api/toko/beli/", {"item": "star-shield-3"}).status_code, 400)   # 3 > sisa 2
+        UserProfile.objects.filter(pk=self.profile.pk).update(star_shields=0)
+        data = self.post("/api/toko/beli/", {"item": "star-shield-3"}).json()
+        self.assertEqual((data["star_shields"], data["gems"]), (3, 60))
 
     def test_cosmetic_buy_equip_and_leaderboard(self):
         data = self.post("/api/toko/beli/", {"item": "title-limit"}).json()

@@ -16,6 +16,14 @@
  * Bergantung pada modul global: State, Nav, SFX, Mascot, Practice, postJSON.
  */
 const Shop = (() => {
+  /** Titik-titik bintang 5 sudut berpusat di (cx, cy), untuk atribut points <polygon>. */
+  const starPoints = (cx, cy, R, r) => Array.from({ length: 10 }, (_, i) => {
+    const a = (i * 36 - 90) * Math.PI / 180;
+    const d = i % 2 ? r : R;
+    return `${(cx + Math.cos(a) * d).toFixed(1)},${(cy + Math.sin(a) * d).toFixed(1)}`;
+  }).join(' ');
+  const HEART = 'M0 8C-18-4-14-18 0-9C14-18 18-4 0 8Z';
+
   // Gambar aksesori (kunci = shop.py CATALOG).
   const ACC = {
     'acc-bunga': `
@@ -48,15 +56,77 @@ const Shop = (() => {
     'acc-syal': `
       <path d="M54 146Q100 170 146 146L148 160Q100 186 52 160Z" fill="#F97316" stroke="#C2410C" stroke-width="2.5" stroke-linejoin="round"/>
       <path d="M118 164L126 194L110 194L106 168Z" fill="#F97316" stroke="#C2410C" stroke-width="2.5" stroke-linejoin="round"/>`,
+    // kepala
+    'acc-pesta': `
+      <path d="M84 72L104 18L122 70Z" fill="#22D3EE" stroke="#0E7490" stroke-width="3" stroke-linejoin="round"/>
+      <path d="M91 56L116 54M96 40L111 39" stroke="#FDE047" stroke-width="4" stroke-linecap="round"/>
+      <circle cx="104" cy="18" r="6" fill="#F472B6" stroke="#DB2777" stroke-width="2"/>`,
+    'acc-kucing': `
+      <path d="M62 84L66 44L94 70Z" fill="#374151" stroke="#111827" stroke-width="3" stroke-linejoin="round"/>
+      <path d="M138 84L134 44L106 70Z" fill="#374151" stroke="#111827" stroke-width="3" stroke-linejoin="round"/>
+      <path d="M69 72L70 55L84 67Z" fill="#F9A8D4"/>
+      <path d="M131 72L130 55L116 67Z" fill="#F9A8D4"/>`,
+    'acc-kupluk': `
+      <path d="M58 80Q58 34 100 34Q142 34 142 80Z" fill="#10B981" stroke="#047857" stroke-width="3" stroke-linejoin="round"/>
+      <rect x="54" y="72" width="92" height="14" rx="7" fill="#34D399" stroke="#047857" stroke-width="3"/>
+      <circle cx="100" cy="30" r="9" fill="#FDE047" stroke="#CA8A04" stroke-width="2.5"/>`,
+    'acc-koboi': `
+      <path d="M68 76Q66 40 84 38Q100 46 116 38Q134 40 132 76Q100 84 68 76Z" fill="#B45309" stroke="#78350F" stroke-width="3" stroke-linejoin="round"/>
+      <path d="M68 66Q100 74 132 66" stroke="#FDE047" stroke-width="5" fill="none"/>
+      <path d="M38 72Q100 92 162 72Q152 88 100 90Q48 88 38 72Z" fill="#92400E" stroke="#78350F" stroke-width="3" stroke-linejoin="round"/>`,
+    'acc-halo': `
+      <ellipse cx="100" cy="44" rx="34" ry="9" fill="none" stroke="#FACC15" stroke-width="6"/>
+      <ellipse cx="100" cy="44" rx="34" ry="9" fill="none" stroke="#FEF9C3" stroke-width="2"/>`,
+    // wajah (Archie sudah berkacamata: lensa di x 58–90 & 110–142, y 90–116)
+    'acc-kumis': `
+      <path d="M100 114Q90 107 80 111Q70 117 64 111Q69 126 84 122Q94 120 100 117Q106 120 116 122Q131 126 136 111Q130 117 120 111Q110 107 100 114Z" fill="#78350F" stroke="#451A03" stroke-width="2" stroke-linejoin="round"/>`,
+    'acc-monokel': `
+      <circle cx="126" cy="103" r="18" fill="#FEF3C7" fill-opacity=".25" stroke="#CA8A04" stroke-width="4"/>
+      <path d="M142 112Q152 132 140 152" stroke="#CA8A04" stroke-width="2" fill="none" stroke-dasharray="3 3"/>`,
+    'acc-3d': `
+      <rect x="52" y="86" width="96" height="34" rx="6" fill="#F8FAFC" stroke="#334155" stroke-width="3"/>
+      <rect x="58" y="91" width="34" height="24" rx="4" fill="#EF4444" opacity=".85"/>
+      <rect x="108" y="91" width="34" height="24" rx="4" fill="#06B6D4" opacity=".85"/>`,
+    'acc-hati': `
+      <path d="${HEART}" transform="translate(74 107) scale(1.5)" fill="#EF4444" stroke="#991B1B" stroke-width="1.5" stroke-linejoin="round"/>
+      <path d="${HEART}" transform="translate(126 107) scale(1.5)" fill="#EF4444" stroke="#991B1B" stroke-width="1.5" stroke-linejoin="round"/>
+      <line x1="96" y1="98" x2="104" y2="98" stroke="#991B1B" stroke-width="3" stroke-linecap="round"/>`,
+    'acc-bintang': `
+      <polygon points="${starPoints(74, 104, 21, 10)}" fill="#FACC15" stroke="#CA8A04" stroke-width="2.5" stroke-linejoin="round"/>
+      <polygon points="${starPoints(126, 104, 21, 10)}" fill="#FACC15" stroke="#CA8A04" stroke-width="2.5" stroke-linejoin="round"/>
+      <line x1="92" y1="100" x2="108" y2="100" stroke="#CA8A04" stroke-width="3" stroke-linecap="round"/>`,
+    // leher
+    'acc-dasi-panjang': `
+      <path d="M93 146L107 146L104 156L96 156Z" fill="#1D4ED8" stroke="#1E3A8A" stroke-width="2" stroke-linejoin="round"/>
+      <path d="M96 156L104 156L109 176L100 185L91 176Z" fill="#2563EB" stroke="#1E3A8A" stroke-width="2" stroke-linejoin="round"/>
+      <path d="M95 166L106 162M93 175L108 170" stroke="#FDE047" stroke-width="2"/>`,
+    'acc-kalung-pi': `
+      <path d="M66 140Q100 166 134 140" stroke="#CBD5E1" stroke-width="3" fill="none"/>
+      <circle cx="100" cy="160" r="11" fill="#6366F1" stroke="#312E81" stroke-width="2.5"/>
+      <text x="100" y="165" text-anchor="middle" font-size="15" font-weight="800" font-family="serif" fill="#fff">π</text>`,
+    'acc-mutiara': Array.from({ length: 11 }, (_, i) => {
+      const t = i / 10;
+      const x = (1 - t) ** 2 * 64 + 2 * (1 - t) * t * 100 + t ** 2 * 136;
+      const y = (1 - t) ** 2 * 140 + 2 * (1 - t) * t * 170 + t ** 2 * 140;
+      return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="4.5" fill="#F8FAFC" stroke="#94A3B8" stroke-width="1.5"/>`;
+    }).join(''),
+    'acc-medali': `
+      <path d="M80 142L96 166L104 166L120 142L110 142L100 158L90 142Z" fill="#3B82F6" stroke="#1D4ED8" stroke-width="2" stroke-linejoin="round"/>
+      <circle cx="100" cy="172" r="11" fill="#FACC15" stroke="#CA8A04" stroke-width="3"/>
+      <polygon points="${starPoints(100, 172, 6, 2.6)}" fill="#FEF9C3"/>`,
   };
   const ACC_SLOTS = ['head', 'face', 'neck'];
-  const GROUPS = [
-    { title: '⚡ Penguat', sub: 'Habis pakai', match: (it) => it.kind !== 'cosmetic' },
-    { title: '🦎 Aksesori Archie', sub: 'Klik kartu untuk mencoba di Archie', match: (it) => ACC_SLOTS.includes(it.slot) },
-    { title: '🖼️ Bingkai Avatar', sub: 'Tampil di profil & papan peringkat', match: (it) => it.slot === 'frame' },
-    { title: '🏷️ Gelar', sub: 'Tampil di bawah namamu', match: (it) => it.slot === 'title' },
+  // Satu tab per bagian; hanya isi tab aktif yang ditampilkan.
+  const TABS = [
+    { id: 'penguat', label: '⚡ Penguat', sub: 'Habis pakai', match: (it) => it.kind !== 'cosmetic' },
+    { id: 'head', label: '🎩 Kepala', sub: 'Aksesori kepala Archie · klik kartu untuk mencoba', match: (it) => it.slot === 'head' },
+    { id: 'face', label: '🕶️ Wajah', sub: 'Aksesori wajah Archie · klik kartu untuk mencoba', match: (it) => it.slot === 'face' },
+    { id: 'neck', label: '🧣 Leher', sub: 'Aksesori leher Archie · klik kartu untuk mencoba', match: (it) => it.slot === 'neck' },
+    { id: 'frame', label: '🖼️ Bingkai', sub: 'Tampil di profil & papan peringkat', match: (it) => it.slot === 'frame' },
+    { id: 'title', label: '🏷️ Gelar', sub: 'Tampil di bawah namamu', match: (it) => it.slot === 'title' },
   ];
   const SLOT_LABEL = { head: 'kepala', face: 'wajah', neck: 'leher' };
+  let tab = TABS[0].id;
 
   let data = null;
   let look = (() => {
@@ -141,11 +211,18 @@ const Shop = (() => {
       const p = preview && data.items.find((x) => x.key === preview.key);
       name.textContent = p ? `Mencoba: ${p.name}` : look.title_text || 'Archie';
     }
-    box.innerHTML = `<p class="shop-msg" id="shop-msg" role="status"></p>` + GROUPS.map((g) => `
-      <section class="shop-group">
-        <header><h3>${g.title}</h3><small>${g.sub}</small></header>
+    const g = TABS.find((t) => t.id === tab);
+    box.innerHTML = `
+      <div class="shop-tabs" role="tablist" aria-label="Bagian toko">
+        ${TABS.map((t) => `<button type="button" class="shop-tab${t.id === tab ? ' active' : ''}" role="tab"
+          aria-selected="${t.id === tab}" onclick="Shop.tab('${t.id}')">${t.label}
+          <span class="shop-tab-count">${data.items.filter(t.match).length}</span></button>`).join('')}
+      </div>
+      <p class="shop-msg" id="shop-msg" role="status"></p>
+      <section class="shop-group" role="tabpanel">
+        <header><small>${g.sub}</small></header>
         <div class="shop-grid">${data.items.filter(g.match).map(cardHTML).join('')}</div>
-      </section>`).join('');
+      </section>`;
     dressAll();
   }
 
@@ -187,6 +264,13 @@ const Shop = (() => {
   return {
     load,
     dressAll,
+    /** Pindah tab bagian toko. */
+    tab(id) {
+      if (id === tab) return;
+      tab = id;
+      SFX.click();
+      render();
+    },
     /** Harga barang (untuk tombol di luar toko); '' bila katalog belum dimuat. */
     price(key) {
       const it = data?.items.find((x) => x.key === key);
