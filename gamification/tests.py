@@ -1082,6 +1082,13 @@ class RankLeaderboardTests(TestCase):
         self.assertEqual(response.context["server_profile"]["rank"]["label"], "Terra III")
         self.assertContains(response, 'id="profile-rank"')
 
+    def test_duel_disabled_shows_coming_soon(self):
+        with self.settings(DUEL_ENABLED=False):
+            response = self.client.get("/")
+        self.assertContains(response, "Segera hadir")
+        self.assertNotContains(response, 'id="duel-start-btn"')
+        self.assertNotContains(response, "Terbuka di Level 3")
+
 
 
 class DuelLogicTests(TestCase):
