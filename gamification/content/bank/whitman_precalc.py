@@ -59,7 +59,7 @@ QUESTIONS = [
        "y = x → x = (9/5)x + 32 → −(4/5)x = 32 → x = −40.",
        "Artinya −40 °C sama dengan −40 °F."]),
     q("1.1-13", "pre-fungsi-linear", "medium",
-      "Sewa mobil: $25 per hari sudah termasuk 100 mil gratis, lalu $0,15 per mil di atas 100 mil. "
+      "Sewa mobil: USD 25 per hari sudah termasuk 100 mil gratis, lalu USD 0,15 per mil di atas 100 mil. "
       "Untuk x > 100 mil dalam sehari, biaya y = …",
       "y = 0,15x + 10",
       ["y = 0,15x + 25", "y = 0,15x − 75", "y = 0,15x + 40"],

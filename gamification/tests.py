@@ -15,7 +15,7 @@ from django.core.management import call_command
 from django.test import TestCase, TransactionTestCase, Client
 from django.utils import timezone
 
-from . import consumers, content, duel, generators, leveling, ranking
+from . import consumers, content, duel, generators, leveling, ranking, sessions
 from .content import bank
 from .routing import websocket_urlpatterns
 from .models import (
@@ -392,7 +392,9 @@ class GeneratorTests(TestCase):
             self.assertEqual(generators.generate(key, 123, gen.tiers[0]), generators.generate(key, 123, gen.tiers[0]))
 
     def test_each_topic_has_generators_for_all_five_sessions(self):
-        topics = [t["slug"] for m in levels.LEVEL_MODULES for sub in m.SUBLEVELS for t in sub["topics"]]
+        # topik materi saja (practice=False, kurikulum v2) belum punya generator; latihan menyusul
+        topics = [t["slug"] for m in levels.LEVEL_MODULES for sub in m.SUBLEVELS for t in sub["topics"]
+                  if t.get("practice") is not False]
         self.assertEqual(len(topics), 9 + 20 + 20 + 45)
         for slug in topics:
             for tier in range(1, 6):
@@ -409,8 +411,10 @@ class CurriculumLevelTests(TestCase):
         self.assertEqual(MainLevel.objects.count(), 4)
         node = SkillNode.objects.get(slug="pre-sistem-bilangan-fungsi")
         self.assertEqual(node.main_level.slug, "precalculus")
-        self.assertEqual(node.topics.count(), 9)
-        for topic in node.topics.all():
+        self.assertEqual(node.topics.count(), 13)                       # 9 topik berlatihan + 4 topik v2 materi saja
+        practice = [t for t in node.topics.all() if t.sessions.exists()]
+        self.assertEqual(len(practice), 9)
+        for topic in practice:
             self.assertTrue(topic.sections.exists(), topic.slug)
             self.assertEqual(list(topic.sessions.values_list("number", flat=True)), [1, 2, 3, 4, 5])
             for session in topic.sessions.all():
@@ -580,6 +584,8 @@ class PracticeSessionApiTests(TestCase):
     def test_completing_all_topics_completes_sublevel(self):
         node = SkillNode.objects.get(slug="pre-sistem-bilangan-fungsi")
         for topic in node.topics.all():
+            if not topic.sessions.exists():                              # topik materi saja: otomatis tuntas
+                continue
             for number in (1, 2, 3):
                 session = topic.sessions.get(number=number)
                 data = self._open(session).json()
@@ -595,7 +601,7 @@ class PracticeSessionApiTests(TestCase):
         cur = self.client.get("/api/curriculum/?faculty=ft").json()
         self.assertTrue(cur["session_progress"][str(self.s1.id)]["passed"])
         node = cur["tree"][0]
-        self.assertEqual(len(node["topics"]), 9)
+        self.assertEqual(len(node["topics"]), 13)                        # 9 berlatihan + 4 materi saja (v2)
         self.assertEqual(len(node["topics"][0]["sessions"]), 5)
 
     def test_topics_unlock_in_order(self):
@@ -1615,3 +1621,99 @@ class AvatarTests(TestCase):
         self.post_json({"kind": "preset", "preset": "sine"})
         me = self.client.get("/api/peringkat/?board=level").json()["me"]
         self.assertEqual(me["avatar"]["kind"], "preset")
+
+
+# ── Kurikulum v2: silabus & slide eksplisit ───────────────────────────
+from gamification.content import syllabus_v2  # noqa: E402
+from .models import LessonSlide  # noqa: E402
+
+
+class CurriculumV2Tests(TestCase):
+    """Indeks silabus v2 konsisten, dan slide eksplisit (LessonSlide) ikut di API kurikulum."""
+
+    def test_syllabus_slugs_unique_and_slide_kinds_known(self):
+        slugs = [t["slug"] for _, t in syllabus_v2.all_topics()]
+        self.assertEqual(len(slugs), len(set(slugs)))
+        self.assertEqual(len(syllabus_v2.SYLLABUS), 4)
+        self.assertEqual(set(syllabus_v2.TRACKS), {"fasilkom", "fmipa", "ft"})
+        self.assertTrue(all(lo <= hi for _, t in syllabus_v2.all_topics() for lo, hi in [t["slides"]]))
+
+    def test_authored_slides_in_curriculum_payload(self):
+        call_command("seed_gamification", stdout=io.StringIO())
+        topic = Topic.objects.get(slug="pre-bilangan-real")
+        topic.slides.all().delete()                                      # ganti slide hasil seed dengan dua slide uji
+        LessonSlide.objects.create(topic=topic, order=1, kind="intuition", title="Garis bilangan",
+                                   body_html="<p>Interval $[a, b]$ memuat ujungnya.</p>")
+        LessonSlide.objects.create(topic=topic, order=2, kind="pitfall", title="Jebakan", body_html="<p>$-x^2 \\ne (-x)^2$</p>")
+        data = self.client.get("/api/curriculum/?faculty=fasilkom").json()
+        t = next(t for n in data["tree"] for t in n.get("topics", []) if t["slug"] == "pre-bilangan-real")
+        self.assertEqual([(s["kind"], s["title"]) for s in t["slides"]], [("intuition", "Garis bilangan"), ("pitfall", "Jebakan")])
+
+
+class Level1V2Tests(TestCase):
+    """Batch 1: semua topik Level 1 punya slide v2; topik baru materi saja tidak menghalangi progres."""
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_gamification", stdout=io.StringIO())
+
+    def test_every_level1_topic_has_v2_slides_ending_in_checkpoint(self):
+        topics = Topic.objects.filter(node__slug="pre-sistem-bilangan-fungsi").prefetch_related("slides")
+        v2 = [t for t in topics if t.slides.exists()]
+        self.assertEqual(len(v2), 9)
+        for t in v2:
+            kinds = [s.kind for s in t.slides.all()]
+            self.assertEqual(kinds[0], "intuition", t.slug)
+            self.assertEqual(kinds[-1], "checkpoint", t.slug)
+            self.assertIn("example", kinds, t.slug)
+            self.assertIn("pitfall", kinds, t.slug)
+            self.assertTrue(all(s.tip for s in t.slides.all()), t.slug)
+
+    def test_materi_only_topic_has_no_sessions_and_counts_as_done(self):
+        user = User.objects.create_user("lv1", password="rahasia-123")
+        topic = Topic.objects.get(slug="pre-fungsi-invers")
+        self.assertFalse(topic.sessions.exists())
+        self.assertTrue(sessions.topic_done(user, topic))
+        self.assertFalse(sessions.topic_done(user, Topic.objects.get(slug="pre-bilangan-real")))
+
+
+class Level2BatchATests(TestCase):
+    """Batch 2A: empat topik pertama Level 2 punya slide v2 lengkap (intuisi dulu, ditutup checkpoint)."""
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_gamification", stdout=io.StringIO())
+
+    def test_first_half_level2_slides(self):
+        for slug in ("kd-lim-konsep", "kd-lim-aljabar", "kd-lim-kontinu", "kd-tur-definisi"):
+            kinds = list(Topic.objects.get(slug=slug).slides.values_list("kind", flat=True))
+            self.assertGreaterEqual(len(kinds), 8, slug)
+            self.assertEqual((kinds[0], kinds[-1]), ("intuition", "checkpoint"), slug)
+            self.assertTrue({"theorem", "example", "pitfall"} <= set(kinds), slug)
+        # intuisi sekan → singgung tampil sebelum definisi formal turunan
+        titles = list(Topic.objects.get(slug="kd-tur-definisi").slides.values_list("title", flat=True))
+        self.assertLess(titles.index("Eksplorasi: sekan berubah menjadi singgung"), titles.index("Definisi turunan"))
+
+
+class Level2BatchBTests(TestCase):
+    """Batch 2B: paruh kedua Level 2 punya slide v2; soal cerita memakai kerangka Diketahui → Evaluasi."""
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_gamification", stdout=io.StringIO())
+
+    def test_second_half_level2_slides(self):
+        for slug in ("kd-tur-rantai", "kd-apl-laju", "kd-apl-ekstrem", "kd-apl-optimasi",
+                     "kd-int-riemann", "kd-int-tdk", "kd-int-substitusi"):
+            slides = list(Topic.objects.get(slug=slug).slides.all())
+            kinds = [s.kind for s in slides]
+            self.assertGreaterEqual(len(kinds), 7, slug)
+            self.assertEqual((kinds[0], kinds[-1]), ("intuition", "checkpoint"), slug)
+            self.assertTrue({"theorem", "example", "pitfall"} <= set(kinds), slug)
+            self.assertTrue(all(s.tip for s in slides), slug)
+
+    def test_word_problems_use_framework(self):
+        for slug in ("kd-apl-laju", "kd-apl-optimasi"):
+            body = "".join(Topic.objects.get(slug=slug).slides.values_list("body_html", flat=True))
+            pos = [body.find(f"<th>{k}</th>") for k in ("Diketahui", "Ditanya", "Model matematis", "Turunkan", "Evaluasi")]
+            self.assertTrue(all(p >= 0 for p in pos) and pos == sorted(pos), slug)

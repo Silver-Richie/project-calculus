@@ -217,6 +217,9 @@ def is_unlocked(user, session):
 
 
 def topic_done(user, topic):
+    """Topik tuntas = Sesi wajib terakhir lulus; topik materi saja (tanpa sesi) dianggap tuntas."""
+    if not topic.sessions.exists():
+        return True
     return UserSessionProgress.objects.filter(
         user=user, session__topic=topic, session__number=REQUIRED_SESSIONS, passed=True
     ).exists()

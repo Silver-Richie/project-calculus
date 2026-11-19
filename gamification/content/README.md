@@ -124,3 +124,26 @@ soal disalin per fakultas dengan akhiran kode T/M/K dan hanya tampil di jalur fa
   (`sessions._extra_pool`), dan `diag=True` memasukkannya ke kumpulan tes diagnostik.
 * Opsi selalu diacak saat ditampilkan, jadi urutan penulisan opsi tidak penting.
 * Buku Stewart berhak cipta: jangan menyalin soalnya ke sini.
+
+## Kurikulum v2 (Purcell, Stewart, OpenStax Vol 1–3)
+
+Indeks target ada di `syllabus_v2.py` (4 level inti + jalur Fasilkom / FMIPA / FT). Cek cakupan:
+
+```bash
+python manage.py audit_kurikulum
+```
+
+Isi materi ditulis per topik di `levels/l1–l4` dengan kunci `slides` (jumlah bebas, urutan = urutan tampil):
+
+```python
+T("kd-tur-rantai", "Aturan Turunan & Aturan Rantai", "m-chain", "…", "Stewart §3.4", sections=[...],
+  slides=[
+      {"kind": "intuition",  "title": "Fungsi di dalam fungsi", "body_html": "<p>Kalau $y = f(u)$ dan $u = g(x)$, …</p>"},
+      {"kind": "theorem",    "title": "Aturan rantai", "body_html": "<p>$$\\frac{dy}{dx} = \\frac{dy}{du}\\cdot\\frac{du}{dx}$$</p>"},
+      {"kind": "pitfall",    "title": "Lupa turunan dalam", "body_html": "…"},
+  ])
+```
+
+Jenis slide: `intuition`, `derivation`, `theorem`, `example`, `pitfall`, `checkpoint`. Rumus wajib LaTeX
+(`$…$` inline, `$$…$$` blok, dirender KaTeX). Uang ditulis "Rp"/"USD", bukan "$". Topik tanpa `slides`
+tetap memakai slide otomatis dari `sections`.

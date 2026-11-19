@@ -264,3 +264,13 @@ FIXED_QUESTIONS = {
     "U-D5": ("kd-int-tentu", 1), "U-D6": ("kd-int-substitusi", 2), "U-S1": ("kd-apl-singgung", 2), "U-S2": ("kd-apl-ekstrem", 3),
     "U-S3": ("kd-int-substitusi", 3), "U-S4": None, "U-S5": ("kd-int-substitusi", 4), "U-S7": ("kd-apl-laju", 3),
 }
+
+# ── Kurikulum v2 (Batch 2A): slide eksplisit per topik (lihat l2_slides.py) ──
+from .l2_slides import SLIDES as _V2_SLIDES  # noqa: E402
+from .l2_slides_b import SLIDES as _V2_SLIDES_B  # noqa: E402
+
+_V2_SLIDES = {**_V2_SLIDES, **_V2_SLIDES_B}
+
+for _sub in SUBLEVELS:
+    for _t in _sub["topics"]:
+        _t["slides"] = _V2_SLIDES.get(_t["slug"], [])

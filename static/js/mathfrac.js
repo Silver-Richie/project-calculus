@@ -19,6 +19,7 @@
  *    "Ampère / Faraday"), dan isi grafik GraphLab.
  *  - MutationObserver merender konten yang baru ditambahkan (kuis, pembahasan, materi, homepage).
  *  - Pembaca layar & salin-tempel tetap mendapat "a/b" lewat garis miring tersembunyi.
+ *  - Rumus LaTeX ($…$, \(…\)) dan hasil render KaTeX dilewati; itu bagian math.js.
  */
 const MathFrac = (() => {
   'use strict';
@@ -27,7 +28,8 @@ const MathFrac = (() => {
     '.quiz-prompt', '.option-btn', '.rv-options', '.steps-list', '.answer-box', '.expl-note',
     '.hint-card-body', '.lesson-body', '.diag-review', '.qbank-prompt',
   ].join(',');
-  const SKIP = 'script, style, pre, textarea, svg, sup, sub, .mfrac, [class*="gl-"]';   // pangkat x^(1/3) tetap a/b
+  const SKIP = 'script, style, pre, textarea, svg, sup, sub, .mfrac, .katex, .katex-display, [class*="gl-"]';   // pangkat x^(1/3) tetap a/b
+  const TEX = /\$|\\\(|\\\[/;   // teks LaTeX ($…$, \(…\)) diurus KaTeX (math.js), bukan pecahan bertumpuk
   const INLINE = new Set(['SUP', 'SUB', 'B', 'I', 'EM', 'STRONG', 'SPAN', 'VAR', 'SMALL', 'U']);
 
   const FN = 'arcsin|arccos|arctan|sinh|cosh|tanh|sin|cos|tan|cot|sec|csc|ln|log|exp|lim|max|min';
@@ -238,6 +240,7 @@ const MathFrac = (() => {
     [...el.children].forEach(renderElement);
     let run = [];
     for (const n of [...el.childNodes]) {
+      if (n.nodeType === 3 && TEX.test(n.textContent)) { renderRun(run); run = []; continue; }
       if (n.nodeType === 3 || (n.nodeType === 1 && INLINE.has(n.tagName) && !n.matches('.mfrac-sr'))) run.push(n);
       else { renderRun(run); run = []; }
     }

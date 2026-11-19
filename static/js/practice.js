@@ -59,6 +59,7 @@ const Practice = (() => {
   }
 
   function topicDone(t) {
+    if (!t.sessions.length) return true;          // topik materi saja: tidak menghalangi progres
     const req = t.sessions.find((s) => s.number === Curriculum.requiredSessions);
     return !!(req && Curriculum.sessionProgress(req.id)?.passed);
   }
@@ -214,6 +215,16 @@ const Practice = (() => {
           <div class="topic-pick">${node.topics.map((t) => `
             <button class="btn btn-outline btn-sm" onclick="Practice.openTopic('${t.slug}', 'kuis')">${Icon.of(t.icon)} ${t.title}</button>`).join('')}
           </div>
+        </div>`;
+      return;
+    }
+    if (!topic.sessions.length) {
+      box.innerHTML = `
+        <div class="level-complete">
+          <div class="trophy-anim">${Icon('book')}</div>
+          <h3>Latihan topik ini menyusul</h3>
+          <p>Materinya udah lengkap di Kurikulum. Pelajari dulu di sana; topik ini gak menghalangi progresmu.</p>
+          <button class="btn btn-primary" onclick="Lessons.openFromDrawer('${topic.slug}')">${Icon('play')} Buka materi</button>
         </div>`;
       return;
     }
