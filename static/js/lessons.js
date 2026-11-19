@@ -96,7 +96,32 @@ const Lessons = (() => {
     return block.outerHTML;
   }
 
+  const SLIDE_KIND = {
+    intuition: 'Intuisi', derivation: 'Penurunan', theorem: 'Teorema',
+    example: 'Contoh', pitfall: 'Jebakan', checkpoint: 'Cek Pemahaman',
+  };
+
+  /** Topik kurikulum v2 menulis slide sendiri (jenis + judul + isi); urutan & jumlah bebas. */
+  function authoredSlides(t) {
+    const out = [{ kind: 'intro' }];
+    const refs = t.references ? [t.references] : [];
+    t.slides.forEach((sl, i) => {
+      const tmp = document.createElement('div');
+      tmp.innerHTML = sl.body_html;
+      tmp.querySelectorAll('.book-ref').forEach((r) => r.remove());
+      out.push({
+        kind: 'content', type: sl.kind, heading: sl.title, sec: i, secCount: t.slides.length, part: 1, parts: 1,
+        html: [...tmp.children].map(markSteps).join(''), tip: sl.tip,
+      });
+      if ((sl.graphs || []).length) out.push({ kind: 'graph', heading: sl.title, graphs: sl.graphs, tip: sl.tip });
+    });
+    out.push({ kind: 'check' });
+    out.push({ kind: 'summary', refs });
+    return out;
+  }
+
   function buildSlides(t) {
+    if ((t.slides || []).length) return authoredSlides(t);
     const out = [{ kind: 'intro' }];
     const refs = [];
     const secCount = t.sections.length;
@@ -159,7 +184,8 @@ const Lessons = (() => {
     }
     if (s.kind === 'content') {
       return `
-        <div class="lp-kicker">Bagian ${s.sec + 1} dari ${s.secCount}${s.parts > 1 ? ` · lanjutan ${s.part}/${s.parts}` : ''}</div>
+        <div class="lp-kicker">${s.type ? `<span class="lp-kind lp-kind-${s.type}">${SLIDE_KIND[s.type]}</span> Slide ${s.sec + 1} dari ${s.secCount}`
+          : `Bagian ${s.sec + 1} dari ${s.secCount}${s.parts > 1 ? ` · lanjutan ${s.part}/${s.parts}` : ''}`}</div>
         <h3 class="lp-slide-title">${s.heading}</h3>
         <div class="lesson-body lp-body">${s.html}</div>`;
     }
@@ -204,7 +230,10 @@ const Lessons = (() => {
   function narrate(s, i) {
     let text;
     let mood = 'mascot-idle';
-    if (s.kind === 'intro') {
+    if (s.tip) {                                   // slide kurikulum v2: tip khusus dari penulis materi
+      text = s.tip;
+      mood = s.kind === 'graph' ? 'mascot-idle' : 'mascot-thinking';
+    } else if (s.kind === 'intro') {
       text = `Halo! Topik <b>${topic.title}</b> ada ${slides.length} slide. Tekan <b>Lanjut</b>, tombol panah →, atau geser layar.`;
     } else if (s.kind === 'content') {
       const tmp = document.createElement('div');

@@ -205,6 +205,33 @@ class PracticeSession(models.Model):
         return f"{self.topic.slug} · Sesi {self.number} ({self.tier})"
 
 
+class LessonSlide(models.Model):
+    """
+    Satu slide materi topik yang ditulis eksplisit (kurikulum v2). Jumlahnya bebas per topik
+    (topik fondasi ±4–6, topik berat 7–10+). Bila sebuah topik punya slide, viewer Kurikulum
+    (static/js/lessons.js) memakainya; bila tidak, slide dibangun otomatis dari LessonSection.
+    Rumus ditulis LaTeX: $inline$ dan $$blok$$ (dirender KaTeX, static/js/math.js).
+    """
+    KINDS = [
+        ("intuition", "Intuisi"), ("derivation", "Penurunan"), ("theorem", "Teorema"),
+        ("example", "Contoh"), ("pitfall", "Jebakan"), ("checkpoint", "Cek Pemahaman"),
+    ]
+    topic = models.ForeignKey("Topic", on_delete=models.CASCADE, related_name="slides")
+    order = models.PositiveIntegerField(default=1)
+    kind = models.CharField(max_length=12, choices=KINDS)
+    title = models.CharField(max_length=200)
+    body_html = models.TextField(blank=True)
+    tip = models.CharField(max_length=300, blank=True, help_text="Komentar Archie di gelembung saat slide ini tampil")
+    graphs = models.JSONField(default=list, blank=True, help_text="Spesifikasi grafik GraphLab (sama dengan LessonSection)")
+
+    class Meta:
+        ordering = ["topic", "order"]
+        constraints = [models.UniqueConstraint(fields=["topic", "order"], name="unique_slide_order_per_topic")]
+
+    def __str__(self):
+        return f"{self.topic.slug} #{self.order} ({self.kind}) {self.title}"
+
+
 class LessonSection(models.Model):
     """
     Satu bagian materi di dalam SkillNode (mis. "Tabel turunan dasar").
