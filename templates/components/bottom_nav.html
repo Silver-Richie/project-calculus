@@ -1,7 +1,7 @@
 <!-- =========================================================================
      KOMPONEN: Bottom Navigation Bar
      Branch  : ui/design-system
-     Isi     : Level Up | Lesson | Rank | User  (sesuai wireframe)
+     Isi     : Level Up | Lesson | Latihan | Ranked | Rank | User
      ========================================================================= -->
 <nav class="bottom-nav">
 
@@ -13,6 +13,16 @@
   <button class="bottom-nav-item" id="bnav-lesson" onclick="Nav.go('lesson')">
     <span class="bottom-nav-icon">📖</span>
     Lesson
+  </button>
+
+  <button class="bottom-nav-item" id="bnav-free" onclick="Nav.go('free')">
+    <span class="bottom-nav-icon">🎯</span>
+    Latihan
+  </button>
+
+  <button class="bottom-nav-item" id="bnav-ranked" onclick="Nav.go('ranked')">
+    <span class="bottom-nav-icon">⚔️</span>
+    Ranked
   </button>
 
   <button class="bottom-nav-item" id="bnav-rank" onclick="Nav.go('rank')">

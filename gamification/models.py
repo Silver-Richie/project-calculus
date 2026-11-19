@@ -5,6 +5,9 @@ Defines schemas for Faculties, Learning Tree Nodes, Question Bank,
 User Gamification Profiles, and Skill Progress Records.
 """
 
+import uuid
+from datetime import timedelta
+
 from django.db import models
 from django.conf import settings
 from django.utils import timezone
@@ -357,9 +360,20 @@ class UserProfile(models.Model):
     )
     xp = models.PositiveIntegerField(default=0, help_text="Total earned Experience Points")
     streak_days = models.PositiveIntegerField(default=1, help_text="Consecutive days of active practice")
-    hearts = models.PositiveIntegerField(default=5, help_text="Current hearts/lives remaining (max 5)")
-    max_hearts = models.PositiveIntegerField(default=5)
-    gems = models.PositiveIntegerField(default=100, help_text="Collectible gems currency")
+    hearts = models.PositiveIntegerField(default=10, help_text="Nyawa tersisa (maks. max_hearts)")
+    max_hearts = models.PositiveIntegerField(default=10)
+    hearts_lost_at = models.DateTimeField(
+        null=True, blank=True,
+        help_text="Waktu nyawa pertama hilang pada siklus ini; nyawa penuh lagi 24 jam setelahnya",
+    )
+    gems = models.PositiveIntegerField(default=0, help_text="Diamond 💎: didapat saat naik level, topik tuntas, menang duel (shop.py)")
+    star_shields = models.PositiveIntegerField(default=0, help_text="Perisai Bintang: otomatis menahan bintang saat kalah duel")
+    equipped = models.JSONField(default=dict, blank=True,
+                                help_text="Kosmetik terpasang per slot: head/face/neck/frame/title → kunci barang toko")
+    campus = models.CharField(
+        max_length=120, blank=True, default="",
+        help_text="Asal kampus untuk papan peringkat per kampus; 'Umum' = bukan mahasiswa / tidak disebutkan; kosong = belum diisi",
+    )
     
     # Diagnostic status
     diagnostic_completed = models.BooleanField(default=False)
@@ -380,17 +394,201 @@ class UserProfile(models.Model):
         fac_name = self.faculty.short_name if self.faculty else "General"
         return f"{self.user.username} ({fac_name}) - {self.xp} XP"
 
-    def deduct_heart(self):
-        """Deducts one life when an error is made."""
+    # ── Sistem nyawa ────────────────────────────────────────────────────────
+    HEART_REFILL = timedelta(hours=24)
+
+    @property
+    def hearts_refill_at(self):
+        """Waktu nyawa kembali penuh, atau None bila nyawa sedang penuh."""
+        return self.hearts_lost_at + self.HEART_REFILL if self.hearts_lost_at else None
+
+    def refresh_hearts(self, now=None):
+        """
+        Isi ulang nyawa bila sudah 24 jam sejak nyawa pertama hilang.
+
+        Mechanism: tidak ada tugas terjadwal. Setiap kali nyawa dibaca (buka sesi,
+        kirim jawaban, muat beranda), fungsi ini dipanggil dulu; bila waktunya sudah
+        lewat, nyawa kembali ke max_hearts dan siklus baru dimulai saat nyawa hilang lagi.
+        """
+        now = now or timezone.now()
+        if self.hearts_lost_at and now >= self.hearts_refill_at:
+            self.hearts, self.hearts_lost_at = self.max_hearts, None
+            self.save(update_fields=["hearts", "hearts_lost_at"])
+        return self.hearts
+
+    def lose_heart(self, now=None):
+        """Kurangi satu nyawa (dipakai saat gagal lulus sesi). Nyawa pertama yang hilang memulai hitungan 24 jam."""
+        now = now or timezone.now()
+        self.refresh_hearts(now)
         if self.hearts > 0:
             self.hearts -= 1
-            self.save(update_fields=['hearts'])
+            self.hearts_lost_at = self.hearts_lost_at or now
+            self.save(update_fields=["hearts", "hearts_lost_at"])
+        return self.hearts
+
+    def deduct_heart(self):
+        """Alias lama untuk lose_heart()."""
+        return self.lose_heart()
+
+    def hearts_state(self, now=None):
+        """Status nyawa untuk frontend: jumlah, maksimum, dan kapan penuh lagi."""
+        now = now or timezone.now()
+        self.refresh_hearts(now)
+        refill = self.hearts_refill_at
+        return {
+            "hearts": self.hearts,
+            "max_hearts": self.max_hearts,
+            "refill_at": refill.isoformat() if refill else None,
+            "refill_in": max(0, int((refill - now).total_seconds())) if refill else 0,
+        }
+
+    CAMPUS_UMUM = "Umum"
 
     def add_xp(self, amount):
-        """Awards XP to user and updates level."""
+        """Menambah XP (level dihitung dari XP, lihat leveling.py)."""
         self.xp += amount
         self.save(update_fields=['xp'])
 
+    @property
+    def level_info(self):
+        from .leveling import level_info
+        return level_info(self.xp)
+
+
+
+class OwnedItem(models.Model):
+    """Barang kosmetik toko (aksesori Archie, bingkai, gelar) yang sudah dibeli; katalog di shop.py."""
+
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="owned_items")
+    item = models.CharField(max_length=40)
+    purchased_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["user", "item"], name="unique_owned_item")]
+
+    def __str__(self):
+        return f"{self.user} · {self.item}"
+
+
+class PlayerRank(models.Model):
+    """
+    Rank duel seorang pemain (aturan di ranking.py).
+
+    Dibuat saat pertama dibutuhkan (rank_of); pemain tanpa baris ini dianggap Terra III 0★.
+    `points` = posisi di tangga (ranking.ladder_points), disimpan agar papan peringkat bisa
+    diurutkan di database; `mmr` = nilai kemampuan tersembunyi untuk mencari lawan setara.
+    """
+    TIER_CHOICES = [(t, t.title()) for t in ("terra", "luna", "solar", "nova", "apex")]
+
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="duel_rank")
+    tier = models.CharField(max_length=10, choices=TIER_CHOICES, default="terra")
+    division = models.PositiveSmallIntegerField(null=True, blank=True, default=3, help_text="3=III, 2=II, 1=I; kosong untuk Apex")
+    stars = models.PositiveIntegerField(default=0)
+    win_streak = models.PositiveIntegerField(default=0)
+    points = models.PositiveIntegerField(default=0, db_index=True)
+    mmr = models.IntegerField(default=1000)
+    wins = models.PositiveIntegerField(default=0)
+    losses = models.PositiveIntegerField(default=0)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        from .ranking import label
+        return f"{self.user.username}: {label(self.state)} {self.stars}★"
+
+    @property
+    def state(self):
+        from .ranking import RankState
+        return RankState(self.tier, self.division, self.stars, self.win_streak)
+
+    def set_state(self, st):
+        from .ranking import ladder_points
+        self.tier, self.division, self.stars, self.win_streak = st.tier, st.division, st.stars, st.win_streak
+        self.points = ladder_points(st)
+
+    def record_draw(self, opponent_mmr):
+        """Duel seri: bintang tetap, nilai kemampuan dihitung sebagai setengah menang."""
+        from .ranking import elo_update
+        self.mmr = elo_update(self.mmr, opponent_mmr, 0.5)
+        self.save()
+
+    def record_duel(self, won, opponent_mmr, protected=False):
+        """Terapkan hasil satu duel: bintang (aturan ML) + nilai kemampuan (Elo). Mengembalikan perubahan bintang."""
+        from .ranking import apply_result, elo_update
+        st, delta = apply_result(self.state, won, protected)
+        self.set_state(st)
+        self.mmr = elo_update(self.mmr, opponent_mmr, 1 if won else 0)
+        if won:
+            self.wins += 1
+        else:
+            self.losses += 1
+        self.save()
+        return delta
+
+
+def rank_of(user):
+    """Rank duel pemain (dibuat Terra III 0★ bila belum ada)."""
+    return PlayerRank.objects.get_or_create(user=user)[0]
+
+
+class DuelQueue(models.Model):
+    """Pemain yang sedang mencari lawan duel (satu baris per pemain; lihat duel.find_opponent)."""
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="duel_queue")
+    channel_name = models.CharField(max_length=200, help_text="Kanal WebSocket pemain (untuk memberi tahu saat lawan ditemukan)")
+    mmr = models.IntegerField()
+    joined_at = models.DateTimeField(default=timezone.now)
+
+
+class DuelMatch(models.Model):
+    """
+    Satu duel kalkulus real-time (aturan di duel.py).
+
+    Soal disimpan sebagai resep generator (key, seed, tier) sehingga kedua pemain mendapat soal
+    identik dan kunci jawaban hanya pernah dihitung di server.
+    `current` = indeks soal yang sedang berjalan; `q_started_at` kosong saat jeda antarsoal.
+    `tab_leaves` = {user_id: berapa kali keluar tab} (anti-curang, duel.leave_tab).
+    """
+    ACTIVE, FINISHED = "active", "finished"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    player_a = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="duels_as_a")
+    player_b = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="duels_as_b")
+    tier = models.CharField(max_length=10, help_text="Tier yang menentukan tingkat kesulitan soal")
+    questions = models.JSONField(default=list)
+    time_limit = models.PositiveIntegerField(help_text="Detik per soal")
+    current = models.PositiveSmallIntegerField(default=0)
+    q_started_at = models.DateTimeField(null=True, blank=True)
+    status = models.CharField(max_length=10, default=ACTIVE)
+    winner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="duels_won")
+    result = models.JSONField(default=dict, blank=True)
+    tab_leaves = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    finished_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"Duel {self.player_a} vs {self.player_b} ({self.status})"
+
+    def players(self):
+        return [self.player_a_id, self.player_b_id]
+
+    def opponent_of(self, user_id):
+        return self.player_b_id if user_id == self.player_a_id else self.player_a_id
+
+
+class DuelAnswer(models.Model):
+    """Jawaban satu pemain untuk satu soal duel (tidak menjawab = baris dengan option_id kosong)."""
+    match = models.ForeignKey(DuelMatch, on_delete=models.CASCADE, related_name="answers")
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    index = models.PositiveSmallIntegerField()
+    option_id = models.IntegerField(null=True, blank=True)
+    correct = models.BooleanField(default=False)
+    ms = models.PositiveIntegerField(help_text="Waktu menjawab (milidetik) sejak soal tampil")
+    points = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        unique_together = [("match", "user", "index")]
 
 class UserProgress(models.Model):
     """
@@ -464,6 +662,8 @@ class UserSessionProgress(models.Model):
 
     Mechanism: `attempts` ikut menentukan seed soal, jadi setiap percobaan ulang
     memberi angka baru. Sesi berikutnya terbuka bila `passed` = True.
+    `tab_leaves` = berapa kali keluar tab pada percobaan berjalan (anti-curang, sessions.leave_tab);
+    kembali 0 setiap percobaan selesai.
     """
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
                              related_name="session_progress")
@@ -473,6 +673,7 @@ class UserSessionProgress(models.Model):
     best_score = models.PositiveSmallIntegerField(default=0)
     passed = models.BooleanField(default=False)
     passed_at = models.DateTimeField(null=True, blank=True)
+    tab_leaves = models.PositiveSmallIntegerField(default=0, help_text="Keluar tab pada percobaan berjalan")
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:

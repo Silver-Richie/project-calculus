@@ -6,6 +6,7 @@ from django import forms
 from django.contrib.auth.forms import AuthenticationForm, UserCreationForm
 from django.contrib.auth.models import User
 
+from . import campus as campus_mod
 from .models import Faculty
 
 
@@ -38,15 +39,15 @@ class LoginForm(AuthenticationForm):
 
 
 class RegisterForm(UserCreationForm):
-    """Pendaftaran akun baru. Akun disimpan di tabel auth_user Django."""
-
-    first_name = forms.CharField(label="Nama lengkap", max_length=150,
-                                 widget=forms.TextInput(attrs={"placeholder": "Nama kamu"}))
-    email = forms.EmailField(label="Email", widget=forms.EmailInput(attrs={"placeholder": "nama@email.com"}))
+    """
+    Pendaftaran manual: username + kata sandi + konfirmasi, tanpa email.
+    Mekanisme: email yang tersimpan hanya berasal dari Google (pasti aktif),
+    sehingga form ini tidak menerima email yang tidak bisa diverifikasi.
+    """
 
     class Meta(UserCreationForm.Meta):
         model = User
-        fields = ("first_name", "username", "email")
+        fields = ("username",)
         labels = {"username": "Username"}
         help_texts = {"username": "Huruf, angka, dan @/./+/-/_ saja."}
 
@@ -58,24 +59,24 @@ class RegisterForm(UserCreationForm):
         self.fields["password2"].label = "Ulangi kata sandi"
         self.fields["password2"].help_text = ""
 
-    def clean_email(self):
-        email = self.cleaned_data["email"].lower()
-        if User.objects.filter(email__iexact=email).exists():
-            raise forms.ValidationError("Email ini sudah terdaftar. Silakan masuk.")
-        return email
-
-    def save(self, commit=True):
-        user = super().save(commit=False)
-        user.email = self.cleaned_data["email"]
-        user.first_name = self.cleaned_data["first_name"]
-        if commit:
-            user.save()
-        return user
-
 
 class FacultyForm(forms.Form):
+    """Onboarding: fakultas (jalur belajar) + asal kampus (papan peringkat per kampus)."""
     faculty = forms.ModelChoiceField(
         queryset=Faculty.objects.all(),
         to_field_name="slug",
         error_messages={"required": "Pilih salah satu fakultas.", "invalid_choice": "Fakultas tidak dikenal."},
     )
+    campus = forms.CharField(required=False, max_length=campus_mod.MAX_LEN)
+    campus_umum = forms.BooleanField(required=False)
+
+    def clean_campus(self):
+        return campus_mod.normalize(self.cleaned_data.get("campus"))
+
+    def clean(self):
+        data = super().clean()
+        if data.get("campus_umum"):
+            data["campus"] = campus_mod.UMUM
+        elif not data.get("campus"):
+            self.add_error("campus", "Tulis nama kampusmu, atau pilih Umum bila bukan mahasiswa.")
+        return data

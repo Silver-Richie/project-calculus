@@ -7,7 +7,9 @@ from django.urls import path
 from . import auth_views
 from .views import (
     landing_page, get_curriculum_api, get_diagnostic_api, submit_diagnostic_api, set_faculty_api,
-    session_api, submit_session_api, complete_node_api,
+    session_api, submit_session_api, leave_session_api, complete_node_api,
+    free_practice_catalog_api, free_practice_start_api, trial_quiz_api,
+    set_campus_api, leaderboard_api, shop_api, shop_buy_api, shop_equip_api,
 )
 
 app_name = 'gamification'
@@ -26,11 +28,20 @@ urlpatterns = [
     path('auth/tes-awal/hasil/', auth_views.diagnostic_result, name='auth_diagnostic_result'),
 
     # API
+    path('api/coba-soal/', trial_quiz_api, name='trial_quiz_api'),
     path('api/curriculum/', get_curriculum_api, name='curriculum_api'),
+    path('api/latihan-bebas/', free_practice_catalog_api, name='free_practice_catalog'),
+    path('api/latihan-bebas/mulai/', free_practice_start_api, name='free_practice_start'),
     path('api/diagnostic/', get_diagnostic_api, name='diagnostic_api'),
     path('api/diagnostic/submit/', submit_diagnostic_api, name='submit_diagnostic_api'),
     path('api/profile/faculty/', set_faculty_api, name='set_faculty_api'),
+    path('api/profile/campus/', set_campus_api, name='set_campus_api'),
+    path('api/peringkat/', leaderboard_api, name='leaderboard_api'),
+    path('api/toko/', shop_api, name='shop_api'),
+    path('api/toko/beli/', shop_buy_api, name='shop_buy_api'),
+    path('api/toko/pakai/', shop_equip_api, name='shop_equip_api'),
     path('api/session/<int:session_id>/', session_api, name='session_api'),
     path('api/session/<int:session_id>/submit/', submit_session_api, name='submit_session_api'),
+    path('api/session/<int:session_id>/keluar-tab/', leave_session_api, name='leave_session_api'),
     path('api/progress/node/', complete_node_api, name='complete_node_api'),
 ]

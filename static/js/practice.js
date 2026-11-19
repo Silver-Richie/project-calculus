@@ -2,7 +2,7 @@
  * Calculus Bridge — Practice (kurikulum 4 level)
  *
  * Menangani node sub-level yang memiliki Topik:
- *   Drawer → daftar topik → materi topik (grafik slider) → 5 sesi latihan berlapis.
+ *   Drawer → daftar topik → ringkasan topik (materi lengkap: slide di halaman Pelajaran) → 5 sesi latihan berlapis.
  *
  * Mechanism:
  *   - Soal sesi diambil dari GET /api/session/<id>/ (diacak per akun oleh server).
@@ -14,15 +14,19 @@
  *     sesi n terbuka bila sesi n−1 lulus — sama dengan aturan server (sessions.py).
  *   - Di skill tree, setiap topik tampil sebagai node bulat pada jalur zig-zag
  *     (pathHTML) dengan 5 titik sesi; Archie berdiri di samping topik aktif.
+ *   - Anti-curang: selama sesi berjalan FocusGuard (app.js) mengawasi keluar tab/jendela dan
+ *     melapor ke POST /api/session/<id>/keluar-tab/. Keluar pertama = peringatan; keluar kedua,
+ *     menutup/memuat ulang halaman, atau meninggalkan sesi (tutup drawer) = sesi gagal
+ *     (aturan & hitungan di server, sessions.leave_tab).
  *
  * Bergantung pada modul global di app.js: Curriculum, Drawer, QuizEngine, State,
- * Mascot, SFX, Confetti, renderSections, postJSON.
+ * Mascot, SFX, Confetti, postJSON, FocusGuard; dan Lessons (lessons.js) untuk tombol materi.
  */
 const Practice = (() => {
   let node = null;
   let topic = null;
   let nodeLocked = false;
-  let running = null;    // { session, attempt }
+  let running = null;    // { session, attempt, tabLeaves, maxTabLeaves, done, unwatch }
 
   const TIER_ICON = { mudah: '🌱', sedang: '🌿', sulit: '🌳', tantangan: '🔥', olimpiade: '🏅' };
   // Geser horizontal node topik (px) membentuk jalur ular; label di sisi berlawanan.
@@ -149,20 +153,58 @@ const Practice = (() => {
     if (startBtn) startBtn.hidden = true;
   }
 
+  /** Ringkasan topik; materi lengkap dipelajari sebagai slide di halaman Pelajaran (Lessons, lessons.js). */
   function renderTopic() {
     const box = document.getElementById('drawer-lesson-content');
-    renderSections(box, { sections: topic.sections });
-    box.insertAdjacentHTML('afterbegin', `
+    const read = Lessons.status(topic.slug);
+    const graphs = topic.sections.reduce((a, s) => a + (s.graphs || []).length, 0);
+    box.innerHTML = `
       <button class="btn btn-outline btn-sm btn-back" onclick="Practice.backToTopics()">← Semua topik</button>
-      ${topic.references ? `<div class="source-tag">📚 ${topic.references}</div>` : ''}`);
+      ${topic.references ? `<div class="source-tag">📚 ${topic.references}</div>` : ''}
+      <div class="lesson-brief">
+        ${topic.summary ? `<p class="lesson-brief-sum">${topic.summary}</p>` : ''}
+        <h4>Yang dipelajari di topik ini</h4>
+        <ul class="lesson-brief-list">${[...new Set(topic.sections.map((s) => s.heading))].map((h) => `<li>${h}</li>`).join('')}</ul>
+        <p class="lesson-brief-status status-${read}">${read === 'done' ? '✓ Materi sudah kamu pelajari'
+          : read === 'started' ? '▶ Materi sedang kamu pelajari' : '📖 Materi belum dipelajari'}</p>
+        <button class="btn btn-primary" onclick="Lessons.openFromDrawer('${topic.slug}')">
+          🎬 ${read === 'done' ? 'Ulangi' : read === 'started' ? 'Lanjutkan' : 'Pelajari'} materi${graphs ? ` · ${graphs} grafik interaktif` : ''}</button>
+      </div>`;
     const startBtn = document.getElementById('drawer-start-quiz');
     if (startBtn) { startBtn.hidden = false; startBtn.textContent = 'Lanjut ke Latihan Bertahap ➔'; }
+  }
+
+  /* ── nyawa ─────────────────────────────────────────────────────────── */
+  /** Panel nyawa habis: sesi terkunci sampai nyawa terisi ulang (materi tetap bisa dibaca). */
+  function noHeartsHTML() {
+    return `
+      <div class="level-complete hearts-out">
+        <div class="trophy-anim">💔</div>
+        <h3>Nyawamu habis</h3>
+        <p>Nyawa berkurang setiap kali gagal lulus sesi. Semua ${State.get().maxHearts} nyawa penuh kembali dalam
+          <strong>${State.refillText()}</strong>.</p>
+        <p class="lesson-note">Sambil menunggu, kamu tetap bisa membaca materi dan berlatih di Bank Soal (tanpa nyawa).</p>
+        <div class="offer-actions">
+          <button class="btn btn-accent" onclick="Shop.refillHearts()">💖 Isi penuh nyawa · ${Shop.price('hearts-full')}</button>
+          <button class="btn btn-outline" onclick="Drawer.switchTab('materi')">📖 Baca materi</button>
+          <button class="btn btn-outline" onclick="Practice.renderSessions()">Daftar sesi</button>
+        </div>
+      </div>`;
+  }
+
+  function showNoHearts(hearts) {
+    if (hearts) State.setHearts(hearts);
+    QuizBoard.hide();
+    document.getElementById('quiz-container').innerHTML = noHeartsHTML();
+    SFX.wrong();
+    Mascot.setMood('comfort', `💔 Nyawa habis. Istirahat dulu, nyawa penuh lagi dalam ${State.refillText()}.`);
   }
 
   /* ── tampilan sesi ───────────────────────────────────────────────── */
   function renderSessions() {
     const box = document.getElementById('quiz-container');
     if (!box) return;
+    QuizBoard.hide();
     if (!topic) {
       box.innerHTML = `
         <div class="level-complete">
@@ -175,7 +217,9 @@ const Practice = (() => {
         </div>`;
       return;
     }
+    const noHearts = !State.hasHearts();
     box.innerHTML = `
+      ${noHearts ? `<div class="hearts-banner">💔 Nyawa habis: sesi terkunci. Penuh lagi dalam <b>${State.refillText()}</b>.</div>` : ''}
       <div class="session-head">
         <button class="btn btn-outline btn-sm" onclick="Practice.backToTopics()">← Topik</button>
         <span>${topic.icon} <b>${topic.title}</b></span>
@@ -193,65 +237,131 @@ const Practice = (() => {
                 <small>${s.question_count} soal · lulus ≥ ${s.pass_score} · ${s.xp_per_question} XP/soal · ${req ? 'wajib' : 'bonus'}</small>
                 ${p ? `<small>Skor terbaik ${p.best}/${s.question_count} · ${p.attempts}× dicoba</small>` : ''}
               </span>
-              <button class="btn ${st === 'passed' ? 'btn-outline' : 'btn-primary'} btn-sm" ${st === 'locked' ? 'disabled' : ''}
+              <button class="btn ${st === 'passed' ? 'btn-outline' : 'btn-primary'} btn-sm" ${st === 'locked' || noHearts ? 'disabled' : ''}
                       onclick="Practice.start(${s.id})">${st === 'passed' ? 'Ulangi (soal baru)' : st === 'open' ? 'Mulai ➔' : 'Terkunci'}</button>
             </div>`;
         }).join('')}
       </div>
       <p class="graph-hint">🎲 Soal setiap sesi diacak khusus untuk akunmu. Mengulang sesi memberi angka baru;
-        XP hanya bertambah bila skor terbaikmu naik.</p>`;
+        XP hanya bertambah bila skor terbaikmu naik. ❤️ Gagal lulus sesi mengurangi 1 nyawa.</p>`;
   }
 
   async function start(sessionId) {
     const box = document.getElementById('quiz-container');
+    if (!State.hasHearts()) { showNoHearts(); return; }
     box.innerHTML = '<p class="loading-text">Menyiapkan soal acak untukmu…</p>';
     SFX.click();
     try {
       const res = await fetch(`/api/session/${sessionId}/`);
       const data = await res.json();
+      if (data.status === 'no_hearts') { showNoHearts(data.hearts); return; }
       if (!res.ok) throw new Error(data.message || `HTTP ${res.status}`);
-      running = { session: data.session, attempt: data.attempt };
+      stopWatching();
+      running = { session: data.session, attempt: data.attempt, tabLeaves: data.tab_leaves, maxTabLeaves: data.max_tab_leaves };
+      running.unwatch = FocusGuard.watch({ leave: () => reportLeave(false), unload: () => reportLeave(true) });
       QuizEngine.start(node.slug, data.questions, 'session');
-      Mascot.setMood('thinking', `${data.session.title}: semangat! Pakai hint bila buntu.`);
+      Mascot.setMood('thinking', data.tab_leaves
+        ? `⚠️ ${data.session.title}: kamu sudah sekali keluar tab di percobaan ini. Keluar lagi = sesi gagal!`
+        : `${data.session.title}: semangat! Jangan keluar dari tab ini sampai sesi selesai.`);
     } catch (err) {
       box.innerHTML = `<p class="loading-text">Gagal memuat sesi: ${err.message}</p>`;
     }
   }
 
+  /* ── anti-curang: keluar tab ────────────────────────────────────── */
+  const isRunning = () => !!running && !running.done;
+
+  function stopWatching() {
+    if (!running) return;
+    running.done = true;
+    running.unwatch?.();
+    FocusGuard.dismiss();
+  }
+
+  /**
+   * Lapor keluar tab ke server. quit=true (halaman ditutup / sesi ditinggalkan) langsung menggagalkan.
+   * keepalive agar laporan tetap terkirim walau halaman sedang ditutup.
+   */
+  async function reportLeave(quit) {
+    if (!isRunning()) return null;
+    const run = running;
+    let r;
+    try {
+      const res = await fetch(`/api/session/${run.session.id}/keluar-tab/`, {
+        method: 'POST', keepalive: true,
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken() },
+        body: JSON.stringify({ attempt: run.attempt, quit }),
+      });
+      r = await res.json();
+    } catch (_) { return null; }
+    if (run !== running || run.done) return r;
+    if (r.status === 'warning') {
+      run.tabLeaves = r.tab_leaves;
+      FocusGuard.warn('Jangan keluar dari tab!',
+        `Selama sesi berjalan kamu tidak boleh pindah tab atau jendela. Ini peringatan terakhir: keluar
+         sekali lagi = <b>sesi gagal</b> (−1 nyawa, tanpa XP).`);
+      Mascot.setMood('comfort', '⚠️ Tetap di tab ini sampai sesi selesai ya!');
+    } else if (r.status === 'failed') {
+      stopWatching();
+      QuizBoard.hide();
+      showResult(r, quit ? 'Sesi ditinggalkan sebelum selesai, jadi dihitung gagal.'
+        : `Sesi gagal karena kamu keluar dari tab ${run.maxTabLeaves} kali.`);
+    }
+    return r;
+  }
+
   async function finish(answers) {
+    if (!isRunning()) return;
+    stopWatching();
     const box = document.getElementById('quiz-container');
     box.innerHTML = '<p class="loading-text">Menilai jawaban…</p>';
     let r;
     try {
       r = await postJSON(`/api/session/${running.session.id}/submit/`, { attempt: running.attempt, answers });
     } catch (err) {
+      if (err.data?.status === 'no_hearts') { showNoHearts(err.data.hearts); return; }
       box.innerHTML = `<div class="level-complete"><div class="trophy-anim">⚠️</div><h3>Gagal menilai</h3>
         <p>${err.message}</p><button class="btn btn-primary" onclick="Practice.renderSessions()">Kembali</button></div>`;
       return;
     }
+    showResult(r);
+  }
+
+  /** Hasil sesi (dari submit, atau dari sesi yang digagalkan karena keluar tab: `failNote`). */
+  function showResult(r, failNote) {
+    const box = document.getElementById('quiz-container');
     const s = running.session;
     Curriculum.setSessionProgress(s.id, { attempts: r.attempts, best: r.best, last: r.score, passed: r.passed || !!Curriculum.sessionProgress(s.id)?.passed });
-    if (r.xp_awarded) State.addXP(r.xp_awarded);
+    State.setLevel(r.level, r.xp_awarded);
+    if (r.leveled_up) LevelUp.show(r.level, r.gems_awarded);
+    if (r.gems != null) State.setGems(r.gems);
+    if (r.hearts) State.setHearts(r.hearts);
     if (r.passed) { SFX.fanfare(); Confetti.burst(); } else SFX.wrong();
     if (r.node_completed) State.completeNode(node.slug, r.next_node || Curriculum.nextOf(node.slug));
     Mascot.setMood(r.passed ? 'celebrate' : 'comfort',
-      r.passed ? '🏆 Sesi lulus! Sesi berikutnya terbuka.' : 'Hampir! Baca lagi pembahasannya lalu coba dengan soal baru.');
+      r.passed ? '🏆 Sesi lulus! Sesi berikutnya terbuka.'
+        : !State.hasHearts() ? `💔 Nyawa habis. Nyawa penuh lagi dalam ${State.refillText()}.`
+        : failNote ? '🚫 Sesi gagal karena keluar tab. Kerjakan sendiri tanpa bantuan ya!'
+        : 'Hampir! Baca lagi pembahasannya lalu coba dengan soal baru.');
 
     const next = topic.sessions.find((x) => x.number === s.number + 1);
-    box.innerHTML = `
+    box.innerHTML = Review.tabs(`
       <div class="level-complete session-result ${r.passed ? 'pass' : 'fail'}">
         <div class="trophy-anim">${r.passed ? '🏆' : '📚'}</div>
         <h3>${s.title}: ${r.score}/${r.total}</h3>
+        ${failNote ? `<p class="lesson-note tabwarn-note">🚫 ${failNote}</p>` : ''}
         <p>${r.passed ? 'Lulus!' : `Belum lulus — perlu minimal ${r.pass_score} benar.`}
-           ${r.xp_awarded ? ` <strong>+${r.xp_awarded} XP</strong>` : ''}</p>
+           ${r.xp_awarded ? ` <strong>+${r.xp_awarded} XP</strong>` : ''}${r.gems_awarded ? ` <strong>+${r.gems_awarded} 💎</strong>` : ''}</p>
+        ${r.heart_lost ? `<p class="lesson-note hearts-note">💔 −1 Nyawa · sisa ${State.get().hearts}/${State.get().maxHearts}${
+          State.hasHearts() ? '' : `. Nyawa habis, penuh lagi dalam ${State.refillText()}.`}</p>` : ''}
         ${r.node_completed ? '<p class="lesson-note">🎉 Semua topik sub-level ini tuntas! Sub-level berikutnya terbuka di Peta Belajar.</p>'
           : r.topic_done && s.number === Curriculum.requiredSessions ? '<p class="lesson-note">✅ Topik tuntas! Sesi IV–V tersedia sebagai tantangan bonus.</p>' : ''}
         <div class="offer-actions">
-          <button class="btn btn-outline" onclick="Practice.start(${s.id})">🔁 Ulangi (soal baru)</button>
+          ${State.hasHearts() ? `<button class="btn btn-outline" onclick="Practice.start(${s.id})">🔁 Ulangi (soal baru)</button>` : ''}
           ${r.passed && next ? `<button class="btn btn-primary" onclick="Practice.start(${next.id})">Lanjut ${next.title} ➔</button>` : ''}
           <button class="btn btn-outline" onclick="Practice.renderSessions()">Daftar sesi</button>
         </div>
-      </div>`;
+      </div>`, QuizEngine.history());
     SkillTree.refreshStates();
   }
 
@@ -310,5 +420,15 @@ const Practice = (() => {
     renderSessions,
     start,
     finish,
+    /**
+     * Dipanggil Drawer.close(): meninggalkan sesi yang sedang berjalan = gagal, jadi minta konfirmasi.
+     * Mengembalikan false bila pengguna batal (drawer tetap terbuka).
+     */
+    confirmLeave() {
+      if (!isRunning()) return true;
+      if (!FocusGuard.confirm(`${running.session.title} masih berjalan. Keluar sekarang = sesi GAGAL (−1 nyawa, tanpa XP). Yakin keluar?`)) return false;
+      reportLeave(true);
+      return true;
+    },
   };
 })();

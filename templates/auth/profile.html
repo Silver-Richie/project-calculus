@@ -1,13 +1,14 @@
 <!-- =========================================================================
      MODUL: User Profile  (Page: User)
      Branch : feat/auth-onboarding
-     Isi    : Hero profil, stats, pemilihan fakultas, diagnostik
+     Isi    : Hero profil, level, rank duel & asal kampus, stats, pemilihan fakultas, diagnostik
      ========================================================================= -->
 
 <div class="profile-hero">
   <div class="profile-avatar-lg" id="profile-avatar-lg">{{ server_profile.display_name|first|upper|default:"M" }}</div>
   <div>
     <div class="profile-hero-name" id="profile-name">{{ server_profile.display_name|default:"Mahasiswa Baru" }}</div>
+    <div class="profile-title" id="profile-title">{{ server_profile.look.title_text }}</div>
     <div class="profile-hero-fac"  id="profile-fac-label">{{ server_profile.faculty_name }}{% if server_profile.diagnostic_level %} · {{ server_profile.diagnostic_level }}{% endif %}</div>
   </div>
   <div style="margin-left:auto; display:flex; gap:.75rem; align-items:center;">
@@ -23,6 +24,22 @@
     </form>
   </div>
 </div>
+
+<!-- Level (dari XP sesi topik) & asal kampus (papan peringkat per kampus) -->
+<div class="profile-level">
+  <div class="profile-level-badge">Level <b id="profile-level">{{ server_profile.level.level|default:1 }}</b></div>
+  <div class="profile-level-main">
+    <div class="profile-level-track"><div class="profile-level-bar" id="profile-level-bar" style="width:{{ server_profile.level.percent|default:0 }}%"></div></div>
+    <small id="profile-level-text">{{ server_profile.level.into }} / {{ server_profile.level.need }} XP menuju level berikutnya</small>
+  </div>
+</div>
+<div class="profile-rank" id="profile-rank" aria-label="Rank duel"></div>
+<div class="profile-campus">
+  <span>🏫 Asal kampus: <b id="profile-campus" data-value="{{ server_profile.campus }}">{{ server_profile.campus|default:"Belum diisi" }}</b></span>
+  <button type="button" class="link-btn" id="profile-campus-edit">Ubah</button>
+</div>
+<div id="profile-campus-form"></div>
+<datalist id="campus-list">{% for c in campus_suggestions %}<option value="{{ c }}">{% endfor %}</datalist>
 
 <!-- Stats -->
 <div class="profile-stats">
@@ -40,7 +57,7 @@
   </div>
   <div class="stat-box">
     <div class="stat-box-val" id="profile-gems" style="color:var(--clr-growth);">120</div>
-    <div class="stat-box-lbl">Permata</div>
+    <div class="stat-box-lbl">Diamond</div>
   </div>
 </div>
 

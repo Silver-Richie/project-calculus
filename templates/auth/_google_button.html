@@ -1,0 +1,19 @@
+{% load socialaccount %}
+{% comment %}
+  Tombol "Lanjutkan dengan Google" di atas form (sebelum pemisah "atau"), dipakai
+  untuk Masuk maupun Daftar. Bentuk & ukurannya sama dengan tombol utama (.btn-lg .auth-submit).
+  Jika GOOGLE_CLIENT_ID belum diisi di .env, tombol tetap tampil tetapi nonaktif.
+  Pemakaian: {% include 'auth/_google_button.html' with enabled=google_enabled %}
+{% endcomment %}
+<div class="auth-google-block">
+  {% if enabled %}
+  <form method="post" action="{% provider_login_url 'google' %}">
+    {% csrf_token %}
+    <button type="submit" class="btn btn-lg auth-submit auth-google">{% include 'auth/_google_logo.html' %}Lanjutkan dengan Google</button>
+  </form>
+  {% else %}
+  <button type="button" class="btn btn-lg auth-submit auth-google" disabled title="Isi GOOGLE_CLIENT_ID dan GOOGLE_CLIENT_SECRET di .env">{% include 'auth/_google_logo.html' %}Lanjutkan dengan Google</button>
+  <p class="auth-google-note">Login Google belum diaktifkan di server ini.</p>
+  {% endif %}
+  <div class="auth-or"><span>atau</span></div>
+</div>

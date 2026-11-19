@@ -1,5 +1,5 @@
 <!-- =========================================================================
-     MODUL: Lesson Drawer (Slide-in dari kanan)
+     MODUL: Lesson Drawer (satu layar penuh, masuk dari kanan)
      Branch : feat/learning-path
      Isi    : Tab Materi (dengan grafik slider) | Kuis HINT BERTAHAP + pembahasan interaktif
      ========================================================================= -->
@@ -20,7 +20,7 @@
     <!-- Tabs -->
     <div class="drawer-tabs">
       <button class="drawer-tab active" data-tab="materi" onclick="Drawer.switchTab('materi')">📖 Materi</button>
-      <button class="drawer-tab"        data-tab="kuis"   onclick="Drawer.switchTab('kuis')">🎯 Kuis (+XP)</button>
+      <button class="drawer-tab"        data-tab="kuis"   onclick="Drawer.switchTab('kuis')">🎯 Kuis</button>
     </div>
 
     <!-- Body (scrollable) -->
@@ -40,8 +40,12 @@
 
       <!-- TAB: Kuis dengan HINT BERTAHAP -->
       <div class="tab-pane" id="tab-kuis">
-        <div id="quiz-container">
-          <!-- Diisi dinamis oleh QuizEngine.render() -->
+        <!-- Saat soal tampil (.quiz-mode): kiri soal, kanan papan tulis (whiteboard.js) -->
+        <div class="quiz-split">
+          <div id="quiz-container">
+            <!-- Diisi dinamis oleh QuizEngine.render() -->
+          </div>
+          <aside class="quiz-board" id="quiz-board" aria-label="Papan tulis"></aside>
         </div>
       </div>
 

@@ -1,7 +1,7 @@
 <!-- =========================================================================
      KOMPONEN: Top Gamified HUD Navbar
      Branch  : ui/design-system
-     Isi     : Brand, Stat pills (XP, Streak, Hearts, Gems), Sound toggle
+     Isi     : Brand, Stat pills (XP, Streak, Hearts, Gems), tombol tema & suara
      ========================================================================= -->
 <header class="site-hud">
 
@@ -14,15 +14,17 @@
   <!-- Gamification stats -->
   <div class="hud-info">
     <div class="hud-pill" id="hud-faculty-badge" title="Jalur Fakultas">💻 Fasilkom</div>
+    <div class="hud-pill level"  id="hud-level"   title="Level">🎓 Lv {{ server_profile.level.level|default:1 }}</div>
     <div class="hud-pill xp"     id="hud-xp"      title="Total XP">⚡ <span>60 XP</span></div>
     <div class="hud-pill streak" id="hud-streak"   title="Streak Harian">🔥 <span>3</span></div>
-    <div class="hud-pill hearts" id="hud-hearts-pill" title="Nyawa">❤️ <span id="hud-hearts-val">5/5</span></div>
-    <div class="hud-pill gems"   id="hud-gems"     title="Permata">💎 <span>120</span></div>
+    <div class="hud-pill hearts" id="hud-hearts-pill" title="Nyawa">❤️ <span id="hud-hearts-val">10/10</span></div>
+    <button type="button" class="hud-pill gems" id="hud-gems" title="Diamond · buka Toko" onclick="Nav.go('shop')">💎 <span>0</span></button>
   </div>
 
   <!-- Right controls -->
   <div class="hud-right">
-    <button class="btn-sound" id="sound-toggle-btn" onclick="SFX.toggle()">🔊 Suara</button>
+    <button type="button" class="btn-theme" id="theme-toggle-btn" title="Ganti tema" aria-label="Ganti tema">🌙</button>
+    <button class="btn-sound" id="sound-toggle-btn" onclick="SFX.toggle()" aria-label="Suara">🔊<span class="snd-label"> Suara</span></button>
   </div>
 
 </header>

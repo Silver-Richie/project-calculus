@@ -18,6 +18,7 @@
   </div>
   <div class="quiz-progress-bar"><div class="quiz-progress-fill" id="diag-progress" style="width:0%"></div></div>
 
+  <div class="diag-split">
   <form method="post" id="diag-form" data-transition data-stepper>
     {% csrf_token %}
     {% for q in questions %}
@@ -30,7 +31,7 @@
         </legend>
         <div class="quiz-prompt">{{ q.prompt|safe }}</div>
         <div class="options-list">
-          {% for opt in q.options.all %}
+          {% for opt in q.shuffled_options %}
             <label class="option-btn dq-option">
               <input type="radio" name="q_{{ q.code }}" value="{{ opt.id }}" required
                      {% if answered|length and opt.id|stringformat:"d" in answered.values %}checked{% endif %}>
@@ -49,6 +50,9 @@
       <button type="submit" class="btn btn-growth btn-lg" data-step="submit">Selesai &amp; Lihat Hasil ✓</button>
     </div>
   </form>
+  <!-- Papan tulis coret-coret (whiteboard.js); tiap soal punya papan sendiri -->
+  <aside class="diag-board" id="diag-board" aria-label="Papan tulis"></aside>
+  </div>
 </section>
 {% endblock %}
 

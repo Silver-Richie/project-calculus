@@ -44,7 +44,8 @@ QUESTIONS_PER_SESSION = 10
 
 BOOKS = [
     {"slug": "buku-whitman", "filename": "Whitman_Calculus Material.pdf", "title": "Whitman Calculus",
-     "subtitle": "Kalkulus dasar & fokus FMIPA", "category": "buku", "order": 101},
+     "subtitle": "Kalkulus dasar & fokus FMIPA · soal diadaptasi, lisensi CC BY-NC-SA 4.0 (D. Guichard dkk.)",
+     "category": "buku", "order": 101},
     {"slug": "buku-mit", "filename": "MIT_Calculus.pdf", "title": "Calculus — Gilbert Strang (MIT)",
      "subtitle": "Kalkulus keteknikan (FT)", "category": "buku", "order": 102},
     {"slug": "buku-stewart", "filename": "Calculus Early Transcendentals 9e (Stewart).pdf",

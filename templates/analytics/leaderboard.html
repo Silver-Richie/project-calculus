@@ -1,54 +1,33 @@
 <!-- =========================================================================
      MODUL: Leaderboard  (Page: Rank)
-     Branch : feat/progress-analytics
-     Isi    : Daftar peringkat XP mahasiswa
+     Gaya   : "Stratigrafi" — kertas & tinta, warna hanya untuk tier (static/css/leaderboard.css).
+     Isi    : Papan Level (urut total XP), Rank Duel (tier · sub-rank · bintang, aturan di
+              gamification/ranking.py), dan Menang Duel (urut jumlah kemenangan), masing-masing
+              Seluruh Indonesia · kampusku · fakultasku; Rank juga Apex 100.
+              Rank Duel: kolom Ketinggian (lapisan tier setebal jumlah pemainnya), kartu Posisimu,
+              5 teratas → "Tampilkan N pemain" → pemain di sekitarmu; state seri bila semua 0–0.
+              Diisi static/js/leaderboard.js dari /api/peringkat/.
      ========================================================================= -->
 
-<h2 class="page-heading">Papan Peringkat</h2>
-<p class="page-subheading">Lihat posisimu di antara sesama mahasiswa Calculus Bridge bulan ini.</p>
-
-<div class="rank-list">
-
-  <div class="rank-row">
-    <span class="rank-pos">1</span>
-    <div class="rank-avatar" style="background:#D97706;">A</div>
-    <div>
-      <div class="rank-name">Andi Prakoso</div>
-      <div class="rank-fac">FMIPA · Matematika</div>
+<div class="lbx">
+  <header class="lbx-head">
+    <div class="lbx-headline">
+      <h2 class="lbx-title" id="lbx-title">Level</h2>
+      <p class="lbx-sub" id="lbx-sub"></p>
     </div>
-    <span class="rank-xp">1.840 XP</span>
-  </div>
-
-  <div class="rank-row">
-    <span class="rank-pos">2</span>
-    <div class="rank-avatar" style="background:#6B7280;">S</div>
-    <div>
-      <div class="rank-name">Sari Dewi</div>
-      <div class="rank-fac">Fasilkom · Ilmu Komputer</div>
+    <div class="lbx-seg" role="tablist" aria-label="Jenis peringkat">
+      <button type="button" class="lb-tab active" role="tab" aria-selected="true" data-board="level">Level</button>
+      <button type="button" class="lb-tab" role="tab" aria-selected="false" data-board="rank">Rank Duel</button>
+      <button type="button" class="lb-tab" role="tab" aria-selected="false" data-board="wins">Menang Duel</button>
     </div>
-    <span class="rank-xp">1.620 XP</span>
-  </div>
+  </header>
 
-  <div class="rank-row">
-    <span class="rank-pos">3</span>
-    <div class="rank-avatar" style="background:#B45309;">R</div>
-    <div>
-      <div class="rank-name">Rizky Fauzan</div>
-      <div class="rank-fac">FT · Teknik Informatika</div>
-    </div>
-    <span class="rank-xp">1.380 XP</span>
-  </div>
+  <nav class="lbx-scopes" aria-label="Cakupan peringkat">
+    <button type="button" class="lb-scope active" data-scope="global">Seluruh Indonesia</button>
+    <button type="button" class="lb-scope" data-scope="kampus" id="lbx-scope-kampus">{% if server_profile.campus and server_profile.campus != "Umum" %}{{ server_profile.campus }}{% else %}Kampusku{% endif %}</button>
+    <button type="button" class="lb-scope" data-scope="fakultas">{{ server_profile.faculty_short|default:"Fakultasku" }}</button>
+    <button type="button" class="lb-scope" data-scope="apex" hidden>Apex 100</button>
+  </nav>
 
-  <!-- Current user (highlighted) -->
-  <div class="rank-row me">
-    <span class="rank-pos">7</span>
-    <div class="rank-avatar">M</div>
-    <div>
-      <div class="rank-name">Kamu (Mahasiswa)</div>
-      <div class="rank-fac">Fasilkom · Ilmu Komputer</div>
-    </div>
-    <span class="rank-xp" id="rank-my-xp">60 XP</span>
-  </div>
-
+  <div id="lb-root" aria-live="polite"><p class="lbx-loading">Memuat peringkat…</p></div>
 </div>
-

@@ -30,7 +30,7 @@ async function postJSON(url, body) {
     body: JSON.stringify(body || {}),
   });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.message || `HTTP ${res.status}`);
+  if (!res.ok) throw Object.assign(new Error(data.message || `HTTP ${res.status}`), { data, status: res.status });
   return data;
 }
 
@@ -66,7 +66,7 @@ const SFX = (() => {
     toggle() {
       on = !on;
       const btn = document.getElementById('sound-toggle-btn');
-      if (btn) { btn.textContent = on ? '🔊 Suara' : '🔇 Mute'; btn.classList.toggle('muted', !on); }
+      if (btn) { btn.innerHTML = on ? '🔊<span class="snd-label"> Suara</span>' : '🔇<span class="snd-label"> Mute</span>'; btn.classList.toggle('muted', !on); }
       if (on) this.click();
       return on;
     },
@@ -95,7 +95,7 @@ const State = (() => {
   const KEY = SERVER ? `cb_state_v4:${SERVER.username}` : 'cb_state_v4';
   const DEFAULTS = {
     faculty: 'fasilkom',
-    xp: 0, streak: 1, hearts: 5, maxHearts: 5, gems: 100,
+    xp: 0, streak: 1, hearts: 10, maxHearts: 10, heartsRefillAt: null, gems: 100,
     progress: {},   // { ft: { completed: [slug...], active: slug|null } }
     sound: true,
   };
@@ -110,12 +110,26 @@ const State = (() => {
    * Menggabungkan data server ke state lokal: fakultas akun, XP, dan progres
    * hasil tes diagnostik (node yang dilewati = selesai, node rekomendasi = aktif).
    */
+  /** Nyawa selalu mengikuti server (sumber kebenaran); refillAt = cap waktu lokal saat nyawa penuh lagi. */
+  function applyHearts(h) {
+    if (!h) return;
+    s.hearts = h.hearts;
+    s.maxHearts = h.max_hearts;
+    s.heartsRefillAt = h.refill_at ? Date.now() + h.refill_in * 1000 : null;
+  }
+
   if (SERVER) {
+    applyHearts(SERVER.hearts);
     if (SERVER.faculty) s.faculty = SERVER.faculty;
-    s.xp = Math.max(s.xp || 0, SERVER.xp || 0);
+    // XP & level hanya dari server (XP didapat dari sesi topik); nilai lama di localStorage diabaikan.
+    s.xp = SERVER.xp || 0;
+    s.level = SERVER.level || null;
+    // Diamond juga hanya dari server (didapat & dibelanjakan di sana, lihat shop.py).
+    s.gems = SERVER.gems || 0;
     const p = s.progress[s.faculty] || (s.progress[s.faculty] = { completed: [], active: null });
     (SERVER.completed || []).forEach((slug) => { if (!p.completed.includes(slug)) p.completed.push(slug); });
-    if (SERVER.active && !p.completed.includes(SERVER.active) && !p.active) p.active = SERVER.active;
+    // Server adalah sumber kebenaran sub-level aktif: nilai lokal bisa usang (mis. node kurikulum lama).
+    if (SERVER.active && !p.completed.includes(SERVER.active)) p.active = SERVER.active;
   }
 
   /** Simpan pilihan fakultas ke akun (UserProfile) di server. */
@@ -141,14 +155,27 @@ const State = (() => {
 
   function updateHUD() {
     setText('hud-xp', `⚡ ${s.xp} XP`);
+    if (s.level) {
+      setText('hud-level', `🎓 Lv ${s.level.level}`);
+      const lv = document.getElementById('hud-level');
+      if (lv) lv.title = `Level ${s.level.level} · ${s.level.into}/${s.level.need} XP menuju Level ${s.level.level + 1}`;
+      setText('profile-level', s.level.level);
+      setText('profile-level-text', `${s.level.into} / ${s.level.need} XP menuju Level ${s.level.level + 1}`);
+      const bar = document.getElementById('profile-level-bar');
+      if (bar) bar.style.width = `${s.level.percent}%`;
+    }
     setText('hud-streak', `🔥 ${s.streak}`);
     setText('hud-hearts-val', `${s.hearts}/${s.maxHearts}`);
+    const pill = document.getElementById('hud-hearts-pill');
+    if (pill) {
+      pill.title = s.heartsRefillAt ? `Nyawa penuh kembali dalam ${refillText()}` : 'Nyawa penuh';
+      pill.classList.toggle('hearts-empty', s.hearts <= 0);
+    }
     setText('hud-gems', `💎 ${s.gems}`);
     setText('profile-xp', s.xp);
     setText('profile-streak', s.streak);
     setText('profile-hearts', s.hearts);
     setText('profile-gems', s.gems);
-    setText('rank-my-xp', `${s.xp} XP`);
     setText('hud-faculty-badge', FAC_LABELS[s.faculty] || 'Fasilkom');
 
     ['fasilkom', 'fmipa', 'ft'].forEach((f) => {
@@ -161,13 +188,27 @@ const State = (() => {
     if (typeof SkillTree !== 'undefined') SkillTree.refreshStates();
   }
 
-  function floatXP(amount) {
-    const el = document.getElementById('hud-xp');
+  /** Sisa waktu sampai nyawa penuh, mis. "5 jam 20 menit". */
+  function refillText() {
+    const sec = Math.max(0, Math.round(((s.heartsRefillAt || 0) - Date.now()) / 1000));
+    const h = Math.floor(sec / 3600), m = Math.ceil((sec % 3600) / 60);
+    return h ? `${h} jam ${m} menit` : `${Math.max(1, m)} menit`;
+  }
+
+  // Isi ulang tampilan saat waktunya tiba (server tetap memeriksa ulang saat sesi dibuka).
+  setInterval(() => {
+    if (s.heartsRefillAt && Date.now() >= s.heartsRefillAt) {
+      s.hearts = s.maxHearts; s.heartsRefillAt = null; save();
+    } else if (s.heartsRefillAt) updateHUD();
+  }, 30000);
+
+  function floatXP(amount, unit = 'XP', target = 'hud-xp') {
+    const el = document.getElementById(target);
     if (!el) return;
     const r = el.getBoundingClientRect();
     const tag = document.createElement('span');
     tag.className = 'float-xp';
-    tag.textContent = `+${amount} XP!`;
+    tag.textContent = `+${amount} ${unit}!`;
     tag.style.cssText = `left:${r.left + 8}px;top:${r.top - 10}px;`;
     document.body.appendChild(tag);
     setTimeout(() => tag.remove(), 1200);
@@ -176,12 +217,27 @@ const State = (() => {
   return {
     get: () => s,
     progress: prog,
-    addXP(n) { s.xp += n; save(); floatXP(n); },
-    loseHeart() {
-      if (s.hearts > 0) { s.hearts--; save(); }
-      const p = document.getElementById('hud-hearts-pill');
-      if (p) { p.classList.add('hearts-shake'); setTimeout(() => p.classList.remove('hearts-shake'), 500); }
+    /** Terapkan XP & level hasil sesi dari server; animasi "+n XP" bila bertambah. */
+    setLevel(level, gained) {
+      if (!level) return;
+      s.xp = level.xp; s.level = level; save();
+      if (gained) floatXP(gained);
     },
+    /** Terapkan status nyawa dari server; animasi goyang bila nyawa berkurang. */
+    setHearts(h) {
+      const before = s.hearts;
+      applyHearts(h); save();
+      const p = document.getElementById('hud-hearts-pill');
+      if (p && s.hearts < before) { p.classList.add('hearts-shake'); setTimeout(() => p.classList.remove('hearts-shake'), 500); }
+    },
+    hasHearts: () => s.hearts > 0,
+    /** Saldo diamond dari server; animasi "+n 💎" bila bertambah. */
+    setGems(n) {
+      const gained = n - s.gems;
+      s.gems = n; save();
+      if (gained > 0) floatXP(gained, '💎', 'hud-gems');
+    },
+    refillText,
     setFaculty(f) {
       if (s.faculty === f) return;
       s.faculty = f; save(); SFX.click();
@@ -192,7 +248,10 @@ const State = (() => {
     nodeStatus(slug, tree) {
       const p = prog();
       if (p.completed.includes(slug)) return 'completed';
-      const active = p.active || tree.find((n) => !p.completed.includes(n.slug))?.slug;
+      // Abaikan sub-level aktif yang tidak ada lagi di peta (sisa kurikulum lama) atau sudah selesai,
+      // agar sub-level pertama yang belum selesai tetap terbuka.
+      const valid = p.active && !p.completed.includes(p.active) && tree.some((n) => n.slug === p.active);
+      const active = valid ? p.active : tree.find((n) => !p.completed.includes(n.slug))?.slug;
       return slug === active ? 'active' : 'locked';
     },
     completeNode(slug, nextSlug) {
@@ -219,7 +278,7 @@ const State = (() => {
    NAV — Bottom navigation + page routing
    ════════════════════════════════════════════════════════════════ */
 const Nav = (() => {
-  const pages = ['levelup', 'lesson', 'rank', 'user'];
+  const pages = ['levelup', 'lesson', 'free', 'ranked', 'rank', 'user', 'shop'];
 
   return {
     go(page) {
@@ -231,6 +290,10 @@ const Nav = (() => {
         if (sec) sec.classList.toggle('active', p === page);
         if (btn) btn.classList.toggle('active', p === page);
       });
+      if (page === 'free' && typeof FreePractice !== 'undefined') FreePractice.render();
+      if (page === 'rank' && typeof Leaderboard !== 'undefined') Leaderboard.load();
+      if (page === 'ranked' && typeof Ranked !== 'undefined') Ranked.render();
+      if (page === 'shop' && typeof Shop !== 'undefined') Shop.load();
     },
   };
 })();
@@ -306,6 +369,7 @@ const Curriculum = (() => {
     if (desc) desc.innerHTML = FAC_DESC[faculty] || '';
     SkillTree.render();
     Catalogue.render();
+    if (typeof Lessons !== 'undefined') Lessons.render();
   }
 
   return {
@@ -342,6 +406,24 @@ const Curriculum = (() => {
 })();
 
 const DIFF_LABEL = { basic: 'Dasar / Mudah', medium: 'Sedang', high: 'Sulit' };
+
+/**
+ * Papan tulis kuis. Saat soal tampil, isi drawer melebar jadi dua kolom (kelas .quiz-mode):
+ * kiri soal & jawaban, kanan papan tulis. Setiap soal memakai papan sendiri
+ * (kunci = id/kode soal), jadi soal baru selalu kosong dan coretan lama kembali
+ * bila soal yang sama dibuka lagi.
+ */
+const QuizBoard = {
+  show(key) {
+    const drawer = document.getElementById('lesson-drawer');
+    if (!drawer || typeof Whiteboard === 'undefined') return;
+    drawer.classList.add('quiz-mode');
+    Whiteboard.mount(document.getElementById('quiz-board'))?.load(`quiz:${key}`);
+  },
+  hide() {
+    document.getElementById('lesson-drawer')?.classList.remove('quiz-mode');
+  },
+};
 
 /* ════════════════════════════════════════════════════════════════
    SKILL TREE — Peta belajar (halaman Level Up)
@@ -403,7 +485,7 @@ const SkillTree = (() => {
    CATALOGUE — Halaman Lesson, dikelompokkan per berkas sumber
    ════════════════════════════════════════════════════════════════ */
 const Catalogue = (() => {
-  const CAT_ICON = { materi: '📖', soal: '📝', lampiran: '📚' };
+  const CAT_ICON = { materi: '📖', soal: '📝', lampiran: '📚', buku: '📕' };
 
   function nodeCard(n) {
     return `
@@ -437,20 +519,8 @@ const Catalogue = (() => {
   function render() {
     const box = document.getElementById('lesson-catalogue');
     if (!box) return;
-    const levelNodes = Curriculum.tree.filter((n) => (n.topics || []).length);
-    const levelsHTML = levelNodes.length ? `
-      <section class="doc-section">
-        <header class="doc-header">
-          <span class="doc-icon">🏔️</span>
-          <div>
-            <div class="doc-filename">Kurikulum 4 Level · Whitman · MIT (Strang) · Stewart</div>
-            <h3 class="doc-title">Level Utama → Sub-level → Topik → 5 Sesi Latihan</h3>
-            <p class="doc-sub">Soal tiap sesi diacak khusus untuk akunmu, lengkap dengan pembahasan &amp; grafik slider.</p>
-          </div>
-        </header>
-        <div class="lesson-grid">${levelNodes.map(nodeCard).join('')}</div>
-      </section>` : '';
-    box.innerHTML = levelsHTML + Curriculum.documents.map((doc) => `
+    // Kurikulum 4 level kini dipelajari lewat tab "Kelas Interaktif" (Lessons, lessons.js).
+    box.innerHTML = Curriculum.documents.map((doc) => `
       <section class="doc-section">
         <header class="doc-header">
           <span class="doc-icon">${CAT_ICON[doc.category] || '📄'}</span>
@@ -460,7 +530,7 @@ const Catalogue = (() => {
             ${doc.subtitle ? `<p class="doc-sub">${doc.subtitle}</p>` : ''}
           </div>
         </header>
-        ${doc.category === 'soal'
+        ${doc.category === 'soal' || doc.category === 'buku'
           ? `<div class="qbank-list">${doc.items.map(questionRow).join('')}</div>`
           : `<div class="lesson-grid">${doc.items.map((slug) => Curriculum.node(slug)).filter(Boolean).map(nodeCard).join('')}</div>`}
       </section>`).join('');
@@ -503,6 +573,20 @@ function renderSections(container, node) {
   });
 }
 
+/**
+ * Fisher-Yates shuffle: salinan acak dari `arr` (array asli tidak diubah).
+ * Mechanism: dari elemen terakhir ke depan, tukar elemen i dengan elemen acak j ∈ [0, i],
+ * sehingga setiap urutan punya peluang sama (O(n)).
+ */
+function shuffle(arr) {
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
 /* ════════════════════════════════════════════════════════════════
    QUIZ ENGINE — hint bertahap + pembahasan lengkap dengan grafik slider
    Mode 'level'   : kuis node skill tree (membuka node berikutnya).
@@ -516,6 +600,7 @@ const QuizEngine = (() => {
   let answered = false;
   let mode = 'level';      // 'level' | 'practice' | 'session'
   let answers = [];        // mode session: [{ id, option }] dikirim ke server di akhir sesi
+  let history = [];        // semua mode kecuali 'practice': [{ q, chosen }] untuk tab Pembahasan
 
   /** Hint = langkah pembahasan kecuali langkah terakhir (agar jawaban tidak langsung bocor). */
   function hintsOf(q) {
@@ -545,6 +630,7 @@ const QuizEngine = (() => {
     if (!container) return;
 
     if (!questions.length) {
+      QuizBoard.hide();
       container.innerHTML = `
         <div class="level-complete">
           <div class="trophy-anim">📖</div>
@@ -555,7 +641,9 @@ const QuizEngine = (() => {
       return;
     }
     if (idx >= questions.length) {
+      QuizBoard.hide();
       if (mode === 'session') { Practice.finish(answers); return; }
+      if (mode === 'free') { FreePractice.finish(answers); return; }
       showComplete();
       return;
     }
@@ -594,6 +682,7 @@ const QuizEngine = (() => {
       </div>`;
 
     hideFeedback();
+    QuizBoard.show(q.id || q.code);
   }
 
   function revealPembahasan(q) {
@@ -616,14 +705,13 @@ const QuizEngine = (() => {
     SFX.fanfare();
     Confetti.burst();
     Mascot.setMood('celebrate', '🏆 Selamat! Level ini berhasil kamu taklukkan!');
-    State.addXP(50);
     finishNode();
     const next = Curriculum.nextOf(nodeSlug);
     container.innerHTML = `
       <div class="level-complete">
         <div class="trophy-anim">🏆</div>
         <h3>Level Selesai!</h3>
-        <p>Kamu mendapatkan <strong>+50 Bonus XP</strong>${next ? ' dan membuka tahap berikutnya!' : '. Semua tahap jalur ini tuntas!'}</p>
+        <p>${next ? 'Tahap berikutnya sudah terbuka!' : 'Semua tahap jalur ini tuntas!'} XP didapat dari sesi latihan tiap topik.</p>
         <button class="btn btn-growth btn-lg" onclick="Drawer.close(); Nav.go('levelup');">Kembali ke Peta Belajar 🗺️</button>
       </div>`;
   }
@@ -631,10 +719,14 @@ const QuizEngine = (() => {
   return {
     start(slug, qs, m = 'level') {
       nodeSlug = slug;
-      questions = qs || [];
+      // Mode session sudah diacak server (urutan harus sama saat dinilai), jadi tidak dikocok ulang.
+      // Mode lain: kocok urutan soal (level) dan opsi; benar/salah dicek lewat is_correct, bukan posisi.
+      questions = (qs || []).map((q) => (m === 'session' ? q : { ...q, options: shuffle(q.options || []) }));
+      if (m === 'level') questions = shuffle(questions);
       mode = m;
       idx = 0;
       answers = [];
+      history = [];
       render();
     },
 
@@ -655,6 +747,8 @@ const QuizEngine = (() => {
       const correct = q.options.findIndex((o) => o.is_correct);
       answered = true;
       if (mode === 'session') answers.push({ id: q.id, option: q.options[sel].id });
+      if (mode !== 'practice') history.push({ q, chosen: sel });
+      if (mode === 'free') answers.push({ id: q.id, topic: q.topic, correct: sel === correct });
       btn.disabled = true;
       const hintBtn = document.getElementById('btn-hint');
       if (hintBtn) hintBtn.disabled = true;
@@ -670,15 +764,14 @@ const QuizEngine = (() => {
       const actionLabel = mode === 'practice' ? 'Tutup' : isLast ? 'Selesai ➔' : 'Lanjut ➔';
       if (sel === correct) {
         SFX.correct();
-        if (mode === 'level') State.addXP(q.xp_reward || 20);
         Mascot.setMood('celebrate', '🎉 Jawaban tepat! Coba geser slider di pembahasan.');
-        showFeedback(true, mode === 'level' ? `+${q.xp_reward || 20} XP — Jawaban Tepat!` : 'Jawaban Tepat!',
+        showFeedback(true, 'Jawaban Tepat!',
           `Jawaban: ${q.answer}`, actionLabel);
       } else {
         SFX.wrong();
-        if (mode !== 'practice') State.loseHeart();
+        // Nyawa tidak berkurang per soal: hanya saat gagal lulus satu sesi (dinilai server).
         Mascot.setMood('comfort', 'Jangan menyerah! Baca pembahasannya ya.');
-        showFeedback(false, mode !== 'practice' ? 'Belum tepat (−1 Nyawa)' : 'Belum tepat',
+        showFeedback(false, 'Belum tepat',
           'Baca pembahasan langkah demi langkah di atas.', actionLabel);
       }
     },
@@ -724,6 +817,9 @@ const QuizEngine = (() => {
     },
 
     /** Mode latihan: tampilkan pembahasan tanpa menjawab. */
+    /** Soal yang sudah dijawab beserta pilihan pengguna (untuk tab Pembahasan di layar hasil). */
+    history: () => history.slice(),
+
     reveal() {
       const q = questions[idx];
       if (q) revealPembahasan(q);
@@ -832,22 +928,29 @@ const Drawer = (() => {
       show();
     },
 
+    /** Tutup drawer. false bila dibatalkan (sesi latihan yang berjalan tidak jadi ditinggalkan). */
     close() {
+      if (!Practice.confirmLeave()) return false;
+      QuizBoard.hide();
       document.getElementById('lesson-drawer').classList.remove('open');
       hideFeedback();
       SFX.click();
+      return true;
     },
 
     switchTab(tab) {
       document.querySelectorAll('.drawer-tab').forEach((t) => t.classList.toggle('active', t.dataset.tab === tab));
       document.querySelectorAll('.tab-pane').forEach((p) => p.classList.toggle('active', p.id === `tab-${tab}`));
       hideFeedback();
+      QuizBoard.hide();
       if (tab !== 'kuis') return;
 
       const node = Curriculum.node(current);
       const container = document.getElementById('quiz-container');
       if (quizMode === 'topic') {
         Practice.renderSessions();
+      } else if (quizMode === 'free') {
+        FreePractice.renderQuiz();
       } else if (quizMode === 'practice') {
         const { q } = Curriculum.question(practiceCode);
         QuizEngine.start(current, [q], 'practice');
@@ -867,6 +970,85 @@ const Drawer = (() => {
     },
 
     get current() { return current; },
+  };
+})();
+
+/* ════════════════════════════════════════════════════════════════
+   REVIEW — tab Ringkasan & Pembahasan di layar hasil (sesi Skill Tree
+   dan Latihan Bebas). Setiap soal bisa dibuka: jawabanmu, jawaban benar,
+   langkah pembahasan, catatan konsep, dan grafik slider (dimuat saat dibuka).
+   ════════════════════════════════════════════════════════════════ */
+const Review = (() => {
+  let items = [];
+
+  const rightIndex = (q) => q.options.findIndex((o) => o.is_correct);
+
+  function itemHTML({ q, chosen }, i) {
+    const right = rightIndex(q);
+    const ok = chosen === right;
+    return `
+      <details class="rv-item ${ok ? 'ok' : 'bad'}" data-i="${i}" ontoggle="Review.mountGraphs(this)">
+        <summary>
+          <span class="rv-num">${i + 1}</span>
+          <span class="rv-status">${ok ? '✅ Benar' : '❌ Salah'}</span>
+          ${q.topic ? `<span class="rv-topic">${q.topic}</span>` : ''}
+          <span class="rv-code">${q.code || ''}</span>
+        </summary>
+        <div class="quiz-prompt">${q.prompt}</div>
+        <ul class="rv-options">${q.options.map((o, j) => `
+          <li class="${j === right ? 'is-right' : ''} ${j === chosen && !ok ? 'is-wrong' : ''}">
+            <span class="opt-letter">${'ABCDEF'[j]}</span><span>${o.text}</span>
+            ${j === right ? '<b class="rv-tag">✓ Jawaban benar</b>' : ''}${j === chosen && !ok ? '<b class="rv-tag">✗ Jawabanmu</b>' : ''}
+          </li>`).join('')}
+        </ul>
+        <div class="pembahasan">
+          <h5>📚 Pembahasan</h5>
+          <ol class="steps-list">${(q.steps || []).map((st) => `<li>${st}</li>`).join('')}</ol>
+          <div class="answer-box"><strong>Jawaban:</strong> ${q.answer || ''}</div>
+          ${q.explanation ? `<p class="expl-note">💬 ${q.explanation}</p>` : ''}
+          ${(q.graphs || []).length ? '<div class="rv-graphs"></div>' : ''}
+        </div>
+      </details>`;
+  }
+
+  return {
+    /** Bungkus HTML ringkasan dengan tab Ringkasan & Pembahasan untuk soal-soal di `history`. */
+    tabs(summaryHTML, history) {
+      items = history || [];
+      const wrong = items.filter((h) => h.chosen !== rightIndex(h.q)).length;
+      if (!items.length) return summaryHTML;
+      return `
+        <div class="rv-tabs">
+          <button class="rv-tab active" data-pane="sum" onclick="Review.show('sum')">📊 Ringkasan</button>
+          <button class="rv-tab" data-pane="rev" onclick="Review.show('rev')">📚 Pembahasan (${items.length} soal${wrong ? `, ${wrong} salah` : ''})</button>
+        </div>
+        <div class="rv-pane active" id="rv-pane-sum">${summaryHTML}</div>
+        <div class="rv-pane" id="rv-pane-rev">
+          <div class="rv-toolbar">
+            <label><input type="checkbox" onchange="Review.onlyWrong(this.checked)"> Hanya soal yang salah</label>
+            <button class="btn btn-outline btn-sm" onclick="Review.openAll()">Buka semua</button>
+          </div>
+          ${items.map(itemHTML).join('')}
+        </div>`;
+    },
+    show(pane) {
+      document.querySelectorAll('.rv-tab').forEach((t) => t.classList.toggle('active', t.dataset.pane === pane));
+      document.querySelectorAll('.rv-pane').forEach((p) => p.classList.toggle('active', p.id === `rv-pane-${pane}`));
+      document.querySelector('.drawer-body')?.scrollTo({ top: 0 });
+      SFX.click();
+    },
+    onlyWrong(on) {
+      document.querySelectorAll('.rv-item.ok').forEach((el) => { el.hidden = on; });
+    },
+    openAll() {
+      document.querySelectorAll('.rv-item').forEach((el) => { if (!el.hidden) el.open = true; });
+    },
+    /** Grafik slider baru dibuat saat soal dibuka, agar daftar panjang tetap ringan. */
+    mountGraphs(el) {
+      if (!el.open) return;
+      const box = el.querySelector('.rv-graphs');
+      if (box && !box.childElementCount) GraphLab.mountList(box, items[+el.dataset.i].q.graphs);
+    },
   };
 })();
 
@@ -923,7 +1105,6 @@ const DiagnosticModal = (() => {
       Mascot.setMood('celebrate', 'Kamu siap! Selamat belajar Kalkulus!');
       SFX.fanfare(); Confetti.burst();
     }
-    State.addXP(result.xp_awarded || 40);
     if (result.recommended_node) State.startFrom(result.recommended_node, Curriculum.tree);
 
     container().innerHTML = `
@@ -1018,6 +1199,95 @@ const Confetti = (() => ({
     draw();
   }
 }))();
+
+/* ════════════════════════════════════════════════════════════════
+   LEVEL UP — kartu perayaan saat XP sesi membuat level naik
+   (level dihitung server dari total XP, lihat gamification/leveling.py)
+   ════════════════════════════════════════════════════════════════ */
+const LevelUp = (() => ({
+  show(level, gems = 0) {
+    if (!level) return;
+    document.querySelector('.levelup-overlay')?.remove();
+    const el = document.createElement('div');
+    el.className = 'levelup-overlay';
+    el.innerHTML = `
+      <div class="levelup-card" role="dialog" aria-modal="true" aria-labelledby="levelup-title">
+        <div class="levelup-badge"><small>Level</small>${level.level}</div>
+        <h3 id="levelup-title">Naik ke Level ${level.level}!</h3>
+        ${gems ? `<p class="levelup-gems">💎 +${gems} diamond</p>` : ''}
+        <p>Butuh ${level.need - level.into} XP lagi untuk Level ${level.level + 1}.</p>
+        <button type="button" class="btn btn-growth">Mantap! ➔</button>
+      </div>`;
+    const close = () => el.remove();
+    el.addEventListener('click', (e) => { if (e.target === el || e.target.closest('button')) close(); });
+    el.addEventListener('keydown', (e) => { if (e.key === 'Escape') close(); });
+    document.body.appendChild(el);
+    el.querySelector('button').focus();
+    SFX.fanfare();
+    Confetti.burst();
+  },
+}))();
+
+/* ════════════════════════════════════════════════════════════════
+   FOCUS GUARD — anti-curang: deteksi keluar tab/jendela saat soal dinilai
+   (sesi skill tree di practice.js, duel ranked di duel.js)
+   ════════════════════════════════════════════════════════════════ */
+/**
+ * Mechanism: "keluar" = tab tersembunyi (pindah tab, minimize, layar terkunci) ATAU jendela
+ * kehilangan fokus (klik jendela lain, mis. chatbot di split-screen). Satu kali keluar dilaporkan
+ * sekali ke setiap pengawas sampai pengguna kembali. Hukumannya diputuskan server
+ * (sessions.leave_tab / duel.leave_tab); modul ini hanya mendeteksi dan menampilkan peringatan.
+ * Pengawas: { leave(), unload() } — unload dipanggil saat halaman ditutup/dimuat ulang.
+ */
+const FocusGuard = (() => {
+  const watchers = new Set();
+  let away = false;
+  let muted = 0;
+
+  function leave() {
+    if (away || muted || !watchers.size) return;
+    away = true;
+    watchers.forEach((w) => w.leave());
+  }
+  function back() {
+    if (!document.hidden && document.hasFocus()) away = false;
+  }
+  document.addEventListener('visibilitychange', () => (document.hidden ? leave() : back()));
+  window.addEventListener('blur', leave);
+  window.addEventListener('focus', back);
+  window.addEventListener('pagehide', () => watchers.forEach((w) => w.unload?.()));
+
+  return {
+    /** Mulai mengawasi; mengembalikan fungsi untuk berhenti. */
+    watch(w) {
+      watchers.add(w);
+      return () => watchers.delete(w);
+    },
+    /** window.confirm yang tidak dihitung sebagai keluar tab (dialog bisa membuat jendela blur). */
+    confirm(message) {
+      muted += 1;
+      try { return window.confirm(message); } finally { setTimeout(() => { muted -= 1; }, 300); }
+    },
+    /** Kartu peringatan di atas semua layar (termasuk duel). */
+    warn(title, text) {
+      document.querySelector('.tabwarn-overlay')?.remove();
+      const el = document.createElement('div');
+      el.className = 'levelup-overlay tabwarn-overlay';
+      el.innerHTML = `
+        <div class="levelup-card" role="alertdialog" aria-modal="true" aria-labelledby="tabwarn-title">
+          <div class="tabwarn-icon" aria-hidden="true">⚠️</div>
+          <h3 id="tabwarn-title">${title}</h3>
+          <p>${text}</p>
+          <button type="button" class="btn btn-accent">Saya mengerti, lanjutkan</button>
+        </div>`;
+      el.addEventListener('click', (e) => { if (e.target.closest('button')) el.remove(); });
+      document.body.appendChild(el);
+      el.querySelector('button').focus();
+      SFX.wrong();
+    },
+    dismiss() { document.querySelector('.tabwarn-overlay')?.remove(); },
+  };
+})();
 
 /* ════════════════════════════════════════════════════════════════
    BOOT

@@ -85,3 +85,20 @@ Langkah:
   aset static diberi ?v=mtime (templatetag `asset`) agar cache browser tidak memakai JS lama. Heredoc bash sering gagal di mesin ini → tulis skrip
   patch ke scratchpad lalu jalankan dengan `.\env\Scripts\python.exe`.
 - Format grafik: angka negatif di ekspresi aman (`graphlab.js` mengubah `--` → `- -`).
+
+## Fitur Papan Tulis (2026-11-07, branch sama, belum commit)
+- [x] static/js/whiteboard.js + static/css/whiteboard.css: spidol 4 warna/3 tebal, stabilo, garis lurus, penghapus 3 ukuran, undo/redo, hapus semua, latar petak/garis/polos, stylus (tekanan) & sentuh
+- [x] Kuis/sesi/Bank Soal: drawer layar penuh (kiri soal, kanan papan), papan per soal (QuizBoard di app.js)
+- [x] Tes diagnostik /auth/tes-awal/mulai/: soal kiri, papan kanan, papan per soal (auth.js DiagStepper)
+- [x] HP: papan di bawah soal (60vh)
+
+## Halaman Pelajaran = Kelas Interaktif (2026-11-18, branch `feat/pelajaran-slide`, belum commit)
+Keputusan user: slide interaktif; isi = materi topik yang sudah ada; skill tree tetap ada tapi materinya diringkas.
+- [x] static/js/lessons.js + static/css/lessons.css: daftar isi Level → Sub-level → Topik, slide
+      (Pembuka → materi bertahap → grafik slider → Cek Pemahaman 3 soal → Rangkuman), narasi Archie,
+      panah keyboard/geser layar, progres baca di localStorage per akun
+- [x] Cek Pemahaman memakai API Latihan Bebas (tanpa nyawa/XP); semua 64 topik × 3 fakultas mendapat soal
+- [x] Tab "Bank Soal & Referensi" = katalog lama (tanpa kartu level, sudah pindah ke Kelas Interaktif)
+- [x] Drawer topik skill tree: ringkasan + tombol "Pelajari materi" → slide di Pelajaran
+- [x] 124 tes OK, sintaks JS OK (jsc), halaman beranda ter-render
+- [ ] Verifikasi visual di browser (headless belum tersedia di mesin ini)

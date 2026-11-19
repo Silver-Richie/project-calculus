@@ -1,55 +1,75 @@
 {% extends 'auth/base_auth.html' %}
+{% load assets %}
 {% comment %}
   HALAMAN: Login — tab "Masuk" (akun yang sudah ada) dan "Daftar" (akun baru).
   Masuk  → beranda.   Daftar → pilih fakultas.
+  Latar : adegan Tim Archie di jembatan kalkulus (static/js/archie_family.js): penuh layar
+          di ≥ 768px, banner ringkas di atas kartu pada HP.
+  Kartu : kaca (auth_card.css); maskot kartu bereaksi pada form (static/js/auth_mascot.js).
+  Google: tombol di atas form; nonaktif jika GOOGLE_CLIENT_ID belum diisi di .env.
 {% endcomment %}
 
 {% block title %}Masuk — Calculus Bridge{% endblock %}
 
+{% block extra_css %}
+<link rel="stylesheet" href="{% asset 'css/archie_family.css' %}">
+<link rel="stylesheet" href="{% asset 'css/auth_card.css' %}">
+{% endblock %}
+
+{% block auth_backdrop %}
+<aside class="family-stage" id="family-stage" aria-label="Animasi Tim Archie menyeberangi jembatan kalkulus. Klik tokoh, papan, pohon, jembatan, matahari, atau item berkilau.">
+  {# Tanpa JS: maskot statis. archie_family.js menggantinya dengan adegan animasi. #}
+  <div class="family-fallback">{% include 'components/mascot.html' with svg_class="mascot-idle" size=220 %}</div>
+</aside>
+{% endblock %}
+
 {% block auth_content %}
-<section class="auth-card" data-active-tab="{{ active_tab }}">
-  <div class="auth-card-head">
-    {% include 'components/mascot.html' with svg_class="mascot-idle" size=72 %}
-    <div>
-      <h2 class="auth-title" data-title-masuk="Selamat datang kembali!" data-title-daftar="Buat akun baru">
-        {% if active_tab == 'daftar' %}Buat akun baru{% else %}Selamat datang kembali!{% endif %}
-      </h2>
-      <p class="auth-sub">Masuk untuk melanjutkan progres belajarmu, atau daftar jika baru pertama kali.</p>
+<div class="auth-split">
+  <section class="auth-card" data-active-tab="{{ active_tab }}">
+    <div class="auth-card-head">
+      {% include 'auth/_mascot_card.html' with size=88 %}
+      <div>
+        <h2 class="auth-title" data-title-masuk="Siap melanjutkan quest kalkulusmu hari ini?" data-title-daftar="Siap memulai quest kalkulus pertamamu?">
+          {% if active_tab == 'daftar' %}Siap memulai quest kalkulus pertamamu?{% else %}Siap melanjutkan quest kalkulusmu hari ini?{% endif %}
+        </h2>
+        <p class="auth-sub">Masuk untuk melanjutkan progres belajarmu, atau daftar jika baru pertama kali.</p>
+      </div>
     </div>
-  </div>
 
-  <div class="auth-tabs" role="tablist">
-    <button type="button" role="tab" class="auth-tab{% if active_tab == 'masuk' %} active{% endif %}" data-tab="masuk">Masuk</button>
-    <button type="button" role="tab" class="auth-tab{% if active_tab == 'daftar' %} active{% endif %}" data-tab="daftar">Daftar</button>
-  </div>
-
-  <!-- TAB: Masuk -->
-  <form method="post" action="{% url 'gamification:auth_login' %}" class="auth-form auth-pane{% if active_tab == 'masuk' %} active{% endif %}"
-        id="pane-masuk" data-transition novalidate>
-    {% csrf_token %}
-    {% for error in login_form.non_field_errors %}<div class="auth-alert auth-alert-error">{{ error }}</div>{% endfor %}
-    {% include 'auth/_field.html' with field=login_form.username %}
-    {% include 'auth/_field.html' with field=login_form.password %}
-    <button type="submit" class="btn btn-primary btn-lg auth-submit">Masuk ➔</button>
-    <p class="auth-switch">Belum punya akun? <button type="button" class="link-btn" data-tab="daftar">Daftar di sini</button></p>
-  </form>
-
-  <!-- TAB: Daftar -->
-  <form method="post" action="{% url 'gamification:auth_register' %}" class="auth-form auth-pane{% if active_tab == 'daftar' %} active{% endif %}"
-        id="pane-daftar" data-transition novalidate>
-    {% csrf_token %}
-    {% for error in register_form.non_field_errors %}<div class="auth-alert auth-alert-error">{{ error }}</div>{% endfor %}
-    {% include 'auth/_field.html' with field=register_form.first_name %}
-    <div class="auth-grid">
-      {% include 'auth/_field.html' with field=register_form.username %}
-      {% include 'auth/_field.html' with field=register_form.email %}
+    <div class="auth-tabs" role="tablist">
+      <button type="button" role="tab" class="auth-tab{% if active_tab == 'masuk' %} active{% endif %}" data-tab="masuk">Masuk</button>
+      <button type="button" role="tab" class="auth-tab{% if active_tab == 'daftar' %} active{% endif %}" data-tab="daftar">Daftar</button>
     </div>
-    <div class="auth-grid">
-      {% include 'auth/_field.html' with field=register_form.password1 %}
-      {% include 'auth/_field.html' with field=register_form.password2 %}
-    </div>
-    <button type="submit" class="btn btn-growth btn-lg auth-submit">Daftar &amp; Lanjut ➔</button>
-    <p class="auth-switch">Sudah punya akun? <button type="button" class="link-btn" data-tab="masuk">Masuk</button></p>
-  </form>
-</section>
+
+    {% include 'auth/_google_button.html' with enabled=google_enabled %}
+
+    <!-- TAB: Masuk -->
+    <form method="post" action="{% url 'gamification:auth_login' %}" class="auth-form auth-pane{% if active_tab == 'masuk' %} active{% endif %}"
+          id="pane-masuk" data-transition novalidate>
+      {% csrf_token %}
+      {% for error in login_form.non_field_errors %}<div class="auth-alert auth-alert-error">{{ error }}</div>{% endfor %}
+      {% include 'auth/_field.html' with field=login_form.username icon="user" %}
+      {% include 'auth/_field.html' with field=login_form.password icon="lock" %}
+      <button type="submit" class="btn btn-primary btn-lg auth-submit">Masuk ➔</button>
+      <p class="auth-switch">Belum punya akun? <button type="button" class="link-btn" data-tab="daftar">Daftar di sini</button></p>
+    </form>
+
+    <!-- TAB: Daftar -->
+    <form method="post" action="{% url 'gamification:auth_register' %}" class="auth-form auth-pane{% if active_tab == 'daftar' %} active{% endif %}"
+          id="pane-daftar" data-transition novalidate>
+      {% csrf_token %}
+      {% for error in register_form.non_field_errors %}<div class="auth-alert auth-alert-error">{{ error }}</div>{% endfor %}
+      {% include 'auth/_field.html' with field=register_form.username icon="user" %}
+      {% include 'auth/_field.html' with field=register_form.password1 icon="lock" %}
+      {% include 'auth/_field.html' with field=register_form.password2 icon="lock" %}
+      <button type="submit" class="btn btn-growth btn-lg auth-submit">Daftar &amp; Lanjut ➔</button>
+      <p class="auth-switch">Sudah punya akun? <button type="button" class="link-btn" data-tab="masuk">Masuk</button></p>
+    </form>
+  </section>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% asset 'js/archie_family.js' %}"></script>
+<script src="{% asset 'js/auth_mascot.js' %}"></script>
 {% endblock %}
