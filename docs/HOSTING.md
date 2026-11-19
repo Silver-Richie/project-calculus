@@ -7,8 +7,8 @@ Ganti `USERNAME` di bawah dengan username PythonAnywhere (alamat situs: `https:/
 
 ## A. Pemasangan pertama (sekali saja)
 
-1. **Database** — tab *Databases* → buat password MySQL → buat database `calculus`.
-   Nama lengkapnya `USERNAME$calculus`; host tertulis di halaman itu.
+1. **Database** — tidak perlu disiapkan: akun gratis memakai SQLite (`db.sqlite3` di folder proyek,
+   dibuat otomatis saat `migrate`; tidak ikut git). Akun gratis baru (sejak 2026) tidak mendapat MySQL.
 2. **Kode** — tab *Consoles* → *Bash*:
    ```bash
    git clone https://github.com/Silver-Richie/project-calculus.git
@@ -17,7 +17,7 @@ Ganti `USERNAME` di bawah dengan username PythonAnywhere (alamat situs: `https:/
    pip install -r requirements.txt
    ```
 3. **Rahasia** — `cp .env.example .env` lalu `nano .env`, isi semua nilai bagian server
-   (`PRODUCTION=True`, `SECRET_KEY`, `ALLOWED_HOSTS`, `DUEL_ENABLED=False`, `DB_*`, `GOOGLE_*`).
+   (`PRODUCTION=True`, `SECRET_KEY`, `ALLOWED_HOSTS`, `DUEL_ENABLED=False`, `GOOGLE_*`).
    Buat SECRET_KEY: `python -c "import secrets; print(secrets.token_urlsafe(50))"`.
 4. **Isi database** — `python manage.py migrate && python manage.py seed_gamification`
    lalu `python manage.py createsuperuser` (akun admin) dan `python manage.py collectstatic --noinput`.
@@ -58,4 +58,6 @@ cd ~/project-calculus && workon calculus && bash deploy.sh
 - **Akun gratis wajib diperpanjang**: tab *Web* → *Run until 3 months from today*, minimal tiap 3 bulan,
   atau situs dimatikan.
 - **Duel** dimatikan (`DUEL_ENABLED=False`): WebSocket butuh server ASGI. Tombolnya tampil "Segera hadir".
+- **Cadangan data**: semua akun & progres ada di `~/project-calculus/db.sqlite3`. Unduh berkas itu
+  sesekali dari tab *Files*. Jangan pernah menghapusnya.
 - **Error**: lihat *Error log* di tab *Web* (`USERNAME.pythonanywhere.com.error.log`).

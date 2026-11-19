@@ -1,6 +1,5 @@
 django~=5.2
 gunicorn
-mysqlclient; sys_platform == "linux"   # MySQL PythonAnywhere; tidak perlu di laptop (SQLite)
 python-dotenv
 whitenoise
 django-allauth[socialaccount]~=65.21
