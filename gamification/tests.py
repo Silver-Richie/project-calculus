@@ -1558,3 +1558,60 @@ class ShopDuelTests(TestCase):
         res = self.play(a, b, 2)                       # Terra: kalah tidak mengurangi bintang
         self.assertFalse(res[str(b.id)]["shield_used"])
         self.assertEqual(UserProfile.objects.get(user=b).star_shields, 1)
+
+
+# ── Foto profil (gamification/avatar.py) ──────────────────────────────
+import shutil  # noqa: E402
+import tempfile  # noqa: E402
+
+from django.core.files.uploadedfile import SimpleUploadedFile  # noqa: E402
+from django.test import override_settings  # noqa: E402
+
+from . import avatar as avatar_mod  # noqa: E402
+
+PNG_1PX = (b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89"
+           b"\x00\x00\x00\rIDATx\x9cc\xf8\xff\xff?\x00\x05\xfe\x02\xfe\xa7\x35\x81\x84\x00\x00\x00\x00IEND\xaeB`\x82")
+
+
+class AvatarTests(TestCase):
+    """Ganti foto profil: polos, template, unggahan (divalidasi ukuran & tanda tangan berkas)."""
+
+    def setUp(self):
+        self.media = tempfile.mkdtemp()
+        self.override = override_settings(MEDIA_ROOT=self.media)
+        self.override.enable()
+        self.user = User.objects.create_user("foto", password="rahasia-123")
+        self.profile = UserProfile.objects.create(user=self.user)
+        self.client.force_login(self.user)
+
+    def tearDown(self):
+        self.override.disable()
+        shutil.rmtree(self.media, ignore_errors=True)
+
+    def post_json(self, body):
+        return self.client.post("/api/profile/avatar/", data=json.dumps(body), content_type="application/json")
+
+    def upload(self, data, name="a.png"):
+        return self.client.post("/api/profile/avatar/", {"kind": "upload", "file": SimpleUploadedFile(name, data)})
+
+    def test_default_is_initial_and_preset_can_be_chosen(self):
+        self.assertEqual(avatar_mod.describe(self.profile), {"kind": "initial"})
+        r = self.post_json({"kind": "preset", "preset": "integral"}).json()
+        self.assertEqual((r["avatar"]["kind"], r["avatar"]["icon"]), ("preset", "lv-kalkulus-menengah"))
+        self.assertEqual(self.post_json({"kind": "preset", "preset": "ngawur"}).status_code, 400)
+
+    def test_upload_validates_and_replaces_old_file(self):
+        r = self.upload(PNG_1PX).json()
+        self.assertEqual(r["avatar"]["kind"], "upload")
+        first = UserProfile.objects.get(pk=self.profile.pk).avatar_file
+        self.assertTrue(first.name.endswith(".png") and first.storage.exists(first.name))
+        self.assertEqual(self.upload(b"<script>alert(1)</script>", "x.png").status_code, 400)       # bukan gambar
+        self.assertEqual(self.upload(PNG_1PX + b"0" * avatar_mod.MAX_BYTES).status_code, 400)       # kegedean
+        self.post_json({"kind": "initial"})
+        self.assertFalse(first.storage.exists(first.name))                                            # foto lama dihapus
+        self.assertEqual(UserProfile.objects.get(pk=self.profile.pk).avatar_kind, "initial")
+
+    def test_avatar_shown_on_leaderboard_and_profile_page(self):
+        self.post_json({"kind": "preset", "preset": "sine"})
+        me = self.client.get("/api/peringkat/?board=level").json()["me"]
+        self.assertEqual(me["avatar"]["kind"], "preset")

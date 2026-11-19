@@ -57,8 +57,6 @@ const Leaderboard = (() => {
   const MIN_DUEL_LEVEL = 3;      // = duel.MIN_LEVEL
   const PODIUM = 3;              // posisi 1–3 tampil sebagai kartu podium
   const TOP = 5;                 // baris teratas yang selalu tampil sebelum "Tampilkan N"
-  const COLORS = ['#2563EB', '#16A34A', '#D97706', '#DB2777', '#7C3AED', '#0D9488', '#DC2626', '#4B5563'];
-  const colorOf = (name) => COLORS[[...name].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7) % COLORS.length];
   const BOARDS = {
     level: { sub: 'XP dari sesi latihan tiap topik. Makin banyak sesi yang beres, makin tinggi levelmu.',
              cols: ['#', 'Pemain', 'Level', 'XP'] },
@@ -70,8 +68,7 @@ const Leaderboard = (() => {
 
   /* ── potongan tampilan ──────────────────────────────────────────── */
   const where = (r) => [r.faculty, r.campus && r.campus !== 'Umum' ? r.campus : ''].filter(Boolean).join(' · ');
-  const avatar = (r, cls = '') =>
-    `<span class="lbx-av ${cls}${r.frame ? ` frame ${esc(r.frame)}` : ''}" style="--av:${colorOf(r.username)}">${esc((r.name[0] || '?').toUpperCase())}</span>`;
+  const avatar = (r, cls = '') => Avatar.html(r.avatar, r.name, r.username, `lbx-av ${cls}${r.frame ? ` frame ${esc(r.frame)}` : ''}`);
   const chip = (r) => (board === 'level'
     ? `<span class="lbx-pill">Lv ${r.level}</span>`
     : `<span class="lbx-pill t-${r.tier}">${esc(r.rank.label)}</span>`);
