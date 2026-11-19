@@ -5,7 +5,7 @@
    QuizEngine mode 'free' di drawer; penilaian dilakukan di browser.
    ════════════════════════════════════════════════════════════════ */
 const FreePractice = (() => {
-  const FACULTIES = [['fasilkom', '💻 Fasilkom'], ['fmipa', '🔬 FMIPA'], ['ft', '⚙️ Fak. Teknik']];
+  const FACULTIES = [['fasilkom', `${Icon('fac-fasilkom')} Fasilkom`], ['fmipa', `${Icon('fac-fmipa')} FMIPA`], ['ft', `${Icon('fac-ft')} Fak. Teknik`]];
   const MAX = 15;
   const catalogs = {};          // { faculty: [level...] } dari server
   const sel = { faculty: null, level: null, topics: new Set(), count: 10 };
@@ -32,7 +32,7 @@ const FreePractice = (() => {
     try {
       await loadCatalog(sel.faculty);
     } catch (err) {
-      box.innerHTML = `<p class="loading-text">Gagal memuat materi: ${esc(err.message)}</p>`;
+      box.innerHTML = `<p class="loading-text">Materi gagal dimuat: ${esc(err.message)}</p>`;
       return;
     }
     if (!level()) { sel.level = levels()[0]?.slug || null; sel.topics.clear(); }
@@ -61,13 +61,13 @@ const FreePractice = (() => {
           <h3 class="fp-step-title">3. Pilih materi <small>(boleh lebih dari satu)</small></h3>
           <span>
             <button class="btn btn-outline btn-sm" onclick="FreePractice.selectAll(true)">Pilih semua</button>
-            <button class="btn btn-outline btn-sm" onclick="FreePractice.selectAll(false)">Kosongkan</button>
+            <button class="btn btn-outline btn-sm" onclick="FreePractice.selectAll(false)">Hapus pilihan</button>
           </span>
         </div>
         <div class="fp-topics">${(lv ? lv.topics : []).map((t) => `
           <label class="fp-topic ${sel.topics.has(t.slug) ? 'on' : ''}">
             <input type="checkbox" ${sel.topics.has(t.slug) ? 'checked' : ''} onchange="FreePractice.toggle('${t.slug}')">
-            <span>${t.icon || '📘'} ${esc(t.title)}</span>
+            <span>${Icon.of(t.icon || 'book')} ${esc(t.title)}</span>
           </label>`).join('')}
         </div>
       </section>
@@ -80,9 +80,9 @@ const FreePractice = (() => {
       </section>
 
       <button class="btn btn-growth btn-lg fp-start" id="fp-start" ${canStart ? '' : 'disabled'} onclick="FreePractice.start()">
-        Mulai Latihan ➔</button>
+        Mulai latihan ➔</button>
       <p class="graph-hint" id="fp-hint">${canStart ? `${sel.count} soal dari ${sel.topics.size} materi.`
-        : 'Pilih minimal satu materi dan jumlah soal lebih dari 0.'}</p>`;
+        : 'Pilih minimal satu materi, terus atur jumlah soalnya.'}</p>`;
   }
 
   /** Perbarui tombol mulai tanpa menggambar ulang seluruh halaman (agar slider tetap halus). */
@@ -92,7 +92,7 @@ const FreePractice = (() => {
     if (btn) btn.disabled = !ok;
     const hint = document.getElementById('fp-hint');
     if (hint) hint.textContent = ok ? `${sel.count} soal dari ${sel.topics.size} materi.`
-      : 'Pilih minimal satu materi dan jumlah soal lebih dari 0.';
+      : 'Pilih minimal satu materi, terus atur jumlah soalnya.';
   }
 
   async function start() {
@@ -101,9 +101,9 @@ const FreePractice = (() => {
     const lv = level();
     const titles = lv.topics.filter((t) => sel.topics.has(t.slug)).map((t) => t.title);
     Drawer.setMode('free');
-    Drawer.ui.setHeader('🎯 Latihan Bebas · tanpa nyawa & XP', lv.title,
+    Drawer.ui.setHeader('Mode Latihan · tanpa heart & XP', lv.title,
       titles.length > 3 ? `${titles.slice(0, 3).join(', ')} +${titles.length - 3} materi` : titles.join(', '));
-    Drawer.ui.setTabs('', `🎯 ${sel.count} soal`);
+    Drawer.ui.setTabs('', `${Icon('target')} ${sel.count} soal`);
     Drawer.ui.show();
     document.getElementById('quiz-container').innerHTML = '<p class="loading-text">Mengacak soal untukmu…</p>';
     Drawer.switchTab('kuis');
@@ -117,9 +117,9 @@ const FreePractice = (() => {
         { faculty: sel.faculty, topics: [...sel.topics], count: sel.count });
       questions = data.questions;
       QuizEngine.start('free', questions, 'free');
-      Mascot.setMood('thinking', '🎯 Latihan bebas: santai saja, tidak ada nyawa yang hilang!');
+      Mascot.setMood('thinking', `${Icon('target')} Mode latihan: santai aja, gak ada heart yang hilang!`);
     } catch (err) {
-      box.innerHTML = `<p class="loading-text">Gagal memuat soal: ${esc(err.message)}</p>`;
+      box.innerHTML = `<p class="loading-text">Soal gagal dimuat: ${esc(err.message)}</p>`;
     }
   }
 
@@ -136,17 +136,17 @@ const FreePractice = (() => {
     });
     if (pct >= 70) { SFX.fanfare(); Confetti.burst(); }
     Mascot.setMood(pct >= 70 ? 'celebrate' : 'comfort',
-      pct >= 70 ? '🎉 Mantap! Latihan bebasmu keren.' : 'Tetap semangat! Ulangi dengan soal baru untuk memperkuat pemahaman.');
+      pct >= 70 ? `${Icon('sparkle')} Mantap, latihanmu keren!` : 'Tetap semangat! Coba lagi pakai soal baru biar makin nempel.');
     box.innerHTML = Review.tabs(`
       <div class="level-complete session-result ${pct >= 70 ? 'pass' : 'fail'}">
-        <div class="trophy-anim">${pct >= 70 ? '🎯' : '📚'}</div>
+        <div class="trophy-anim">${Icon(pct >= 70 ? 'target' : 'book')}</div>
         <h3>Benar ${right}/${total} (${pct}%)</h3>
-        <p>Latihan bebas tidak mengubah nyawa, XP, maupun peringkat.</p>
+        <p>Mode latihan gak ngaruh ke heart, XP, atau leaderboard.</p>
         <ul class="fp-summary">${Object.entries(per).map(([t, r]) => `
           <li><span>${esc(t)}</span><b>${r.right}/${r.total}</b></li>`).join('')}
         </ul>
         <div class="offer-actions">
-          <button class="btn btn-primary" onclick="FreePractice.again()">🔁 Soal baru (pilihan sama)</button>
+          <button class="btn btn-primary" onclick="FreePractice.again()">${Icon('refresh')} Soal baru</button>
           <button class="btn btn-outline" onclick="FreePractice.change()">Ubah pilihan</button>
         </div>
       </div>`, QuizEngine.history());

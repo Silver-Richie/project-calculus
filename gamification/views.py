@@ -70,7 +70,7 @@ def set_campus_api(request):
     body = _json_body(request)
     name = campus.UMUM if body.get("umum") else campus.normalize(body.get("campus"))
     if not name:
-        return JsonResponse({"status": "error", "message": "Tulis nama kampusmu, atau pilih Umum."}, status=400)
+        return JsonResponse({"status": "error", "message": "Tulis nama kampusmu, atau centang Umum."}, status=400)
     profile, _ = UserProfile.objects.get_or_create(user=request.user)
     profile.campus = name
     profile.save(update_fields=["campus", "updated_at"])
@@ -111,7 +111,7 @@ def leaderboard_api(request):
         qs = qs.filter(campus=me.campus)
     elif scope == "fakultas":
         if not me.faculty_id:
-            return JsonResponse({"status": "error", "message": "Pilih fakultas dulu."}, status=400)
+            return JsonResponse({"status": "error", "message": "Pilih fakultas dulu, ya."}, status=400)
         qs = qs.filter(faculty_id=me.faculty_id)
     elif scope == "apex":
         qs = qs.filter(user__duel_rank__tier="apex")

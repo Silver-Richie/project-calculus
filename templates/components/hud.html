@@ -15,18 +15,18 @@
 
   <!-- Gamification stats -->
   <div class="hud-info">
-    <div class="hud-pill" id="hud-faculty-badge" title="Jalur Fakultas">💻 Fasilkom</div>
+    <div class="hud-pill" id="hud-faculty-badge" title="Jalur fakultas">{% icon "fac-fasilkom" %} Fasilkom</div>
     <div class="hud-pill level"  id="hud-level"   title="Level">{% icon "cap" %} <span id="hud-level-val">Lv {{ server_profile.level.level|default:1 }}</span></div>
     <div class="hud-pill xp"     id="hud-xp"      title="Total XP">{% icon "bolt" %} <span id="hud-xp-val">60 XP</span></div>
-    <div class="hud-pill streak" id="hud-streak"   title="Streak Harian">{% icon "flame" %} <span id="hud-streak-val">3</span></div>
-    <div class="hud-pill hearts" id="hud-hearts-pill" title="Nyawa">{% icon "heart" %} <span id="hud-hearts-val">10/10</span></div>
-    <button type="button" class="hud-pill gems" id="hud-gems" title="Diamond · buka Toko" onclick="Nav.go('shop')">{% icon "diamond" %} <span id="hud-gems-val">0</span></button>
+    <div class="hud-pill streak" id="hud-streak"   title="Streak harian">{% icon "flame" %} <span id="hud-streak-val">3</span></div>
+    <div class="hud-pill hearts" id="hud-hearts-pill" title="Heart">{% icon "heart" %} <span id="hud-hearts-val">10/10</span></div>
+    <button type="button" class="hud-pill gems" id="hud-gems" title="Diamond · buka Item Shop" onclick="Nav.go('shop')">{% icon "diamond" %} <span id="hud-gems-val">0</span></button>
   </div>
 
   <!-- Right controls -->
   <div class="hud-right">
-    <button type="button" class="btn-theme" id="theme-toggle-btn" title="Ganti tema" aria-label="Ganti tema">🌙</button>
-    <button class="btn-sound" id="sound-toggle-btn" onclick="SFX.toggle()" aria-label="Suara">🔊<span class="snd-label"> Suara</span></button>
+    <button type="button" class="btn-theme" id="theme-toggle-btn" title="Ganti tema" aria-label="Ganti tema">{% icon "moon" %}</button>
+    <button class="btn-sound" id="sound-toggle-btn" onclick="SFX.toggle()" aria-label="Suara">{% icon "sound" %}<span class="snd-label"> Suara</span></button>
   </div>
 
 </header>

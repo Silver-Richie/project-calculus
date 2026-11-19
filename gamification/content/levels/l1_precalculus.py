@@ -18,7 +18,7 @@ MAIN_LEVEL = {
     "order": 1,
     "title": "PreCalculus",
     "subtitle": "Fondasi aljabar & fungsi sebelum kalkulus",
-    "icon": "🧱",
+    "icon": "lv-precalculus",
 }
 
 
@@ -32,7 +32,7 @@ def g(title, x, y, params, elements, readouts=None, caption=None):
 
 
 def ref(*items):
-    return '<p class="book-ref">📚 Rujukan: ' + " · ".join(items) + "</p>"
+    return '<p class="book-ref">Rujukan: ' + " · ".join(items) + "</p>"
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -40,7 +40,7 @@ TOPICS = [
     {
         "slug": "pre-bilangan-real",
         "title": "Sistem Bilangan Real & Interval",
-        "icon": "🔢",
+        "icon": "m-number-line",
         "summary": "Himpunan bilangan, notasi interval, sifat eksponen & bentuk akar.",
         "references": "Stewart Lamp. A; Whitman Bab 1; Strang §0.1",
         "sections": [
@@ -123,7 +123,7 @@ TOPICS = [
     {
         "slug": "pre-pertidaksamaan",
         "title": "Pertidaksamaan",
-        "icon": "⚖️",
+        "icon": "m-inequality",
         "summary": "Aturan pertidaksamaan, linear, ganda, kuadrat, rasional, dan AM–GM.",
         "references": "Stewart Lamp. A (Inequalities); Whitman Bab 1",
         "sections": [
@@ -159,7 +159,7 @@ TOPICS = [
                     "<li>Pilih selang sesuai tanda. Akar penyebut <b>tidak pernah</b> ikut; akar pembilang ikut bila ≤ atau ≥.</li></ol>"
                     + "<p>Contoh: x² − x − 6 ≤ 0 ⇒ (x − 3)(x + 2) ≤ 0 ⇒ [−2, 3]. "
                       "Contoh rasional: (x − 1)/(x + 2) ≥ 0 ⇒ (−∞, −2) ∪ [1, ∞).</p>"
-                    + "<p class='lesson-note'>⚠️ Jangan mengalikan silang dengan penyebut yang tandanya belum diketahui.</p>"
+                    + "<p class='lesson-note'>Awas: jangan mengalikan silang dengan penyebut yang tandanya belum diketahui.</p>"
                 ),
                 "graphs": [g("Tanda (x − r₁)(x − r₂): positif di luar akar, negatif di antara", [-8, 8], [-15, 20],
                              [param("r1", "Akar r₁", -6, 6, 0.5, -2, "r₁"), param("r2", "Akar r₂", -6, 6, 0.5, 3, "r₂")],
@@ -188,7 +188,7 @@ TOPICS = [
     {
         "slug": "pre-nilai-mutlak",
         "title": "Nilai Mutlak",
-        "icon": "📏",
+        "icon": "m-abs",
         "summary": "Nilai mutlak sebagai jarak, persamaan & pertidaksamaan nilai mutlak, ketaksamaan segitiga.",
         "references": "Stewart Lamp. A (Absolute Value); Whitman Bab 1",
         "sections": [
@@ -231,7 +231,7 @@ TOPICS = [
     {
         "slug": "pre-konsep-fungsi",
         "title": "Konsep Fungsi",
-        "icon": "🧩",
+        "icon": "m-mapping",
         "summary": "Definisi fungsi, domain & range, komposisi, invers, transformasi, fungsi genap/ganjil.",
         "references": "Stewart §1.1, §1.3, §1.5; Whitman §1.3–1.4; Strang §4.3",
         "sections": [
@@ -294,7 +294,7 @@ TOPICS = [
     {
         "slug": "pre-fungsi-linear",
         "title": "Fungsi Linear",
-        "icon": "📈",
+        "icon": "m-linear",
         "summary": "Gradien, persamaan garis, sejajar & tegak lurus, titik potong, jarak titik ke garis.",
         "references": "Whitman §1.1–1.2; Stewart Lamp. B; Strang §1.1",
         "sections": [
@@ -339,7 +339,7 @@ TOPICS = [
     {
         "slug": "pre-fungsi-kuadrat",
         "title": "Fungsi Kuadrat",
-        "icon": "⛰️",
+        "icon": "m-parabola",
         "summary": "Bentuk umum/puncak/faktor, diskriminan, rumus Vieta, optimasi kuadrat.",
         "references": "Stewart Lamp. C & §1.2; Whitman §1.4; Strang §0.2",
         "sections": [
@@ -383,7 +383,7 @@ TOPICS = [
     {
         "slug": "pre-fungsi-trigonometri",
         "title": "Fungsi Trigonometri",
-        "icon": "🌊",
+        "icon": "m-sine",
         "summary": "Radian, lingkaran satuan, sudut istimewa, identitas, grafik sinusoidal, persamaan trigonometri.",
         "references": "Stewart Lamp. D; Strang §1.4–1.5; Whitman §4.1",
         "sections": [
@@ -431,7 +431,7 @@ TOPICS = [
     {
         "slug": "pre-fungsi-eksponensial",
         "title": "Fungsi Eksponensial",
-        "icon": "🚀",
+        "icon": "m-exp",
         "summary": "Fungsi bˣ, bilangan e, grafik & asimtot, persamaan/pertidaksamaan, pertumbuhan & peluruhan.",
         "references": "Stewart §1.4; Strang §6.1–6.3; Whitman §4.6",
         "sections": [
@@ -471,7 +471,7 @@ TOPICS = [
     {
         "slug": "pre-fungsi-logaritma",
         "title": "Fungsi Logaritma",
-        "icon": "🔁",
+        "icon": "m-log",
         "summary": "Logaritma sebagai invers eksponen, sifat, ganti basis, persamaan/pertidaksamaan, aplikasi pH & bit.",
         "references": "Stewart §1.5; Strang §6.4; Whitman §4.6",
         "sections": [
@@ -518,7 +518,7 @@ SUBLEVELS = [
         "slug": "pre-sistem-bilangan-fungsi",
         "title": "Sistem Bilangan dan Fungsi",
         "subtitle": "Pertidaksamaan, nilai mutlak, dan jenis-jenis fungsi",
-        "icon": "🧮",
+        "icon": "m-mapping",
         "badge_label": "PreCalculus",
         "summary_html": "<p>Fondasi aljabar sebelum limit: bilangan real, pertidaksamaan, nilai mutlak, dan fungsi "
                         "linear, kuadrat, trigonometri, eksponensial, serta logaritma.</p>",

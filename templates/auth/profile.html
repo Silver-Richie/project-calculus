@@ -1,3 +1,4 @@
+{% load icons %}
 <!-- =========================================================================
      MODUL: User Profile  (Page: User)
      Branch : feat/auth-onboarding
@@ -14,12 +15,12 @@
   <div style="margin-left:auto; display:flex; gap:.75rem; align-items:center;">
     <a class="btn btn-outline btn-sm" style="color:white; border-color:rgba(255,255,255,.4); text-decoration:none;"
        href="{% url 'gamification:auth_diagnostic_offer' %}">
-      🧪 Tes Ulang Diagnostik
+      {% icon "flask" %} Tes Ulang Diagnostik
     </a>
     <form method="post" action="{% url 'gamification:auth_logout' %}" class="logout-form">
       {% csrf_token %}
       <button type="submit" class="btn btn-outline btn-sm" style="color:white; border-color:rgba(255,255,255,.4);">
-        🚪 Keluar
+        {% icon "logout" %} Keluar
       </button>
     </form>
   </div>
@@ -30,12 +31,12 @@
   <div class="profile-level-badge">Level <b id="profile-level">{{ server_profile.level.level|default:1 }}</b></div>
   <div class="profile-level-main">
     <div class="profile-level-track"><div class="profile-level-bar" id="profile-level-bar" style="width:{{ server_profile.level.percent|default:0 }}%"></div></div>
-    <small id="profile-level-text">{{ server_profile.level.into }} / {{ server_profile.level.need }} XP menuju level berikutnya</small>
+    <small id="profile-level-text">{{ server_profile.level.into }} / {{ server_profile.level.need }} XP lagi ke level berikutnya</small>
   </div>
 </div>
 <div class="profile-rank" id="profile-rank" aria-label="Rank duel"></div>
 <div class="profile-campus">
-  <span>🏫 Asal kampus: <b id="profile-campus" data-value="{{ server_profile.campus }}">{{ server_profile.campus|default:"Belum diisi" }}</b></span>
+  <span>{% icon "school" %} Asal kampus: <b id="profile-campus" data-value="{{ server_profile.campus }}">{{ server_profile.campus|default:"Belum diisi" }}</b></span>
   <button type="button" class="link-btn" id="profile-campus-edit">Ubah</button>
 </div>
 <div id="profile-campus-form"></div>
@@ -53,7 +54,7 @@
   </div>
   <div class="stat-box">
     <div class="stat-box-val" id="profile-hearts" style="color:var(--clr-danger);">5</div>
-    <div class="stat-box-lbl">Nyawa Tersisa</div>
+    <div class="stat-box-lbl">Sisa Heart</div>
   </div>
   <div class="stat-box">
     <div class="stat-box-val" id="profile-gems" style="color:var(--clr-growth);">120</div>
@@ -67,19 +68,19 @@
   <div class="fac-selector-row">
 
     <div class="fac-card" data-fac="fasilkom" onclick="State.setFaculty('fasilkom')">
-      <div class="fac-card-icon">💻</div>
+      <div class="fac-card-icon">{% icon "fac-fasilkom" %}</div>
       <div class="fac-card-name">Fasilkom</div>
       <div class="fac-card-desc">Gradient Descent, Limit Kompleksitas, AI Math</div>
     </div>
 
     <div class="fac-card" data-fac="fmipa" onclick="State.setFaculty('fmipa')">
-      <div class="fac-card-icon">🔬</div>
+      <div class="fac-card-icon">{% icon "fac-fmipa" %}</div>
       <div class="fac-card-name">FMIPA</div>
       <div class="fac-card-desc">Pembuktian Epsilon-Delta, MVT, Analisis Formal</div>
     </div>
 
     <div class="fac-card" data-fac="ft" onclick="State.setFaculty('ft')">
-      <div class="fac-card-icon">⚙️</div>
+      <div class="fac-card-icon">{% icon "fac-ft" %}</div>
       <div class="fac-card-name">Fak. Teknik</div>
       <div class="fac-card-desc">Laju Terkait, Optimasi Struktur, Vektor Fisika</div>
     </div>

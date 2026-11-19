@@ -105,7 +105,7 @@ NODES = [
         "kind": "reference",
         "stage_number": 0,
         "order": 99,
-        "icon": "📚",
+        "icon": "book",
         "title": "Lampiran: Daftar Library Grafik",
         "badge_label": "Lampiran",
         "subtitle": "Library grafik untuk web, mobile, dan backend Python beserta rekomendasi kombinasi.",

@@ -4,9 +4,9 @@
  *  - RankBadge   : lencana tier (lambang RankEmblem, rank_emblem.js) + nama rank + bintang
  *                  (dipakai Profil, Ranked & duel.js).
  *  - Leaderboard : papan Level (urut total XP), Rank Duel (urut posisi tangga), dan Menang Duel
- *                  (urut jumlah kemenangan) bergaya "Stratigrafi" (static/css/leaderboard.css):
- *                  kartu Posisimu, 5 teratas → "Tampilkan N" → pemain di sekitarmu, dan state seri
- *                  bila belum ada duel; Rank Duel juga kolom Ketinggian (lapisan tier). Cakupan
+ *                  (urut jumlah kemenangan), gaya aplikasi (static/css/leaderboard.css): kartu Posisimu,
+ *                  podium 3 teratas, daftar #4 dst → "Tampilkan N" → pemain di sekitarmu, dan state seri
+ *                  bila belum ada duel; Rank Duel juga kolom sebaran tier. Cakupan
  *                  Global · Kampusku · Fakultasku (+ Top 100 Apex di tab Rank) dari
  *                  GET /api/peringkat/?board=…&scope=…; 50 teratas + posisimu sendiri.
  *                  Kampusku tanpa kampus (atau "Umum") → formulir isi kampus di tempat.
@@ -32,10 +32,10 @@ const RankBadge = (() => {
   /** Teks progres: berapa kemenangan lagi untuk naik / gelar Apex berikutnya. */
   function next(rank) {
     if (rank.max_stars == null) {
-      return rank.apex_title === 'Kosmos' ? 'Gelar tertinggi Apex tercapai!'
+      return rank.apex_title === 'Kosmos' ? 'Gelar tertinggi Apex udah kamu raih!'
         : `Gelar berikutnya di ${rank.stars < 25 ? 25 : rank.stars < 50 ? 50 : 100}★`;
     }
-    return `${rank.max_stars - rank.stars + 1} kemenangan lagi untuk naik`;   // bintang penuh + 1 menang = naik
+    return `Butuh ${rank.max_stars - rank.stars + 1} kemenangan lagi buat naik tier`;   // bintang penuh + 1 menang = naik
   }
 
   return { html, next };
@@ -53,23 +53,32 @@ const Leaderboard = (() => {
   const $ = (id) => document.getElementById(id);
   const esc = (t) => String(t ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const fmt = (n) => Number(n || 0).toLocaleString('id-ID');
-  const TIER_NAME = { terra: 'Terra', luna: 'Luna', solar: 'Solar', nova: 'Nova', apex: 'Apex' };
   const RESULT = { w: 'menang', l: 'kalah', d: 'imbang' };
   const MIN_DUEL_LEVEL = 3;      // = duel.MIN_LEVEL
+  const PODIUM = 3;              // posisi 1–3 tampil sebagai kartu podium
+  const TOP = 5;                 // baris teratas yang selalu tampil sebelum "Tampilkan N"
+  const COLORS = ['#2563EB', '#16A34A', '#D97706', '#DB2777', '#7C3AED', '#0D9488', '#DC2626', '#4B5563'];
+  const colorOf = (name) => COLORS[[...name].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7) % COLORS.length];
   const BOARDS = {
-    level: { title: 'Level', sub: 'XP dari sesi latihan tiap topik. Makin banyak sesi tuntas, makin tinggi levelmu.',
-             cols: ['Posisi', 'Pemain', 'Level', 'XP'] },
-    rank: { title: 'Rank Duel', sub: 'Makin sering menang, makin tinggi lapisanmu. Dari Terra di permukaan sampai Apex di puncak.',
-            cols: ['Posisi', 'Pemain', '5 duel terakhir', 'Rekor', 'Poin'] },
-    wins: { title: 'Menang Duel', sub: 'Jumlah kemenangan duel, apa pun rank-mu. Tiap kemenangan dihitung.',
-            cols: ['Posisi', 'Pemain', '5 duel terakhir', 'Rekor', 'Menang'] },
+    level: { sub: 'XP dari sesi latihan tiap topik. Makin banyak sesi yang beres, makin tinggi levelmu.',
+             cols: ['#', 'Pemain', 'Level', 'XP'] },
+    rank: { sub: 'Makin sering menang, makin tinggi tier-mu. Mulai dari Terra sampai Apex di puncak.',
+            cols: ['#', 'Pemain', '5 terakhir', 'Rekor', 'Poin'] },
+    wins: { sub: 'Total kemenangan duel, apa pun rank-mu. Semua kemenangan dihitung.',
+            cols: ['#', 'Pemain', '5 terakhir', 'Rekor', 'Menang'] },
   };
 
-  /* ── potongan baris ─────────────────────────────────────────────── */
-  const where = (r) => [r.faculty, r.campus && r.campus !== 'Umum' ? r.campus : ''].filter(Boolean).join(', ');
-  const avatar = (r) => `<span class="lbx-av t-${r.tier}${r.frame ? ` frame ${esc(r.frame)}` : ''}">${esc((r.name[0] || '?').toUpperCase())}</span>`;
+  /* ── potongan tampilan ──────────────────────────────────────────── */
+  const where = (r) => [r.faculty, r.campus && r.campus !== 'Umum' ? r.campus : ''].filter(Boolean).join(' · ');
+  const avatar = (r, cls = '') =>
+    `<span class="lbx-av ${cls}${r.frame ? ` frame ${esc(r.frame)}` : ''}" style="--av:${colorOf(r.username)}">${esc((r.name[0] || '?').toUpperCase())}</span>`;
+  const chip = (r) => (board === 'level'
+    ? `<span class="lbx-pill">Lv ${r.level}</span>`
+    : `<span class="lbx-pill t-${r.tier}">${esc(r.rank.label)}</span>`);
+  const score = (r) => (board === 'level' ? `${Icon('bolt')} ${fmt(r.xp)}`
+    : board === 'rank' ? `${fmt(r.points)}` : `${Icon('trophy')} ${fmt(r.wins)}`);
   const player = (r) => `<span class="lbx-player">${avatar(r)}<span class="lbx-who">
-    <b>${esc(r.name)}${r.me ? ' (kamu)' : ''}</b><small>${esc([where(r), r.title].filter(Boolean).join(' · ')) || '&nbsp;'}</small></span></span>`;
+    <b>${esc(r.name)}${r.me ? ' <em>(kamu)</em>' : ''}</b><small>${esc([where(r), r.title].filter(Boolean).join(' · ')) || '&nbsp;'}</small></span></span>`;
 
   function dots(recent) {
     if (!recent?.length) return '<span class="lbx-none">Belum duel</span>';
@@ -80,66 +89,75 @@ const Leaderboard = (() => {
 
   function rowHTML(r) {
     const cells = board === 'level'
-      ? `<span class="lbx-c-lv">Lv ${r.level}</span><span class="lbx-score">${fmt(r.xp)}</span>`
-      : `${dots(r.recent)}<span class="lbx-rec">${r.wins}–${r.losses}</span><span class="lbx-score">${fmt(board === 'rank' ? r.points : r.wins)}</span>`;
+      ? `${chip(r)}<span class="lbx-score">${score(r)}</span>`
+      : `${dots(r.recent)}<span class="lbx-rec">${r.wins}–${r.losses}</span><span class="lbx-score">${score(r)}</span>`;
     return `<li class="lbx-row${board === 'level' ? ' is-level' : ''}${r.me ? ' me' : ''}"><span class="lbx-pos">${fmt(r.pos)}</span>${player(r)}${cells}</li>`;
   }
 
-  const groupHTML = (tier, label, note) =>
-    `<li class="lbx-group">${tier ? `<i class="lbx-sw t-${tier}"></i>` : ''}<b>${label}</b>${note ? `<small>${note}</small>` : ''}</li>`;
+  const groupHTML = (label) => `<li class="lbx-group">${label}</li>`;
   const gapHTML = (text, button) =>
     `<li class="lbx-gap"><span>${text}</span>${button ? '<button type="button" data-lbx="more">Tampilkan</button>' : ''}</li>`;
 
-  /* ── daftar: 5 teratas → Tampilkan N → di sekitarmu ─────────────── */
+  /* ── podium 1–3 ─────────────────────────────────────────────────── */
+  function podiumHTML(rows) {
+    const top = rows.slice(0, PODIUM);
+    const ICON = ['crown', 'medal-silver', 'medal-bronze'];
+    const order = [1, 0, 2].filter((i) => top[i]);          // #2 kiri · #1 tengah · #3 kanan
+    return `<div class="lbx-podium">${order.map((i) => {
+      const r = top[i];
+      return `<article class="lbx-pod p${i + 1}${r.me ? ' me' : ''}">
+        <span class="lbx-pod-pos">#${fmt(r.pos)}</span>
+        <span class="lbx-pod-icon">${Icon(ICON[i], { label: `Peringkat ${r.pos}` })}</span>
+        ${avatar(r)}
+        <b>${esc(r.name)}${r.me ? ' (kamu)' : ''}</b>
+        <small>${esc(where(r)) || '&nbsp;'}</small>
+        ${chip(r)}
+        <span class="lbx-pod-score">${score(r)}${board === 'rank' ? ' poin' : board === 'level' ? ' XP' : ''}</span>
+      </article>`;
+    }).join('')}</div>`;
+  }
+
+  /* ── daftar #4 dst: sampai posisi 5 → Tampilkan N → di sekitarmu ── */
   function listHTML(d) {
     const { rows } = d;
-    if (!rows.length) {
-      return `<p class="lbx-empty">${d.scope === 'apex' ? 'Belum ada pemain yang mencapai Apex. Jadilah yang pertama!' : 'Belum ada pemain.'}</p>`;
-    }
     const around = d.around || [];
     const head = `<li class="lbx-thead${board === 'level' ? ' is-level' : ''}">${BOARDS[board].cols.map((c) => `<span>${c}</span>`).join('')}</li>`;
-    const top = board === 'rank' ? groupHTML(rows[0].tier, TIER_NAME[rows[0].tier], 'teratas') : groupHTML('', 'Teratas', '');
     const first = around[0]?.index;
     let body;
-    if (!around.length || first <= 5) {
+    if (!around.length || first <= TOP) {
       // posisiku dekat puncak (atau di luar cakupan): satu daftar menerus
-      const end = around.length ? Math.max(5, around[around.length - 1].index + 1) : 5;
-      const shown = expanded ? rows : rows.slice(0, end);
+      const end = around.length ? Math.max(TOP, around[around.length - 1].index + 1) : TOP;
+      const shown = (expanded ? rows : rows.slice(0, end)).slice(PODIUM);
       body = shown.map(rowHTML).join('')
         + (!expanded && rows.length > end ? gapHTML(`${fmt(rows.length - end)} pemain berikutnya`, true) : '');
     } else {
-      const between = rows.slice(5, Math.min(rows.length, first));
-      const rest = first - 5 - between.length;
-      const near = board === 'rank'
-        ? groupHTML(d.me.tier, TIER_NAME[d.me.tier], 'di sekitarmu') : groupHTML('', 'Di sekitarmu', '');
-      body = rows.slice(0, 5).map(rowHTML).join('')
+      const between = rows.slice(TOP, Math.min(rows.length, first));
+      const rest = first - TOP - between.length;
+      body = rows.slice(PODIUM, TOP).map(rowHTML).join('')
         + (expanded
           ? between.map(rowHTML).join('') + (rest > 0 ? gapHTML(`${fmt(rest)} pemain lagi di antaranya`, false) : '')
-          : gapHTML(`${fmt(first - 5)} pemain di antaranya`, true))
-        + near + around.map(rowHTML).join('');
+          : gapHTML(`${fmt(first - TOP)} pemain di antaranya`, true))
+        + groupHTML('Di sekitarmu') + around.map(rowHTML).join('');
     }
-    return `<ol class="lbx-list">${head}${top}${body}</ol>`;
+    return body ? `<div class="lbx-card"><ol class="lbx-list">${head}${body}</ol></div>` : '';
   }
 
   /* ── kartu Posisimu ─────────────────────────────────────────────── */
   function duelButton(text) {
     const lv = (typeof State !== 'undefined' && State.get().level?.level) || 1;
     return lv >= MIN_DUEL_LEVEL
-      ? `<button type="button" class="lbx-btn" data-lbx="duel">${text}</button>`
-      : `<button type="button" class="lbx-btn" disabled>Duel terbuka di Level ${MIN_DUEL_LEVEL}</button>`;
+      ? `<button type="button" class="lbx-btn" data-lbx="duel">${Icon('swords')} ${text}</button>`
+      : `<button type="button" class="lbx-btn" disabled>${Icon('lock')} Kebuka di Level ${MIN_DUEL_LEVEL}</button>`;
   }
 
-  const segments = (on, total) =>
-    `<div class="lbx-prog" aria-hidden="true">${Array.from({ length: total }, (_, i) => `<i${i < on ? ' class="on"' : ''}></i>`).join('')}</div>`;
-
-  /** Teks & progres menuju sub-rank (atau gelar Apex) berikutnya. */
+  /** Teks & persen progres menuju sub-rank (atau gelar Apex) berikutnya. */
   function rankProgress(r) {
     if (r.max_stars == null) {
-      if (!r.next_label) return ['Gelar tertinggi Apex tercapai', segments(10, 10)];
+      if (!r.next_label) return ['Gelar tertinggi Apex udah kamu raih', 100];
       const goal = r.stars < 25 ? 25 : r.stars < 50 ? 50 : 100;
-      return [`${goal - r.stars} bintang lagi ke ${r.next_label}`, segments(Math.round(r.stars / goal * 10), 10)];
+      return [`Butuh ${goal - r.stars} bintang lagi ke ${r.next_label}`, (r.stars / goal) * 100];
     }
-    return [`${r.max_stars - r.stars + 1} kemenangan lagi ke ${r.next_label}`, segments(r.stars, r.max_stars + 1)];
+    return [`Butuh ${r.max_stars - r.stars + 1} kemenangan lagi ke ${r.next_label}`, (r.stars / (r.max_stars + 1)) * 100];
   }
 
   function meCardHTML(d) {
@@ -148,28 +166,28 @@ const Leaderboard = (() => {
       return `<section class="lbx-me lbx-tie"><div>
         <h3>Semua ${fmt(d.total)} pemain masih seri</h3>
         <p>${board === 'rank'
-          ? 'Belum ada duel yang dimainkan, jadi semua orang berdiri di Terra III dengan rekor 0–0. Menangkan satu duel dan kamu langsung jadi yang pertama naik.'
-          : 'Belum ada duel yang dimainkan, jadi semua pemain masih 0 kemenangan. Menangkan satu duel dan kamu langsung di puncak papan ini.'}</p>
+          ? 'Belum ada duel yang dimainkan, jadi semua orang masih di Terra III dengan rekor 0–0. Menang sekali aja, kamu langsung jadi yang pertama naik.'
+          : 'Belum ada duel yang dimainkan, jadi semua pemain masih 0 kemenangan. Menang sekali aja, kamu langsung di puncak.'}</p>
         ${duelButton('Cari lawan duel')}</div></section>`;
     }
-    let chip, note, prog = '';
+    let note, pct = null;
     if (board === 'level') {
       const li = m.level_info;
-      chip = `<span class="lbx-chip lv">Lv ${li.level}</span>`;
       note = `${fmt(li.need - li.into)} XP lagi ke Level ${li.level + 1}`;
-      prog = segments(Math.round(li.percent / 10), 10);
+      pct = li.percent;
+    } else if (board === 'rank') {
+      [note, pct] = rankProgress(m.rank);
     } else {
-      chip = `<span class="lbx-chip t-${m.tier}">${esc(m.rank.label)}</span>`;
-      if (board === 'rank') [note, prog] = rankProgress(m.rank);
-      else note = `${fmt(m.wins)} menang · ${fmt(m.losses)} kalah`;
+      note = `${fmt(m.wins)} menang · ${fmt(m.losses)} kalah`;
     }
     const inScope = m.index != null;
     return `<section class="lbx-me">
-      <div class="lbx-me-pos"><small>Posisimu</small><b>${inScope ? fmt(m.pos) : '–'}</b></div>
+      <div class="lbx-me-rank"><span><small>Posisimu</small><br><b>${inScope ? `#${fmt(m.pos)}` : '–'}</b></span></div>
+      ${avatar(m, 'lg')}
       <div class="lbx-me-info">
-        <p><b>${esc(m.name)}</b><small>${esc(where(m))}</small></p>
-        <p>${chip}<small>${inScope ? note : `Kamu belum di Apex · ${note}`}</small></p>
-        ${prog}
+        <p><b>${esc(m.name)}</b>${where(m) ? `<span class="lbx-badge">${Icon('school')} ${esc(where(m))}</span>` : ''}</p>
+        <p>${chip(m)}<small>${inScope ? note : `Kamu belum di Apex · ${note}`}</small></p>
+        ${pct != null ? `<div class="lbx-bar" role="progressbar" aria-valuenow="${Math.round(pct)}" aria-valuemin="0" aria-valuemax="100"><i style="width:${Math.min(100, Math.max(3, pct)).toFixed(1)}%"></i></div>` : ''}
       </div>
       ${board === 'level' ? '' : duelButton('Mulai duel')}
     </section>`;
@@ -180,11 +198,9 @@ const Leaderboard = (() => {
     const all = [...d.rows].sort((a, b) => b.me - a.me);
     if (!all.some((r) => r.me) && d.me) all.unshift(d.me);
     const more = d.total - all.length;
-    return `<div class="lbx-tie-list">
-      <div class="lbx-tie-pos"><b>1</b><small>seri</small></div>
-      <ol class="lbx-list">${all.map((r) => `<li class="lbx-row lbx-row-tie${r.me ? ' me' : ''}">${player(r)}<span class="lbx-none">Belum duel</span></li>`).join('')}
-        ${more > 0 ? `<li class="lbx-more-note">dan ${fmt(more)} pemain lainnya</li>` : ''}</ol>
-    </div>`;
+    return `<div class="lbx-card"><ol class="lbx-list">${groupHTML('Semua di posisi 1 · seri')}
+      ${all.map((r) => `<li class="lbx-row lbx-row-tie${r.me ? ' me' : ''}">${player(r)}<span class="lbx-none">Belum duel</span></li>`).join('')}
+      ${more > 0 ? `<li class="lbx-more-note">dan ${fmt(more)} pemain lainnya</li>` : ''}</ol></div>`;
   }
 
   /* ── kolom Ketinggian (Rank Duel) ───────────────────────────────── */
@@ -198,37 +214,42 @@ const Leaderboard = (() => {
       const rnd = () => { seed = (seed * 9301 + 49297) % 233280; return seed / 233280; };
       const dotsHTML = d.played && t.count
         ? Array.from({ length: Math.max(1, Math.round(t.count / per)) }, () =>
-          `<i style="left:${(6 + rnd() * 88).toFixed(1)}%;top:${(34 + rnd() * 58).toFixed(1)}%"></i>`).join('') : '';
+          `<i style="left:${(6 + rnd() * 88).toFixed(1)}%;top:${(38 + rnd() * 54).toFixed(1)}%"></i>`).join('') : '';
       let mark = '';
       if (d.played && m.index != null && m.tier === t.tier) {
         const r = m.rank;
         const frac = r.max_stars == null ? Math.min(1, r.stars / 100) : ((3 - r.division) * r.max_stars + r.stars) / (3 * r.max_stars);
-        mark = `<span class="lbx-mark" style="top:${(90 - frac * 55).toFixed(1)}%"><em>kamu, ${fmt(m.pos)}</em></span>`;
+        mark = `<span class="lbx-mark" style="top:${(90 - frac * 50).toFixed(1)}%"><em>kamu</em></span>`;
       }
       const start = !d.played && t.tier === 'terra'
         ? `<div class="lbx-start">${'<i></i>'.repeat(Math.min(7, Math.max(0, t.count - 1)))}<i class="me"></i><small>Semua di Terra III, garis start</small></div>` : '';
       return `<div class="lbx-layer t-${t.tier}${faded ? ' empty' : ''}" style="flex-grow:${t.count}">
-        <b>${t.name}</b><span class="lbx-layer-n">${t.count ? `${fmt(t.count)}${d.played ? '' : ' pemain'}` : 'kosong'}</span>${dotsHTML}${mark}${start}</div>`;
+        <b>${t.name}</b><span class="lbx-layer-n">${t.count ? fmt(t.count) : 'kosong'}</span>${dotsHTML}${mark}${start}</div>`;
     }).join('');
-    return `<aside class="lbx-alt" aria-label="Ketinggian: sebaran pemain per tier">
-      <p class="lbx-alt-head"><b>Ketinggian</b><span>${fmt(total)} pemain</span></p>
+    return `<aside class="lbx-alt" aria-label="Sebaran pemain per tier">
+      <p class="lbx-alt-head"><b>Sebaran tier</b><span>${fmt(total)} pemain</span></p>
       <div class="lbx-layers">${layers}</div>
-      <p class="lbx-alt-foot"><span>Permukaan</span><span>Puncak</span></p>
+      <p class="lbx-alt-foot"><span>Terra</span><span>Apex</span></p>
       <p class="lbx-alt-note">${d.played
         ? `Tiap titik mewakili ${per > 1 ? `sekitar ${fmt(per)} pemain` : '1 pemain'}. Tebal lapisan mengikuti jumlah pemainnya.`
-        : 'Belum ada yang naik dari Terra, jadi lapisan di atasnya masih kosong.'}</p>
+        : 'Belum ada yang naik dari Terra, jadi tier di atasnya masih kosong.'}</p>
     </aside>`;
   }
 
   function render(d) {
     data = d;
     const tie = board !== 'level' && !d.played;
-    const main = `<div class="lbx-main">${meCardHTML(d)}${tie ? tieListHTML(d) : listHTML(d)}</div>`;
-    root().innerHTML = board === 'rank' && d.scope !== 'apex' ? `<div class="lbx-grid">${altitudeHTML(d)}${main}</div>` : main;
+    let body;
+    if (!d.rows.length) {
+      body = `<p class="lbx-empty">${d.scope === 'apex' ? 'Belum ada yang sampai Apex. Jadi yang pertama, yuk!' : 'Belum ada pemain.'}</p>`;
+    } else {
+      body = tie ? tieListHTML(d) : podiumHTML(d.rows) + listHTML(d);
+    }
+    const main = `<div class="lbx-main">${meCardHTML(d)}${body}</div>`;
+    root().innerHTML = board === 'rank' && d.scope !== 'apex' ? `<div class="lbx-grid">${main}${altitudeHTML(d)}</div>` : main;
   }
 
   function setHeading() {
-    $('lbx-title').textContent = BOARDS[board].title;
     $('lbx-sub').textContent = BOARDS[board].sub;
   }
 
@@ -241,7 +262,7 @@ const Leaderboard = (() => {
       b.classList.toggle('active', b.dataset.scope === scope);
       if (b.dataset.scope === 'apex') b.hidden = board !== 'rank';
     });
-    root().innerHTML = '<p class="lbx-loading">Memuat peringkat…</p>';
+    root().innerHTML = '<p class="lbx-loading">Lagi nyiapin leaderboard…</p>';
     try {
       const res = await fetch(`/api/peringkat/?board=${board}&scope=${scope}`, { headers: { Accept: 'application/json' } });
       const d = await res.json();
@@ -249,8 +270,8 @@ const Leaderboard = (() => {
       if (d.status === 'need_campus') {
         root().innerHTML = `<div class="lb-need">
           <p>${d.campus === 'Umum'
-            ? 'Akunmu tercatat <b>Umum</b>, jadi tidak ikut peringkat per kampus. Isi kampusmu bila kamu mahasiswa.'
-            : 'Isi asal kampusmu untuk melihat peringkat sesama mahasiswa di kampusmu.'}</p>
+            ? 'Akunmu tercatat <b>Umum</b>, jadi gak ikut leaderboard per kampus. Isi kampusmu kalau kamu mahasiswa.'
+            : 'Isi asal kampusmu dulu buat lihat leaderboard sesama mahasiswa kampusmu.'}</p>
           ${CampusEditor.formHTML('')}</div>`;
         CampusEditor.bind(root(), (campus) => {
           const tab = $('lbx-scope-kampus');
@@ -261,7 +282,7 @@ const Leaderboard = (() => {
       }
       render(d);
     } catch (err) {
-      root().innerHTML = `<p class="lbx-loading">Gagal memuat peringkat: ${esc(err.message)}</p>`;
+      root().innerHTML = `<p class="lbx-loading">Leaderboard gagal dimuat: ${esc(err.message)}</p>`;
     }
   }
 
@@ -323,7 +344,7 @@ const CampusEditor = (() => {
       <form class="campus-form">
         <input type="text" name="campus" list="campus-list" maxlength="120" aria-label="Nama kampus"
                placeholder="Ketik nama kampus, mis. Universitas Indonesia" value="${umum ? '' : esc(value)}" ${umum ? 'disabled' : ''}>
-        <label class="campus-umum"><input type="checkbox" name="umum" ${umum ? 'checked' : ''}> Umum — bukan mahasiswa / tidak disebutkan</label>
+        <label class="campus-umum"><input type="checkbox" name="umum" ${umum ? 'checked' : ''}> Umum (bukan mahasiswa / gak mau sebut)</label>
         <div class="campus-actions"><button type="submit" class="btn btn-primary btn-sm">Simpan</button></div>
         <p class="campus-msg" role="alert"></p>
       </form>`;

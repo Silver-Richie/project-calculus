@@ -1,4 +1,5 @@
 {% extends 'auth/base_auth.html' %}
+{% load icons %}
 {% comment %}
   HALAMAN: Pemilihan fakultas (FT / FMIPA / Fasilkom) + asal kampus
   Branch : feat/auth-onboarding
@@ -14,7 +15,7 @@
     {% include 'components/mascot.html' with svg_class="mascot-thinking" size=72 %}
     <div>
       <h2 class="auth-title">Kamu kuliah di fakultas apa?</h2>
-      <p class="auth-sub">Pilihanmu menentukan materi khusus dan soal tes yang sesuai prodi. Bisa diubah nanti di halaman Profil.</p>
+      <p class="auth-sub">Pilihanmu nentuin materi khusus dan soal tes yang cocok sama prodimu. Bisa diganti nanti di Profil.</p>
     </div>
   </div>
 
@@ -26,7 +27,7 @@
         <label class="fac-choice">
           <input type="radio" name="faculty" value="{{ fac.slug }}" {% if fac.slug == selected %}checked{% endif %} required>
           <span class="fac-choice-card fac-{{ fac.slug }}">
-            <span class="fac-choice-icon">{{ fac.icon }}</span>
+            <span class="fac-choice-icon">{% icon_of fac.icon %}</span>
             <span class="fac-choice-name">{{ fac.short_name }}</span>
             <span class="fac-choice-full">{{ fac.name }}</span>
             <span class="fac-choice-desc">{{ fac.description }}</span>
@@ -39,7 +40,7 @@
     </div>
     <fieldset class="campus-field">
       <legend class="auth-label">Asal kampus</legend>
-      <p class="auth-help">Untuk papan peringkat antarkampus se-Indonesia. Bisa diubah nanti di Profil.</p>
+      <p class="auth-help">Buat leaderboard antarkampus se-Indonesia. Bisa diganti nanti di Profil.</p>
       {% for error in form.campus.errors %}<div class="auth-alert auth-alert-error">{{ error }}</div>{% endfor %}
       <input type="text" name="campus" id="id_campus" list="campus-list" maxlength="120" autocomplete="organization"
              placeholder="Ketik nama kampus, mis. Universitas Indonesia" value="{{ campus_value }}"

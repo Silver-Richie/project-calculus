@@ -15,7 +15,7 @@ from .l1_precalculus import g, ref
 from .l2_kalkulus_dasar import S, T
 
 MAIN_LEVEL = {"slug": "kalkulus-lanjut", "order": 4, "title": "Kalkulus Tingkat Lanjut",
-              "subtitle": "Jalur khusus fakultas: peubah banyak, turunan parsial, integral lipat, kalkulus vektor, fungsi khusus", "icon": "🛰️"}
+              "subtitle": "Jalur khusus fakultas: peubah banyak, turunan parsial, integral lipat, kalkulus vektor, fungsi khusus", "icon": "lv-kalkulus-lanjut"}
 
 FACULTIES = {"ft": ("ft", "FT"), "fm": ("fmipa", "FMIPA"), "fk": ("fasilkom", "Fasilkom")}
 
@@ -37,7 +37,7 @@ def surface(title, z_expr, caption, params=None, rng_=2):
 
 # ═══════════════════════════ Materi topik INTI (dipakai 3 fakultas) ════════
 CORE = {
-    "pb-fungsi": ("Fungsi Dua Variabel & Kurva Tingkat", "🗻", "Domain, grafik permukaan, kurva tingkat, kuadrik.", "Stewart §14.1, §12.6; Whitman §14.1; Strang §13.1", [
+    "pb-fungsi": ("Fungsi Dua Variabel & Kurva Tingkat", "lv-kalkulus-lanjut", "Domain, grafik permukaan, kurva tingkat, kuadrik.", "Stewart §14.1, §12.6; Whitman §14.1; Strang §13.1", [
         S("Fungsi z = f(x, y)",
           "<p>Fungsi dua variabel memasangkan titik (x, y) di domain D ⊂ ℝ² dengan satu bilangan. Grafiknya permukaan di ℝ³; "
           "<b>kurva tingkat</b> f(x, y) = k adalah ‘garis kontur’ seperti pada peta topografi.</p>"
@@ -46,7 +46,7 @@ CORE = {
           [surface("Permukaan z = a·x² + b·y²", "a*x*x+b*y*y", "Ubah b menjadi negatif: mangkuk berubah menjadi pelana.",
                    [param("a", "a", -2, 2, 0.1, 1, "a"), param("b", "b", -2, 2, 0.1, 1, "b")])]),
     ]),
-    "pb-limit": ("Limit & Kekontinuan Multivariabel", "🎯", "Uji jalur, koordinat kutub, kekontinuan.", "Stewart §14.2; Whitman §14.2", [
+    "pb-limit": ("Limit & Kekontinuan Multivariabel", "m-limit", "Uji jalur, koordinat kutub, kekontinuan.", "Stewart §14.2; Whitman §14.2", [
         S("Limit dua variabel",
           "<p>lim<sub>(x,y)→(a,b)</sub> f = L bila f mendekati L dari <b>semua</b> arah. Jika dua jalur memberi nilai berbeda, limit tidak ada. "
           "Koordinat kutub membantu: bila |f − L| ≤ g(r) → 0 tanpa bergantung θ, limit ada.</p>",
@@ -60,7 +60,7 @@ CORE = {
           "Clairaut: f<sub>xy</sub> = f<sub>yx</sub> bila kontinu. Aturan rantai: dz/dt = z<sub>x</sub>x′ + z<sub>y</sub>y′; implisit ∂z/∂x = −F<sub>x</sub>/F<sub>z</sub>.</p>",
           [surface("Irisan z = x²y pada y tetap", "x*x*y", "Turunan parsial = kemiringan kurva irisan.", rng_=2)]),
     ]),
-    "tp-gradien": ("Gradien, Turunan Berarah & Bidang Singgung", "🧭", "∇f, D_u f = ∇f·u, laju maksimum, linearisasi.", "Stewart §14.4, §14.6; Whitman §14.5; Strang §13.4", [
+    "tp-gradien": ("Gradien, Turunan Berarah & Bidang Singgung", "compass", "∇f, D_u f = ∇f·u, laju maksimum, linearisasi.", "Stewart §14.4, §14.6; Whitman §14.5; Strang §13.4", [
         S("Gradien",
           bullets(["∇f = ⟨f<sub>x</sub>, f<sub>y</sub>⟩ tegak lurus kurva tingkat.", "Turunan berarah D<sub>u</sub>f = ∇f·u (u vektor satuan).",
                    "Laju kenaikan maksimum |∇f| ke arah ∇f; penurunan tercepat ke arah −∇f (dasar gradient descent).",
@@ -70,7 +70,7 @@ CORE = {
               {"type": "segment", "x1": "2*cos(t)", "y1": "sqrt(2)*sin(t)", "x2": "2*cos(t)+0.3*4*cos(t)", "y2": "sqrt(2)*sin(t)+0.3*4*sqrt(2)*sin(t)", "color": "red", "arrow": True}],
              None, "Panah merah = ∇f, selalu tegak lurus kontur.")]),
     ]),
-    "il-ganda": ("Integral Ganda", "▦", "Fubini, daerah umum, menukar urutan, volume.", "Stewart §15.1–15.3; Whitman §15.1–15.2; Strang §14.1–14.2", [
+    "il-ganda": ("Integral Ganda", "m-grid", "Fubini, daerah umum, menukar urutan, volume.", "Stewart §15.1–15.3; Whitman §15.1–15.2; Strang §14.1–14.2", [
         S("Integral ganda",
           "<p>∬<sub>D</sub> f dA = volume di bawah z = f di atas D (bila f ≥ 0). Teorema Fubini: hitung sebagai integral berulang. Daerah tipe I: "
           "g₁(x) ≤ y ≤ g₂(x); tipe II: h₁(y) ≤ x ≤ h₂(y). Menukar urutan bisa membuat integral mustahil menjadi mudah (∫∫ e^{y²}).</p>",
@@ -78,14 +78,14 @@ CORE = {
              [{"type": "param", "t": [0, 2], "x": "t", "y": "0", "color": "gray"}, {"type": "text", "x": 1, "y": 1.1, "text": "Σ f(xᵢ, yⱼ)ΔA → ∬ f dA"}],
              [readout("ΔA = (2/n)²", "4/(N*N)", 4)], "Semakin halus grid, jumlah Riemann semakin dekat ke integral.")]),
     ]),
-    "il-koordinat": ("Integral Lipat: Kutub, Silinder & Bola", "🌐", "dA = r dr dθ, dV = r dz dr dθ, dV = ρ² sin φ dρ dφ dθ.",
+    "il-koordinat": ("Integral Lipat: Kutub, Silinder & Bola", "m-sphere", "dA = r dr dθ, dV = r dz dr dθ, dV = ρ² sin φ dρ dφ dθ.",
                      "Stewart §15.3, §15.7–15.9; Whitman §15.3–15.5", [
         S("Penggantian koordinat",
           table(["Sistem", "Elemen", "Cocok untuk"], [["Kutub", "r dr dθ", "cakram, cincin"], ["Silinder", "r dz dr dθ", "tabung, paraboloid"],
                                                       ["Bola", "ρ² sin φ dρ dφ dθ", "bola, kerucut"]])
           + "<p>Contoh: ∬<sub>ℝ²</sub> e<sup>−(x²+y²)</sup> dA = π ⇒ ∫ e<sup>−x²</sup> dx = √π.</p>"),
     ]),
-    "kv-medan": ("Medan Vektor, Divergensi & Curl", "🌪️", "Medan vektor, div F, curl F, medan konservatif.", "Stewart §16.1, §16.5; Whitman §16.1; Strang §15.1", [
+    "kv-medan": ("Medan Vektor, Divergensi & Curl", "m-vector-field", "Medan vektor, div F, curl F, medan konservatif.", "Stewart §16.1, §16.5; Whitman §16.1; Strang §15.1", [
         S("Divergensi dan curl",
           "<p>Medan vektor F = ⟨P, Q, R⟩. <b>div F</b> = P<sub>x</sub> + Q<sub>y</sub> + R<sub>z</sub> (sumber/sumur); <b>curl F</b> = ∇ × F (rotasi). "
           "F konservatif (F = ∇f) ⇔ curl F = 0 pada daerah terhubung sederhana.</p>",
@@ -94,7 +94,7 @@ CORE = {
               for i in (-2, -1, 0, 1, 2) for j in (-2, -1, 0, 1, 2)],
              [readout("div F = 2b", "2*b", 2), readout("curl F = 2a", "2*a", 2)], "a mengatur pusaran (curl), b mengatur sumber (divergensi).")]),
     ]),
-    "kv-garis": ("Integral Garis & Teorema Green", "🔄", "∫ f ds, ∫ F·dr, teorema fundamental, Green.", "Stewart §16.2–16.4; Whitman §16.2–16.4; Strang §15.2–15.3", [
+    "kv-garis": ("Integral Garis & Teorema Green", "m-loop", "∫ f ds, ∫ F·dr, teorema fundamental, Green.", "Stewart §16.2–16.4; Whitman §16.2–16.4; Strang §15.2–15.3", [
         S("Integral garis dan Green",
           bullets(["∫<sub>C</sub> f ds = ∫ f(r(t))|r′(t)| dt (massa kawat).", "∫<sub>C</sub> F·dr = ∫ F(r(t))·r′(t) dt (kerja).",
                    "Medan konservatif: ∫ ∇f·dr = f(B) − f(A).", "Green: ∮<sub>C</sub> P dx + Q dy = ∬<sub>D</sub> (Q<sub>x</sub> − P<sub>y</sub>) dA."])),
@@ -122,22 +122,22 @@ CORE = {
 # ═══════════════════════════ Materi topik TERAPAN per fakultas ═════════════
 APPLIED = {
     "ft": {
-        "pb": ("kl-ft-galat", "Medan Suhu & Analisis Galat", "🌡️", "Medan skalar teknik, diferensial total, galat relatif pengukuran.", "Stewart §14.4; Strang §13.3", [
+        "pb": ("kl-ft-galat", "Medan Suhu & Analisis Galat", "m-thermo", "Medan skalar teknik, diferensial total, galat relatif pengukuran.", "Stewart §14.4; Strang §13.3", [
             S("Diferensial total dalam rekayasa",
               "<p>dz = f<sub>x</sub>dx + f<sub>y</sub>dy menaksir perubahan kecil. Galat relatif produk pangkat V = πr²h: dV/V = 2dr/r + dh/h — dipakai "
               "untuk toleransi manufaktur & kalibrasi alat ukur. Medan suhu T(x, y): panas mengalir ke arah −∇T.</p>")]),
-        "tp": ("kl-ft-lagrange", "Optimasi Desain & Pengali Lagrange", "📦", "Ekstrem dua variabel dan optimasi berkendala.", "Stewart §14.7–14.8; Strang §13.5–13.6", [
+        "tp": ("kl-ft-lagrange", "Optimasi Desain & Pengali Lagrange", "m-lagrange", "Ekstrem dua variabel dan optimasi berkendala.", "Stewart §14.7–14.8; Strang §13.5–13.6", [
             S("Pengali Lagrange",
               "<p>Optimumkan f dengan kendala g = c: selesaikan ∇f = λ∇g bersama g = c. Contoh: kotak tanpa tutup volume tetap ⇒ x = y = 2z; "
               "x + y + z = S memaksimumkan xyz saat x = y = z.</p>",
               [g("Kendala lingkaran dan kontur x + y = k", [-3, 3], [-3, 3], [param("k", "nilai f = x + y", -3, 3, 0.05, 2, "k")],
                  [{"type": "param", "t": [0, "2*pi"], "x": "2*cos(t)", "y": "2*sin(t)", "color": "blue"}, fn("k-x", "red", "x + y = k", dash=True)],
                  [readout("maksimum 2√2", "2*sqrt(2)", 4)], "Kontur terjauh yang masih menyentuh lingkaran menyinggungnya: ∇f ∥ ∇g.")])]),
-        "il": ("kl-ft-massa", "Massa, Momen Inersia & Pusat Massa", "⚙️", "Lamina, momen inersia penampang, sentroid, RMS.", "Stewart §15.4; Strang §14.3", [
+        "il": ("kl-ft-massa", "Massa, Momen Inersia & Pusat Massa", "gear", "Lamina, momen inersia penampang, sentroid, RMS.", "Stewart §15.4; Strang §14.3", [
             S("Integral lipat dalam mekanika",
               bullets(["Massa m = ∬ ρ dA; pusat massa x̄ = ∬ xρ dA / m.", "Momen inersia luas I<sub>x</sub> = ∬ y² dA (kekakuan balok: bh³/12).",
                        "Momen inersia polar I₀ = ∬ (x² + y²) dA (poros: πR⁴/2).", "Nilai RMS arus AC: V₀/√2."]))]),
-        "kv": ("kl-ft-fluks", "Fluks, Teorema Divergensi & Stokes", "⚡", "Fluks, hukum Gauss, teorema divergensi, Stokes & Ampère.", "Stewart §16.7–16.9; Strang §15.4–15.6", [
+        "kv": ("kl-ft-fluks", "Fluks, Teorema Divergensi & Stokes", "m-flux", "Fluks, hukum Gauss, teorema divergensi, Stokes & Ampère.", "Stewart §16.7–16.9; Strang §15.4–15.6", [
             S("Teorema integral vektor",
               table(["Teorema", "Rumus", "Fisika (FT)"], [["Divergensi", "∯ F·n dS = ∭ div F dV", "Hukum Gauss listrik"],
                                                          ["Stokes", "∮ F·dr = ∬ (curl F)·n dS", "Hukum Ampère / Faraday"],
@@ -149,26 +149,26 @@ APPLIED = {
               + table(["f(t)", "F(s)"], [["1", "1/s"], ["tⁿ", "n!/sⁿ⁺¹"], ["e^{at}", "1/(s − a)"], ["sin bt", "b/(s² + b²)"], ["cos bt", "s/(s² + b²)"]]))]),
     },
     "fm": {
-        "pb": ("kl-fm-kuadrik", "Ruang ℝ³ & Permukaan Kuadrik", "🥚", "Jarak, bola, enam kuadrik baku, irisan.", "Stewart §12.1, §12.6; Whitman §12.1", [
+        "pb": ("kl-fm-kuadrik", "Ruang ℝ³ & Permukaan Kuadrik", "m-sphere", "Jarak, bola, enam kuadrik baku, irisan.", "Stewart §12.1, §12.6; Whitman §12.1", [
             S("Kuadrik",
               table(["Persamaan", "Permukaan"], [["x²/a² + y²/b² + z²/c² = 1", "elipsoida"], ["x²/a² + y²/b² − z²/c² = 1", "hiperboloida satu lembar"],
                                                 ["−x²/a² − y²/b² + z²/c² = 1", "hiperboloida dua lembar"], ["z = x²/a² + y²/b²", "paraboloida eliptik"],
                                                 ["z = y²/b² − x²/a²", "paraboloida hiperbolik"], ["z² = x²/a² + y²/b²", "kerucut"]]),
               [surface("Hiperboloida satu lembar (bagian atas & bawah)", "sqrt(x*x+y*y+0.0001)", "Irisan z = k berupa lingkaran yang membesar.", rng_=2)])]),
-        "tp": ("kl-fm-hessian", "Hessian & Klasifikasi Titik Kritis", "🧮", "Uji turunan kedua, determinan Hessian, Lagrange & bukti.", "Stewart §14.7; Whitman §14.7", [
+        "tp": ("kl-fm-hessian", "Hessian & Klasifikasi Titik Kritis", "m-saddle", "Uji turunan kedua, determinan Hessian, Lagrange & bukti.", "Stewart §14.7; Whitman §14.7", [
             S("Uji turunan kedua",
               "<p>Di titik kritis, D = f<sub>xx</sub>f<sub>yy</sub> − f<sub>xy</sub>². D &gt; 0 & f<sub>xx</sub> &gt; 0: minimum; D &gt; 0 & f<sub>xx</sub> &lt; 0: maksimum; "
               "D &lt; 0: pelana; D = 0: uji gagal. D adalah determinan matriks Hessian — bentuk kuadrat definit/tak tentu.</p>",
               [surface("Titik pelana z = x² − y²", "x*x-y*y", "Naik pada satu arah, turun pada arah lain.")])]),
-        "il": ("kl-fm-jacobian", "Integral Lipat Tiga & Jacobian", "🧊", "∭, batas dari bidang, penggantian variabel, determinan Jacobian.", "Stewart §15.6, §15.9; Whitman §15.6", [
+        "il": ("kl-fm-jacobian", "Integral Lipat Tiga & Jacobian", "∭", "∭, batas dari bidang, penggantian variabel, determinan Jacobian.", "Stewart §15.6, §15.9; Whitman §15.6", [
             S("Penggantian variabel",
               "<p>∬<sub>R</sub> f(x, y) dA = ∬<sub>S</sub> f(x(u, v), y(u, v))|∂(x, y)/∂(u, v)| du dv. Jacobian kutub = r, bola = ρ² sin φ. "
               "Transformasi linear u = x + y, v = x − y mengubah jajaran genjang menjadi persegi panjang dengan |J| = 1/2.</p>")]),
-        "kv": ("kl-fm-potensial", "Medan Konservatif & Fungsi Potensial", "🗺️", "Uji P_y = Q_x, mencari potensial, peran topologi.", "Stewart §16.3; Whitman §16.3", [
+        "kv": ("kl-fm-potensial", "Medan Konservatif & Fungsi Potensial", "m-contour", "Uji P_y = Q_x, mencari potensial, peran topologi.", "Stewart §16.3; Whitman §16.3", [
             S("Medan konservatif",
               "<p>Pada daerah terbuka terhubung sederhana, empat pernyataan setara: F = ∇f; ∫ F·dr bebas lintasan; ∮ F·dr = 0; P<sub>y</sub> = Q<sub>x</sub>. "
               "Tanpa syarat terhubung sederhana, F = ⟨−y, x⟩/(x² + y²) memenuhi P<sub>y</sub> = Q<sub>x</sub> tetapi ∮ = 2π.</p>")]),
-        "fk": ("kl-fm-seragam", "Kontinuitas & Konvergensi Seragam", "📐", "Teorema nilai ekstrem/antara, kontinu seragam, barisan fungsi.", "Stewart Lamp. F; Whitman §11.11", [
+        "fk": ("kl-fm-seragam", "Kontinuitas & Konvergensi Seragam", "ε", "Teorema nilai ekstrem/antara, kontinu seragam, barisan fungsi.", "Stewart Lamp. F; Whitman §11.11", [
             S("Analisis real lanjutan",
               bullets(["Teorema Nilai Ekstrem & Nilai Antara (butuh interval tertutup terbatas & kontinuitas).",
                        "Kontinu seragam: δ tidak bergantung titik; kontinu di [a, b] ⇒ kontinu seragam (Heine–Cantor).",
@@ -177,14 +177,14 @@ APPLIED = {
                  [fn("pow(x,N)", "blue", "xⁿ", **{"from": 0, "to": 1})], [readout("sup|fₙ − f| pada [0,1)", "1", 2)], "Supremum selisih tetap 1 untuk semua n.")])]),
     },
     "fk": {
-        "pb": ("kl-fk-norma", "Norma, Jarak & Fungsi Kerugian", "📊", "Norma L1/L2/L∞, jarak, kemiripan kosinus, MSE.", "Stewart §12.2–12.3; materi khusus Fasilkom", [
+        "pb": ("kl-fk-norma", "Norma, Jarak & Fungsi Kerugian", "‖x‖", "Norma L1/L2/L∞, jarak, kemiripan kosinus, MSE.", "Stewart §12.2–12.3; materi khusus Fasilkom", [
             S("Geometri data",
               "<p>Data = vektor di ℝⁿ. Norma L2 √Σxᵢ², L1 Σ|xᵢ|, L∞ max|xᵢ|; jarak = norma selisih (k-NN, clustering). Kemiripan kosinus u·v/(‖u‖‖v‖) "
               "(temu kembali informasi). Fungsi kerugian MSE = (1/m)Σ(ŷ − y)² adalah fungsi banyak variabel dari parameter model.</p>",
               [g("Bola satuan norma Lp", [-1.5, 1.5], [-1.5, 1.5], [param("p", "p", 1, 8, 0.1, 2, "p")],
                  [{"type": "param", "t": [0, "2*pi"], "x": "sign(cos(t))*pow(abs(cos(t)),2/p)", "y": "sign(sin(t))*pow(abs(sin(t)),2/p)", "color": "blue"}], None,
                  "p = 1: belah ketupat (L1), p = 2: lingkaran (L2), p besar: mendekati persegi (L∞).")])]),
-        "tp": ("kl-fk-gd", "Gradient Descent & Backpropagation", "🤖", "GD 1D/2D, laju belajar, sigmoid, softmax, backprop.", "Strang §13.4; materi khusus Fasilkom", [
+        "tp": ("kl-fk-gd", "Gradient Descent & Backpropagation", "m-descent", "GD 1D/2D, laju belajar, sigmoid, softmax, backprop.", "Strang §13.4; materi khusus Fasilkom", [
             S("Belajar = mengikuti −∇L",
               "<p>Gradient descent: w ← w − η∇L(w). Laju belajar η terlalu besar ⇒ divergen (untuk f = ax²/2 perlu η &lt; 2/a). Backpropagation menerapkan aturan rantai "
               "lapis demi lapis; σ′ = σ(1 − σ); softmax pᵢ = e^{zᵢ}/Σe^{zⱼ} dengan kerugian −ln p.</p>",
@@ -192,15 +192,15 @@ APPLIED = {
                  [{"type": "param", "t": [0, "2*pi"], "x": "4*cos(t)", "y": "4/sqrt(c)*sin(t)", "color": "gray"},
                   {"type": "iter", "id": "G", "init": {"x": 4, "y": 1}, "update": {"x": "x-eta*2*x", "y": "y-eta*2*c*y"}, "steps": 15, "px": "x", "py": "y", "color": "red"}],
                  None, "c besar (kontur pipih) + η besar ⇒ zig-zag pada arah y.")])]),
-        "il": ("kl-fk-peluang", "Peluang Gabungan & Monte Carlo", "🎲", "Kepadatan gabungan, ekspektasi, eksponensial, Monte Carlo.", "Stewart §15.4 (Probability); materi Fasilkom", [
+        "il": ("kl-fk-peluang", "Peluang Gabungan & Monte Carlo", "dice", "Kepadatan gabungan, ekspektasi, eksponensial, Monte Carlo.", "Stewart §15.4 (Probability); materi Fasilkom", [
             S("Peluang kontinu",
               "<p>P((X, Y) ∈ D) = ∬<sub>D</sub> f(x, y) dA; E[X] = ∫ x f(x) dx. Distribusi eksponensial λe<sup>−λx</sup> memodelkan waktu antar-kedatangan (antrian server). "
               "Monte Carlo menaksir integral dengan rata-rata sampel acak; galat ∝ 1/√N, tak bergantung dimensi.</p>")]),
-        "kv": ("kl-fk-simulasi", "Medan Vektor dalam Simulasi & Grafika", "🎮", "Partikel & integrasi Euler, normal permukaan, kerja, pusaran.", "Stewart §16.1, §14.6; Strang §15.1", [
+        "kv": ("kl-fk-simulasi", "Medan Vektor dalam Simulasi & Grafika", "play", "Partikel & integrasi Euler, normal permukaan, kerja, pusaran.", "Stewart §16.1, §14.6; Strang §15.1", [
             S("Medan vektor di komputer",
               bullets(["Partikel: r′ = F(r), langkah Euler r ← r + hF(r) (game & simulasi fisika).", "Normal permukaan z = f(x, y): ⟨−f<sub>x</sub>, −f<sub>y</sub>, 1⟩ untuk pencahayaan.",
                        "Curl mendeteksi pusaran (simulasi fluida); kerja medan konservatif hanya bergantung titik ujung."]))]),
-        "fk": ("kl-fk-asimtotik", "Analisis Asimtotik, Stirling & Newton", "⏱️", "Notasi Θ, hierarki pertumbuhan, Stirling, metode Newton.", "Materi khusus Fasilkom; Strang §3.8", [
+        "fk": ("kl-fk-asimtotik", "Analisis Asimtotik, Stirling & Newton", "clock", "Notasi Θ, hierarki pertumbuhan, Stirling, metode Newton.", "Materi khusus Fasilkom; Strang §3.8", [
             S("Kalkulus untuk analisis algoritma",
               "<p>f = Θ(g) ⇔ 0 &lt; lim f/g &lt; ∞. Hierarki: log n ≪ √n ≪ n ≪ n log n ≪ n² ≪ 2ⁿ ≪ n!. Stirling n! ≈ √(2πn)(n/e)ⁿ memberi batas bawah pengurutan Θ(n log n). "
               "Metode Newton xₙ₊₁ = xₙ − f/f′ konvergen kuadratik.</p>",
@@ -209,10 +209,10 @@ APPLIED = {
     },
 }
 
-SUB = [("pb", "peubah-banyak", "Kalkulus Peubah Banyak", "🗻", ("pb-fungsi", "pb-limit")),
+SUB = [("pb", "peubah-banyak", "Kalkulus Peubah Banyak", "lv-kalkulus-lanjut", ("pb-fungsi", "pb-limit")),
        ("tp", "turunan-parsial", "Turunan Parsial", "∂", ("tp-parsial", "tp-gradien")),
-       ("il", "integral-lipat", "Integral Lipat", "▦", ("il-ganda", "il-koordinat")),
-       ("kv", "kalkulus-vektor", "Kalkulus Vektor", "🌪️", ("kv-medan", "kv-garis")),
+       ("il", "integral-lipat", "Integral Lipat", "m-grid", ("il-ganda", "il-koordinat")),
+       ("kv", "kalkulus-vektor", "Kalkulus Vektor", "m-vector-field", ("kv-medan", "kv-garis")),
        ("fk", "fungsi-khusus", "Fungsi Khusus", "Γ", ("fk-gamma", "fk-analisis"))]
 
 

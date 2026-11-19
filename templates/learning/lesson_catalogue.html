@@ -1,15 +1,16 @@
+{% load icons %}
 <!-- =========================================================================
      MODUL: Pelajaran  (Page: Lesson)
      Isi    : Tab "Kelas Interaktif" — seluruh kurikulum sebagai slide (Lessons, static/js/lessons.js)
               Tab "Bank Soal & Referensi" — berkas soal & lampiran per sumber (Catalogue.render() di app.js)
      ========================================================================= -->
 
-<h2 class="page-heading">Pelajaran</h2>
-<p class="page-subheading">Pelajari seluruh kurikulum kalkulus lewat slide interaktif. Latihan dan sesi ada di Peta Belajar.</p>
+<h2 class="page-heading">Kurikulum</h2>
+<p class="page-subheading">Pahami semua materi kalkulus lewat slide interaktif. Latihan dan sesinya ada di Skill Tree.</p>
 
 <div class="lesson-tabs" role="tablist">
-  <button class="lesson-tab active" data-ltab="kelas" role="tab" onclick="Lessons.tab('kelas')">🎬 Kelas Interaktif</button>
-  <button class="lesson-tab" data-ltab="arsip" role="tab" onclick="Lessons.tab('arsip')">📚 Bank Soal &amp; Referensi</button>
+  <button class="lesson-tab active" data-ltab="kelas" role="tab" onclick="Lessons.tab('kelas')">{% icon "play" %} Kelas Interaktif</button>
+  <button class="lesson-tab" data-ltab="arsip" role="tab" onclick="Lessons.tab('arsip')">{% icon "book" %} Bank Soal &amp; Referensi</button>
 </div>
 
 <div class="lesson-pane active" id="lesson-pane-kelas">
@@ -21,7 +22,7 @@
         <div class="lp-overall" id="lp-overall"></div>
       </div>
       <div class="lp-outline-body" id="lp-outline-body">
-        <p class="loading-text">Memuat kurikulum…</p>
+        <p class="loading-text">Lagi nyiapin kurikulum…</p>
       </div>
     </aside>
 
@@ -61,8 +62,8 @@
 </div>
 
 <div class="lesson-pane" id="lesson-pane-arsip">
-  <p class="page-subheading">Bank soal dan lampiran disusun per berkas sumber. Hanya materi umum dan materi fakultasmu yang ditampilkan.</p>
+  <p class="page-subheading">Bank soal dan lampiran, dikelompokkan per sumber. Yang muncul cuma materi umum dan materi fakultasmu.</p>
   <div id="lesson-catalogue">
-    <p class="loading-text">Memuat materi…</p>
+    <p class="loading-text">Lagi nyiapin materi…</p>
   </div>
 </div>

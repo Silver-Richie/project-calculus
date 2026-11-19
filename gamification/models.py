@@ -21,7 +21,7 @@ class Faculty(models.Model):
     slug = models.SlugField(max_length=50, unique=True, help_text="Unique identifier, e.g., 'ft', 'fasilkom', 'fmipa'")
     name = models.CharField(max_length=150, help_text="Full faculty name, e.g., 'Fakultas Ilmu Komputer'")
     short_name = models.CharField(max_length=50, help_text="Abbreviation, e.g., 'Fasilkom'")
-    icon = models.CharField(max_length=10, default="🎓", help_text="Emoji or icon identifier")
+    icon = models.CharField(max_length=40, default="cap", help_text="Nama ikon sprite (components/icons.html), atau simbol matematika pendek")
     description = models.TextField(help_text="Overview of calculus applications for this faculty")
     focus_areas = models.TextField(help_text="Bullet points or summary of curricular focus")
 
@@ -81,7 +81,7 @@ class MainLevel(models.Model):
     order = models.PositiveIntegerField(default=1)
     title = models.CharField(max_length=120)
     subtitle = models.CharField(max_length=255, blank=True)
-    icon = models.CharField(max_length=10, default="🏔️")
+    icon = models.CharField(max_length=40, default="cap", help_text="Nama ikon sprite (components/icons.html), atau simbol matematika pendek")
 
     class Meta:
         ordering = ['order']
@@ -129,7 +129,7 @@ class SkillNode(models.Model):
         ('reference', 'Bacaan referensi (hanya di halaman Lesson)'),
     ]
     kind = models.CharField(max_length=20, choices=KIND_CHOICES, default='lesson')
-    icon = models.CharField(max_length=10, default="📘", help_text="Emoji ikon node")
+    icon = models.CharField(max_length=40, default="book", help_text="Nama ikon sprite (components/icons.html), atau simbol matematika pendek")
     is_boss = models.BooleanField(default=False, help_text="Node ujian akhir (soal tingkat sulit)")
     summary_html = models.TextField(blank=True, help_text="Ringkasan singkat isi node (ditampilkan di katalog)")
     
@@ -158,7 +158,7 @@ class Topic(models.Model):
     slug = models.SlugField(max_length=100, unique=True)
     order = models.PositiveIntegerField(default=1)
     title = models.CharField(max_length=200)
-    icon = models.CharField(max_length=10, default="📗")
+    icon = models.CharField(max_length=40, default="book", help_text="Nama ikon sprite (components/icons.html), atau simbol matematika pendek")
     summary = models.CharField(max_length=300, blank=True)
     references = models.CharField(max_length=300, blank=True,
                                   help_text="Rujukan bab buku, mis. 'Stewart Lamp. A; Whitman 1.1'")
@@ -366,7 +366,7 @@ class UserProfile(models.Model):
         null=True, blank=True,
         help_text="Waktu nyawa pertama hilang pada siklus ini; nyawa penuh lagi 24 jam setelahnya",
     )
-    gems = models.PositiveIntegerField(default=0, help_text="Diamond 💎: didapat saat naik level, topik tuntas, menang duel (shop.py)")
+    gems = models.PositiveIntegerField(default=0, help_text="Diamond: didapat saat naik level, topik tuntas, menang duel (shop.py)")
     star_shields = models.PositiveIntegerField(default=0, help_text="Perisai Bintang: otomatis menahan bintang saat kalah duel")
     equipped = models.JSONField(default=dict, blank=True,
                                 help_text="Kosmetik terpasang per slot: head/face/neck/frame/title → kunci barang toko")

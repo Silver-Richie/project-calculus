@@ -1,5 +1,5 @@
 """
-Calculus Bridge - Toko Diamond 💎.
+Calculus Bridge - Item Shop (diamond).
 
 Mechanism
 ---------
@@ -7,7 +7,7 @@ Mendapat diamond (semua lewat `award`):
 
 * Naik level   : naik ke Level n memberi 10·n (Level 2 = 20, Level 3 = 30, …). Hadiah dihitung
                  dari level sebelum & sesudah XP bertambah (sessions.submit_session). XP tidak
-                 pernah berkurang, jadi setiap level hanya memberi hadiah sekali. Level 1 = 0 💎.
+                 pernah berkurang, jadi setiap level hanya memberi hadiah sekali. Level 1 = 0 diamond.
 * Topik tuntas : +5 saat Sesi III sebuah topik lulus untuk pertama kali.
 * Menang duel  : +2 (tidak berlaku bila lawan keluar di tengah duel, agar tidak bisa dipancing).
 
@@ -20,6 +20,7 @@ Jenis barang (KATALOG):
                 tidak boleh melebihi MAX_SHIELDS). Perisai dipakai otomatis oleh
                 duel.finish_match saat kalah duel yang akan mengurangi bintang.
 * Kosmetik    : aksesori Archie (slot head/face/neck), bingkai avatar (frame), dan gelar (title).
+                "icon" = nama ikon sprite (components/icons.html); aksesori ("archie") tampil sebagai Archie mini.
                 Dibeli sekali (OwnedItem), lalu dipasang/dilepas per slot (UserProfile.equipped).
                 Gambar aksesori ada di frontend (static/js/shop.js), kuncinya harus sama.
 """
@@ -38,97 +39,97 @@ MAX_SHIELDS = 5
 #       · "cosmetic" (dengan slot)
 CATALOG = [
     # Penguat
-    {"key": "hearts-one", "kind": "hearts", "amount": 1, "name": "+1 Nyawa", "icon": "❤️", "price": 6,
-     "desc": "Tambah satu nyawa sekarang juga."},
-    {"key": "hearts-three", "kind": "hearts", "amount": 3, "name": "+3 Nyawa", "icon": "💗", "price": 15,
-     "desc": "Tiga nyawa sekaligus, lebih hemat dari beli satuan."},
-    {"key": "hearts-full", "kind": "hearts", "name": "Isi Penuh Nyawa", "icon": "💖", "price": 30,
-     "desc": "Semua nyawa langsung penuh, tanpa menunggu 24 jam."},
-    {"key": "star-shield", "kind": "shield", "amount": 1, "name": "Perisai Bintang", "icon": "🛡️", "price": 15,
-     "desc": f"Terpakai otomatis saat kalah duel: bintang rank tidak berkurang. Simpan maksimal {MAX_SHIELDS}."},
-    {"key": "star-shield-3", "kind": "shield", "amount": 3, "name": "Paket 3 Perisai", "icon": "🔰", "price": 40,
-     "desc": "Tiga Perisai Bintang sekaligus untuk musim duel yang panjang."},
+    {"key": "hearts-one", "kind": "hearts", "amount": 1, "name": "+1 Heart", "icon": "heart", "price": 6,
+     "desc": "Nambah 1 heart, langsung kepake."},
+    {"key": "hearts-three", "kind": "hearts", "amount": 3, "name": "+3 Heart", "icon": "heart", "price": 15,
+     "desc": "3 heart sekaligus, lebih hemat daripada beli satu-satu."},
+    {"key": "hearts-full", "kind": "hearts", "name": "Refill Penuh", "icon": "heart", "price": 30,
+     "desc": "Langsung isi penuh heart biar gak perlu nunggu 24 jam."},
+    {"key": "star-shield", "kind": "shield", "amount": 1, "name": "Streak Shield", "icon": "shield", "price": 15,
+     "desc": f"Otomatis aktif kalau kamu kalah duel, jadi bintang rank kamu aman. Maksimal simpan {MAX_SHIELDS}."},
+    {"key": "star-shield-3", "kind": "shield", "amount": 3, "name": "3× Streak Shield", "icon": "shield", "price": 40,
+     "desc": "Tiga Streak Shield sekaligus, buat stok musim duel yang panjang."},
     # Aksesori Archie
-    {"key": "acc-bunga", "kind": "cosmetic", "slot": "head", "name": "Bunga Rambut", "icon": "🌸", "price": 25,
+    {"key": "acc-bunga", "kind": "cosmetic", "slot": "head", "name": "Bunga Rambut", "icon": "archie", "price": 25,
      "desc": "Hiasan bunga manis di kepala Archie."},
-    {"key": "acc-headphone", "kind": "cosmetic", "slot": "head", "name": "Headphone", "icon": "🎧", "price": 50,
+    {"key": "acc-headphone", "kind": "cosmetic", "slot": "head", "name": "Headphone", "icon": "archie", "price": 50,
      "desc": "Belajar sambil dengar musik lo-fi."},
-    {"key": "acc-penyihir", "kind": "cosmetic", "slot": "head", "name": "Topi Penyihir", "icon": "🧙", "price": 70,
+    {"key": "acc-penyihir", "kind": "cosmetic", "slot": "head", "name": "Topi Penyihir", "icon": "archie", "price": 70,
      "desc": "Untuk penyihir integral sejati."},
-    {"key": "acc-mahkota", "kind": "cosmetic", "slot": "head", "name": "Mahkota Emas", "icon": "👑", "price": 120,
+    {"key": "acc-mahkota", "kind": "cosmetic", "slot": "head", "name": "Mahkota Emas", "icon": "archie", "price": 120,
      "desc": "Raja dan ratu kalkulus."},
-    {"key": "acc-pesta", "kind": "cosmetic", "slot": "head", "name": "Topi Pesta", "icon": "🥳", "price": 30,
-     "desc": "Rayakan setiap topik yang tuntas."},
-    {"key": "acc-kucing", "kind": "cosmetic", "slot": "head", "name": "Telinga Kucing", "icon": "🐱", "price": 45,
+    {"key": "acc-pesta", "kind": "cosmetic", "slot": "head", "name": "Topi Pesta", "icon": "archie", "price": 30,
+     "desc": "Buat ngerayain tiap materi yang beres."},
+    {"key": "acc-kucing", "kind": "cosmetic", "slot": "head", "name": "Telinga Kucing", "icon": "archie", "price": 45,
      "desc": "Lincah seperti kucing mengejar titik ekstrem."},
-    {"key": "acc-kupluk", "kind": "cosmetic", "slot": "head", "name": "Topi Kupluk", "icon": "🧶", "price": 35,
+    {"key": "acc-kupluk", "kind": "cosmetic", "slot": "head", "name": "Topi Kupluk", "icon": "archie", "price": 35,
      "desc": "Rajutan hangat untuk belajar pagi-pagi."},
-    {"key": "acc-koboi", "kind": "cosmetic", "slot": "head", "name": "Topi Koboi", "icon": "🤠", "price": 60,
+    {"key": "acc-koboi", "kind": "cosmetic", "slot": "head", "name": "Topi Koboi", "icon": "archie", "price": 60,
      "desc": "Menjinakkan soal liar di padang integral."},
-    {"key": "acc-halo", "kind": "cosmetic", "slot": "head", "name": "Lingkaran Halo", "icon": "😇", "price": 90,
+    {"key": "acc-halo", "kind": "cosmetic", "slot": "head", "name": "Lingkaran Halo", "icon": "archie", "price": 90,
      "desc": "Untuk yang jawabannya selalu benar."},
-    {"key": "acc-kacamata", "kind": "cosmetic", "slot": "face", "name": "Kacamata Hitam", "icon": "🕶️", "price": 40,
+    {"key": "acc-kacamata", "kind": "cosmetic", "slot": "face", "name": "Kacamata Hitam", "icon": "archie", "price": 40,
      "desc": "Terlalu keren untuk limit tak hingga."},
-    {"key": "acc-kumis", "kind": "cosmetic", "slot": "face", "name": "Kumis Profesor", "icon": "🥸", "price": 30,
+    {"key": "acc-kumis", "kind": "cosmetic", "slot": "face", "name": "Kumis Profesor", "icon": "archie", "price": 30,
      "desc": "Wibawa dosen kalkulus senior."},
-    {"key": "acc-monokel", "kind": "cosmetic", "slot": "face", "name": "Monokel", "icon": "🧐", "price": 45,
-     "desc": "Meneliti setiap langkah pembuktian."},
-    {"key": "acc-3d", "kind": "cosmetic", "slot": "face", "name": "Kacamata 3D", "icon": "🎬", "price": 50,
-     "desc": "Melihat grafik fungsi dalam tiga dimensi."},
-    {"key": "acc-hati", "kind": "cosmetic", "slot": "face", "name": "Kacamata Hati", "icon": "😍", "price": 55,
+    {"key": "acc-monokel", "kind": "cosmetic", "slot": "face", "name": "Monokel", "icon": "archie", "price": 45,
+     "desc": "Biar teliti ngecek tiap langkah pembuktian."},
+    {"key": "acc-3d", "kind": "cosmetic", "slot": "face", "name": "Kacamata 3D", "icon": "archie", "price": 50,
+     "desc": "Lihat grafik fungsi jadi tiga dimensi."},
+    {"key": "acc-hati", "kind": "cosmetic", "slot": "face", "name": "Kacamata Hati", "icon": "archie", "price": 55,
      "desc": "Jatuh cinta pada matematika."},
-    {"key": "acc-bintang", "kind": "cosmetic", "slot": "face", "name": "Kacamata Bintang", "icon": "🤩", "price": 65,
+    {"key": "acc-bintang", "kind": "cosmetic", "slot": "face", "name": "Kacamata Bintang", "icon": "archie", "price": 65,
      "desc": "Bintang panggung kelas kalkulus."},
-    {"key": "acc-dasi", "kind": "cosmetic", "slot": "neck", "name": "Dasi Kupu-kupu", "icon": "🎀", "price": 25,
+    {"key": "acc-dasi", "kind": "cosmetic", "slot": "neck", "name": "Dasi Kupu-kupu", "icon": "archie", "price": 25,
      "desc": "Rapi untuk presentasi tugas besar."},
-    {"key": "acc-syal", "kind": "cosmetic", "slot": "neck", "name": "Syal Hangat", "icon": "🧣", "price": 35,
+    {"key": "acc-syal", "kind": "cosmetic", "slot": "neck", "name": "Syal Hangat", "icon": "archie", "price": 35,
      "desc": "Tetap hangat saat begadang belajar."},
-    {"key": "acc-dasi-panjang", "kind": "cosmetic", "slot": "neck", "name": "Dasi Kantor", "icon": "👔", "price": 35,
+    {"key": "acc-dasi-panjang", "kind": "cosmetic", "slot": "neck", "name": "Dasi Kantor", "icon": "archie", "price": 35,
      "desc": "Siap sidang tugas akhir."},
-    {"key": "acc-kalung-pi", "kind": "cosmetic", "slot": "neck", "name": "Kalung π", "icon": "📿", "price": 50,
+    {"key": "acc-kalung-pi", "kind": "cosmetic", "slot": "neck", "name": "Kalung π", "icon": "archie", "price": 50,
      "desc": "3,14159… selalu dekat di hati."},
-    {"key": "acc-mutiara", "kind": "cosmetic", "slot": "neck", "name": "Kalung Mutiara", "icon": "🦪", "price": 70,
+    {"key": "acc-mutiara", "kind": "cosmetic", "slot": "neck", "name": "Kalung Mutiara", "icon": "archie", "price": 70,
      "desc": "Berkilau seperti jawaban yang rapi."},
-    {"key": "acc-medali", "kind": "cosmetic", "slot": "neck", "name": "Medali Juara", "icon": "🏅", "price": 100,
+    {"key": "acc-medali", "kind": "cosmetic", "slot": "neck", "name": "Medali Juara", "icon": "archie", "price": 100,
      "desc": "Juara olimpiade kalkulus kampus."},
     # Bingkai avatar
-    {"key": "frame-perunggu", "kind": "cosmetic", "slot": "frame", "name": "Bingkai Perunggu", "icon": "🥉", "price": 25,
-     "desc": "Bingkai avatar di profil dan papan peringkat."},
-    {"key": "frame-perak", "kind": "cosmetic", "slot": "frame", "name": "Bingkai Perak", "icon": "🥈", "price": 50,
-     "desc": "Bingkai avatar di profil dan papan peringkat."},
-    {"key": "frame-emas", "kind": "cosmetic", "slot": "frame", "name": "Bingkai Emas", "icon": "🥇", "price": 100,
-     "desc": "Bingkai avatar di profil dan papan peringkat."},
-    {"key": "frame-es", "kind": "cosmetic", "slot": "frame", "name": "Bingkai Es", "icon": "❄️", "price": 70,
+    {"key": "frame-perunggu", "kind": "cosmetic", "slot": "frame", "name": "Bingkai Perunggu", "icon": "sparkle", "price": 25,
+     "desc": "Bingkai avatar buat profil & leaderboard."},
+    {"key": "frame-perak", "kind": "cosmetic", "slot": "frame", "name": "Bingkai Perak", "icon": "sparkle", "price": 50,
+     "desc": "Bingkai avatar buat profil & leaderboard."},
+    {"key": "frame-emas", "kind": "cosmetic", "slot": "frame", "name": "Bingkai Emas", "icon": "sparkle", "price": 100,
+     "desc": "Bingkai avatar buat profil & leaderboard."},
+    {"key": "frame-es", "kind": "cosmetic", "slot": "frame", "name": "Bingkai Es", "icon": "sparkle", "price": 70,
      "desc": "Tetap tenang dan dingin saat ujian."},
-    {"key": "frame-neon", "kind": "cosmetic", "slot": "frame", "name": "Bingkai Neon", "icon": "💡", "price": 80,
-     "desc": "Menyala terang di papan peringkat."},
-    {"key": "frame-api", "kind": "cosmetic", "slot": "frame", "name": "Bingkai Api", "icon": "🔥", "price": 120,
+    {"key": "frame-neon", "kind": "cosmetic", "slot": "frame", "name": "Bingkai Neon", "icon": "sparkle", "price": 80,
+     "desc": "Paling mencolok di leaderboard."},
+    {"key": "frame-api", "kind": "cosmetic", "slot": "frame", "name": "Bingkai Api", "icon": "sparkle", "price": 120,
      "desc": "Semangat belajar yang membara."},
-    {"key": "frame-pelangi", "kind": "cosmetic", "slot": "frame", "name": "Bingkai Pelangi", "icon": "🌈", "price": 150,
+    {"key": "frame-pelangi", "kind": "cosmetic", "slot": "frame", "name": "Bingkai Pelangi", "icon": "sparkle", "price": 150,
      "desc": "Bingkai berkilau yang berputar pelan."},
-    {"key": "frame-galaksi", "kind": "cosmetic", "slot": "frame", "name": "Bingkai Galaksi", "icon": "🌌", "price": 200,
+    {"key": "frame-galaksi", "kind": "cosmetic", "slot": "frame", "name": "Bingkai Galaksi", "icon": "sparkle", "price": 200,
      "desc": "Bingkai kosmik yang berputar pelan."},
     # Gelar
-    {"key": "title-limit", "kind": "cosmetic", "slot": "title", "name": "Pejuang Limit", "icon": "🎯", "price": 20,
-     "desc": "Gelar di bawah namamu."},
-    {"key": "title-turunan", "kind": "cosmetic", "slot": "title", "name": "Ahli Turunan", "icon": "📈", "price": 40,
-     "desc": "Gelar di bawah namamu."},
+    {"key": "title-limit", "kind": "cosmetic", "slot": "title", "name": "Pejuang Limit", "icon": "m-limit", "price": 20,
+     "desc": "Gelar keren di bawah namamu."},
+    {"key": "title-turunan", "kind": "cosmetic", "slot": "title", "name": "Ahli Turunan", "icon": "m-tangent", "price": 40,
+     "desc": "Gelar keren di bawah namamu."},
     {"key": "title-integral", "kind": "cosmetic", "slot": "title", "name": "Penakluk Integral", "icon": "∫", "price": 60,
-     "desc": "Gelar di bawah namamu."},
-    {"key": "title-rajin", "kind": "cosmetic", "slot": "title", "name": "Si Paling Rajin", "icon": "📚", "price": 20,
-     "desc": "Gelar di bawah namamu."},
-    {"key": "title-prakalkulus", "kind": "cosmetic", "slot": "title", "name": "Master Prakalkulus", "icon": "🧮", "price": 30,
-     "desc": "Gelar di bawah namamu."},
-    {"key": "title-rantai", "kind": "cosmetic", "slot": "title", "name": "Raja Aturan Rantai", "icon": "⛓️", "price": 50,
-     "desc": "Gelar di bawah namamu."},
-    {"key": "title-tak-hingga", "kind": "cosmetic", "slot": "title", "name": "Penjelajah Tak Hingga", "icon": "♾️", "price": 80,
-     "desc": "Gelar di bawah namamu."},
-    {"key": "title-duel", "kind": "cosmetic", "slot": "title", "name": "Jagoan Duel", "icon": "⚔️", "price": 90,
-     "desc": "Gelar di bawah namamu."},
-    {"key": "title-diamond", "kind": "cosmetic", "slot": "title", "name": "Pemburu Diamond", "icon": "💎", "price": 120,
-     "desc": "Gelar di bawah namamu."},
-    {"key": "title-legenda", "kind": "cosmetic", "slot": "title", "name": "Legenda Kalkulus", "icon": "🏛️", "price": 150,
-     "desc": "Gelar di bawah namamu."},
+     "desc": "Gelar keren di bawah namamu."},
+    {"key": "title-rajin", "kind": "cosmetic", "slot": "title", "name": "Si Paling Rajin", "icon": "book", "price": 20,
+     "desc": "Gelar keren di bawah namamu."},
+    {"key": "title-prakalkulus", "kind": "cosmetic", "slot": "title", "name": "Master Prakalkulus", "icon": "lv-precalculus", "price": 30,
+     "desc": "Gelar keren di bawah namamu."},
+    {"key": "title-rantai", "kind": "cosmetic", "slot": "title", "name": "Raja Aturan Rantai", "icon": "m-chain", "price": 50,
+     "desc": "Gelar keren di bawah namamu."},
+    {"key": "title-tak-hingga", "kind": "cosmetic", "slot": "title", "name": "Penjelajah Tak Hingga", "icon": "infinity", "price": 80,
+     "desc": "Gelar keren di bawah namamu."},
+    {"key": "title-duel", "kind": "cosmetic", "slot": "title", "name": "Jagoan Duel", "icon": "swords", "price": 90,
+     "desc": "Gelar keren di bawah namamu."},
+    {"key": "title-diamond", "kind": "cosmetic", "slot": "title", "name": "Pemburu Diamond", "icon": "diamond", "price": 120,
+     "desc": "Gelar keren di bawah namamu."},
+    {"key": "title-legenda", "kind": "cosmetic", "slot": "title", "name": "Legenda Kalkulus", "icon": "crown", "price": 150,
+     "desc": "Gelar keren di bawah namamu."},
 ]
 ITEMS = {it["key"]: it for it in CATALOG}
 SLOTS = ("head", "face", "neck", "frame", "title")
@@ -196,31 +197,31 @@ def buy(user, key):
     """
     item = ITEMS.get(key)
     if not item:
-        raise ShopError("Barang tidak dikenal.")
+        raise ShopError("Item-nya gak ketemu.")
     with transaction.atomic():
         profile = _locked_profile(user)
         if profile.gems < item["price"]:
-            raise ShopError(f"Diamond kurang: butuh {item['price']}, kamu punya {profile.gems}.")
+            raise ShopError(f"Diamond kamu kurang: butuh {item['price']}, baru punya {profile.gems}.")
         fields = ["gems"]
         if item["kind"] == "hearts":
             profile.refresh_hearts()
             if profile.hearts >= profile.max_hearts:
-                raise ShopError("Nyawamu sudah penuh.")
+                raise ShopError("Heart kamu udah penuh.")
             profile.hearts = min(profile.max_hearts, profile.hearts + item.get("amount", profile.max_hearts))
             if profile.hearts >= profile.max_hearts:
                 profile.hearts_lost_at = None          # penuh → hitungan 24 jam berhenti
             fields += ["hearts", "hearts_lost_at"]
         elif item["kind"] == "shield":
             if profile.star_shields >= MAX_SHIELDS:
-                raise ShopError(f"Perisai Bintang sudah maksimal ({MAX_SHIELDS}).")
+                raise ShopError(f"Streak Shield kamu udah maksimal ({MAX_SHIELDS}).")
             if profile.star_shields + item["amount"] > MAX_SHIELDS:
-                raise ShopError(f"Tempat perisai tinggal {MAX_SHIELDS - profile.star_shields}, paket ini berisi {item['amount']}.")
+                raise ShopError(f"Slot Streak Shield tinggal {MAX_SHIELDS - profile.star_shields}, paket ini isinya {item['amount']}.")
             profile.star_shields += item["amount"]
             fields.append("star_shields")
         else:
             _, created = OwnedItem.objects.get_or_create(user=user, item=key)
             if not created:
-                raise ShopError("Barang ini sudah kamu miliki.")
+                raise ShopError("Item ini udah kamu punya.")
             profile.equipped = {**(profile.equipped or {}), item["slot"]: key}
             fields.append("equipped")
         profile.gems -= item["price"]
@@ -232,9 +233,9 @@ def equip(user, key, on=True):
     """Pasang (on=True) atau lepas kosmetik milik pengguna. Mengembalikan state() terbaru."""
     item = ITEMS.get(key)
     if not item or item["kind"] != "cosmetic":
-        raise ShopError("Barang ini tidak bisa dipasang.")
+        raise ShopError("Item ini gak bisa dipakai.")
     if not OwnedItem.objects.filter(user=user, item=key).exists():
-        raise ShopError("Beli barang ini dulu.")
+        raise ShopError("Beli item ini dulu, ya.")
     with transaction.atomic():
         profile = _locked_profile(user)
         eq = dict(profile.equipped or {})
