@@ -452,7 +452,7 @@ def profile_bootstrap(user):
     """Data profil + progres untuk diinisialisasi ke State JS di halaman beranda."""
     from .models import UserProfile, rank_of
     from .ranking import describe
-    from .shop import appearance
+    from .shop import MAX_SHIELDS, appearance
 
     profile, _ = UserProfile.objects.get_or_create(user=user)
     duel = rank_of(user)
@@ -462,6 +462,7 @@ def profile_bootstrap(user):
         "display_name": user.first_name or user.username,
         "faculty": profile.faculty.slug if profile.faculty else None,
         "faculty_name": profile.faculty.name if profile.faculty else "",
+        "faculty_short": profile.faculty.short_name if profile.faculty else "",
         "xp": profile.xp,
         "level": profile.level_info,
         "campus": profile.campus,
@@ -469,6 +470,7 @@ def profile_bootstrap(user):
         "hearts": profile.hearts_state(),
         "gems": profile.gems,
         "star_shields": profile.star_shields,
+        "max_shields": MAX_SHIELDS,
         "look": appearance(profile),
         "diagnostic_level": profile.diagnostic_level,
         "completed": [r.node.slug for r in records if r.status == "completed"],

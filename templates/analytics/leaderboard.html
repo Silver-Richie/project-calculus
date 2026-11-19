@@ -1,49 +1,33 @@
 <!-- =========================================================================
      MODUL: Leaderboard  (Page: Rank)
-     Isi    : Tab Level (urut total XP) dan Rank Duel (tier · sub-rank · bintang, aturan di
-              gamification/ranking.py), masing-masing Global · Kampusku · Fakultasku; Rank juga
-              Top 100 Apex. Diisi static/js/leaderboard.js dari /api/peringkat/.
+     Gaya   : "Stratigrafi" — kertas & tinta, warna hanya untuk tier (static/css/leaderboard.css).
+     Isi    : Papan Level (urut total XP), Rank Duel (tier · sub-rank · bintang, aturan di
+              gamification/ranking.py), dan Menang Duel (urut jumlah kemenangan), masing-masing
+              Seluruh Indonesia · kampusku · fakultasku; Rank juga Apex 100.
+              Rank Duel: kolom Ketinggian (lapisan tier setebal jumlah pemainnya), kartu Posisimu,
+              5 teratas → "Tampilkan N pemain" → pemain di sekitarmu; state seri bila semua 0–0.
+              Diisi static/js/leaderboard.js dari /api/peringkat/.
      ========================================================================= -->
 
-<h2 class="page-heading">Papan Peringkat</h2>
-<p class="page-subheading">Level naik dari XP sesi latihan tiap topik; Rank naik dari menang duel. Bersaing dengan pelajar se-Indonesia.</p>
-
-<div class="lb-tabs" role="tablist" aria-label="Jenis peringkat">
-  <button type="button" class="lb-tab active" role="tab" aria-selected="true" data-board="level">🎓 Level</button>
-  <button type="button" class="lb-tab" role="tab" aria-selected="false" data-board="rank">⚔️ Rank Duel</button>
-</div>
-
-<div class="lb-scopes" role="group" aria-label="Cakupan peringkat">
-  <button type="button" class="lb-scope active" data-scope="global">🌏 Global</button>
-  <button type="button" class="lb-scope" data-scope="kampus">🏫 Kampusku</button>
-  <button type="button" class="lb-scope" data-scope="fakultas">🎓 Fakultasku</button>
-  <button type="button" class="lb-scope" data-scope="apex" hidden>👑 Top 100 Apex</button>
-</div>
-
-<div class="lb-panel" data-panel="rank" hidden>
-  <div class="lb-soon-card duel-cta">
-    <div class="duel-cta-row">
-      <p class="lb-soon-title">⚔️ <b>Duel Kalkulus</b> · 5 soal identik, adu cepat & tepat melawan pemain se-Indonesia</p>
-      {% if server_profile.level.level >= 3 %}
-        <button type="button" class="btn btn-accent" id="duel-start-btn">⚔️ Cari Lawan</button>
-      {% else %}
-        <button type="button" class="btn btn-outline" disabled title="Selesaikan sesi latihan topik untuk menambah XP">🔒 Terbuka di Level 3 (kamu Lv {{ server_profile.level.level|default:1 }})</button>
-      {% endif %}
+<div class="lbx">
+  <header class="lbx-head">
+    <div class="lbx-headline">
+      <h2 class="lbx-title" id="lbx-title">Level</h2>
+      <p class="lbx-sub" id="lbx-sub"></p>
     </div>
-    <details class="tier-help">
-      <summary>Cara naik rank</summary>
-      <p>Adu cepat dan tepat dengan soal yang sama persis dengan lawanmu. Menang +1 bintang; bintang penuh lalu
-        menang sekali lagi = naik sub-rank. Kalah −1 bintang, kecuali di Terra dan saat kalah tipis. Tiap
-        3 kemenangan beruntun di Terra–Solar memberi bonus bintang.</p>
-      <ol class="tier-list">
-        <li class="tier-terra"><b>🌍 Terra</b><span>Bumi · III → I · 3★ per sub-rank</span></li>
-        <li class="tier-luna"><b>🌙 Luna</b><span>Bulan · III → I · 4★ per sub-rank</span></li>
-        <li class="tier-solar"><b>☀️ Solar</b><span>Matahari · III → I · 4★ per sub-rank</span></li>
-        <li class="tier-nova"><b>🌟 Nova</b><span>Bintang Baru · III → I · 5★ per sub-rank</span></li>
-        <li class="tier-apex"><b>👑 Apex</b><span>Bintang tanpa batas · Orbit 25★ · Galaksi 50★ · Kosmos 100★</span></li>
-      </ol>
-    </details>
-  </div>
-</div>
+    <div class="lbx-seg" role="tablist" aria-label="Jenis peringkat">
+      <button type="button" class="lb-tab active" role="tab" aria-selected="true" data-board="level">Level</button>
+      <button type="button" class="lb-tab" role="tab" aria-selected="false" data-board="rank">Rank Duel</button>
+      <button type="button" class="lb-tab" role="tab" aria-selected="false" data-board="wins">Menang Duel</button>
+    </div>
+  </header>
 
-<div id="lb-root" aria-live="polite"><p class="loading-text">Memuat peringkat…</p></div>
+  <nav class="lbx-scopes" aria-label="Cakupan peringkat">
+    <button type="button" class="lb-scope active" data-scope="global">Seluruh Indonesia</button>
+    <button type="button" class="lb-scope" data-scope="kampus" id="lbx-scope-kampus">{% if server_profile.campus and server_profile.campus != "Umum" %}{{ server_profile.campus }}{% else %}Kampusku{% endif %}</button>
+    <button type="button" class="lb-scope" data-scope="fakultas">{{ server_profile.faculty_short|default:"Fakultasku" }}</button>
+    <button type="button" class="lb-scope" data-scope="apex" hidden>Apex 100</button>
+  </nav>
+
+  <div id="lb-root" aria-live="polite"><p class="lbx-loading">Memuat peringkat…</p></div>
+</div>

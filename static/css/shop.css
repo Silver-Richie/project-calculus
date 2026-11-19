@@ -101,13 +101,12 @@ button.hud-pill.gems:hover { filter: brightness(1.05); transform: translateY(-1p
 .frame.frame-pelangi, .frame.frame-galaksi { isolation: isolate; }
 @keyframes frameSpin { to { transform: rotate(360deg); } }
 
-.profile-title, .lb-title {
+.profile-title {
   display: inline-block; font-size: .72rem; font-weight: 700; letter-spacing: .02em;
   padding: .1rem .55rem; border-radius: var(--radius-full); background: var(--clr-accent-l); color: var(--clr-accent-d);
 }
 .profile-title:empty { display: none; }
 .profile-title { margin: .2rem 0; background: rgba(255, 255, 255, .2); color: #fff; }
-.lb-title { margin: .1rem 0; }
 
 /* ── responsif ───────────────────────────────────────────────────── */
 @media (max-width: 640px) {

@@ -1,0 +1,146 @@
+/* ════════════════════════════════════════════════════════════════
+   RANKED (templates/ranked/ranked.html, static/js/ranked.js)
+   Panggung rank selalu bertema malam berbintang (seperti lobi game), di mode terang maupun gelap;
+   warna aksen mengikuti tier (--rk, --rk-light).
+   ════════════════════════════════════════════════════════════════ */
+
+.ranked-hero {
+  --rk: #22C55E; --rk-light: #86EFAC;
+  position: relative; overflow: hidden; border-radius: var(--radius-lg);
+  padding: 1.25rem 1.5rem 1.5rem; color: #F8FAFC;
+  background:
+    radial-gradient(ellipse 55% 60% at 50% 42%, color-mix(in srgb, var(--rk) 42%, transparent), transparent 70%),
+    radial-gradient(1.5px 1.5px at 12% 22%, #fff, transparent),
+    radial-gradient(1px 1px at 28% 70%, #fff, transparent),
+    radial-gradient(1.5px 1.5px at 44% 12%, #fff, transparent),
+    radial-gradient(1px 1px at 63% 82%, #fff, transparent),
+    radial-gradient(1.5px 1.5px at 78% 18%, #fff, transparent),
+    radial-gradient(1px 1px at 88% 60%, #fff, transparent),
+    radial-gradient(1px 1px at 6% 88%, #fff, transparent),
+    linear-gradient(160deg, #0B1033, #1E1B4B 55%, #0F172A);
+  box-shadow: 0 12px 32px rgba(15, 23, 42, .25);
+}
+.ranked-hero.tier-terra { --rk: #22C55E; --rk-light: #86EFAC; }
+.ranked-hero.tier-luna { --rk: #94A3B8; --rk-light: #E2E8F0; }
+.ranked-hero.tier-solar { --rk: #F59E0B; --rk-light: #FDE68A; }
+.ranked-hero.tier-nova { --rk: #8B5CF6; --rk-light: #DDD6FE; }
+.ranked-hero.tier-apex { --rk: #E11D48; --rk-light: #FECDD3; }
+
+.ranked-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; }
+.ranked-title { font: 800 1.4rem var(--font-head); color: #fff; }
+.ranked-top small { color: #CBD5E1; font-size: .85rem; }
+.ranked-help {
+  flex: none; width: 36px; height: 36px; border-radius: 50%; cursor: pointer;
+  border: 1.5px solid rgba(255, 255, 255, .4); background: rgba(255, 255, 255, .1); color: #fff; font: 800 1rem var(--font-head);
+}
+.ranked-help:hover { background: rgba(255, 255, 255, .2); }
+
+/* ── panggung: Archie · lambang · statistik ─────────────────────── */
+.ranked-stage {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center; gap: 1rem; margin-top: .5rem;
+}
+.ranked-archie { justify-self: center; }
+.ranked-archie svg { animation: archieBob 2.4s ease-in-out infinite; filter: drop-shadow(0 8px 16px rgba(0, 0, 0, .35)); }
+
+.ranked-emblem-wrap { display: flex; flex-direction: column; align-items: center; text-align: center; }
+.ranked-label { font: 800 1.7rem var(--font-head); color: var(--rk-light); text-shadow: 0 2px 12px color-mix(in srgb, var(--rk) 70%, transparent); }
+.ranked-emblem svg { display: block; filter: drop-shadow(0 10px 22px rgba(0, 0, 0, .45)); }
+
+.ranked-stars {
+  display: inline-flex; gap: .3rem; margin-top: -.2rem; padding: .3rem .9rem;
+  border-radius: var(--radius-full); background: rgba(15, 23, 42, .6); border: 1px solid rgba(255, 255, 255, .15);
+}
+.ranked-stars .rs { font-size: 1.55rem; line-height: 1; color: rgba(255, 255, 255, .22); }
+.ranked-stars .rs.on { color: #FACC15; text-shadow: 0 0 10px rgba(250, 204, 21, .7); }
+.ranked-apex-stars { font: 800 1.3rem var(--font-head); color: #FACC15; }
+.ranked-next { margin-top: .45rem; color: #CBD5E1; font-size: .82rem; }
+
+.ranked-stats {
+  justify-self: end; width: min(100%, 270px); display: grid; grid-template-columns: repeat(3, 1fr); gap: .75rem .5rem;
+  padding: .9rem 1rem; border-radius: var(--radius-md);
+  background: rgba(15, 23, 42, .55); border: 1px solid rgba(255, 255, 255, .12); backdrop-filter: blur(4px);
+}
+.ranked-stat { display: flex; flex-direction: column; align-items: center; text-align: center; }
+.ranked-stat b { font: 800 1.25rem var(--font-head); color: #fff; white-space: nowrap; }
+.ranked-stat small { font-size: .7rem; color: #CBD5E1; line-height: 1.2; }
+.ranked-shield { grid-column: 1 / -1; display: grid; gap: .35rem; font-size: .8rem; color: #CBD5E1; }
+.ranked-shield b { color: #fff; margin-left: .25rem; }
+.ranked-shield-track { height: 6px; border-radius: 99px; background: rgba(255, 255, 255, .15); overflow: hidden; }
+.ranked-shield-bar { height: 100%; width: 0; border-radius: inherit; background: linear-gradient(90deg, #38BDF8, #818CF8); transition: width .4s; }
+
+/* ── tombol bawah ────────────────────────────────────────────────── */
+.ranked-actions { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: .75rem; margin-top: 1.25rem; }
+.ranked-actions .ranked-link:first-child { justify-self: start; }
+.ranked-actions .ranked-link:last-child { justify-self: end; }
+.ranked-link {
+  display: flex; flex-direction: column; align-items: center; gap: .15rem; padding: .45rem .9rem; cursor: pointer;
+  border: none; border-radius: var(--radius-md); background: transparent; color: #E2E8F0; font-size: 1.35rem; line-height: 1;
+}
+.ranked-link span { font: 700 .78rem var(--font-body); }
+.ranked-link:hover { background: rgba(255, 255, 255, .1); }
+
+.ranked-play {
+  min-width: 240px; padding: .85rem 2.75rem; cursor: pointer; border-radius: 14px;
+  font: 800 1.3rem var(--font-head); letter-spacing: .02em; color: #451A03;
+  background: linear-gradient(180deg, #FEF08A, #F59E0B); border: 2px solid #FEF3C7;
+  box-shadow: 0 6px 0 #B45309, 0 12px 26px rgba(245, 158, 11, .45); transition: transform .12s, box-shadow .12s;
+}
+.ranked-play:hover { transform: translateY(-2px); }
+.ranked-play:active { transform: translateY(4px); box-shadow: 0 2px 0 #B45309, 0 6px 14px rgba(245, 158, 11, .4); }
+.ranked-play.locked {
+  display: flex; flex-direction: column; align-items: center; cursor: not-allowed; font-size: 1rem;
+  color: #CBD5E1; background: rgba(255, 255, 255, .1); border-color: rgba(255, 255, 255, .2); box-shadow: none; transform: none;
+}
+.ranked-play.locked small { font: 600 .75rem var(--font-body); opacity: .8; }
+
+/* ── jalan menuju Apex ───────────────────────────────────────────── */
+.ranked-road, .ranked-info {
+  margin-top: 1.25rem; padding: 1rem 1.25rem; border-radius: var(--radius-lg);
+  background: var(--clr-surface); border: 1px solid var(--clr-border);
+}
+.ranked-road h3 { font: 700 1rem var(--font-head); color: var(--clr-text); margin-bottom: .9rem; }
+.ranked-road-list { list-style: none; display: grid; grid-template-columns: repeat(5, 1fr); gap: .25rem; }
+.ranked-road-list li { position: relative; display: flex; flex-direction: column; align-items: center; gap: .2rem; text-align: center; }
+.ranked-road-list li + li::before {
+  content: ''; position: absolute; top: 21px; right: 50%; width: 100%; height: 3px; background: var(--clr-border);
+}
+.ranked-road-list li.done::before, .ranked-road-list li.now::before { background: var(--t); }
+.rr-icon {
+  position: relative; z-index: 1; width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center;
+  background: #1E1B4B; border: 3px solid var(--clr-border);
+}
+.ranked-road-list li.done .rr-icon { border-color: var(--t); }
+.ranked-road-list li.now .rr-icon { border-color: var(--t); box-shadow: 0 0 0 5px color-mix(in srgb, var(--t) 25%, transparent); transform: scale(1.12); }
+.ranked-road-list li.next { opacity: .5; }
+.ranked-road-list b { font: 700 .85rem var(--font-head); color: var(--clr-text); }
+.ranked-road-list li.now b { color: var(--t); }
+.ranked-road-list small { font-size: .7rem; color: var(--clr-muted); }
+.ranked-info p { margin-bottom: .75rem; }
+.tier-emb {
+  display: inline-grid; place-items: center; width: 32px; height: 32px; margin-right: .4rem; vertical-align: middle;
+  border-radius: 50%; background: #1E1B4B;
+}
+.tier-emb svg { display: block; }
+
+/* ── responsif ───────────────────────────────────────────────────── */
+@media (max-width: 760px) {
+  .ranked-stage { grid-template-columns: minmax(0, 1fr); }
+  .ranked-archie { display: none; }
+  .ranked-stats { justify-self: stretch; width: auto; }
+  .ranked-actions { grid-template-columns: 1fr 1fr; }
+  .ranked-play { grid-column: 1 / -1; grid-row: 1; min-width: 0; width: 100%; }
+}
+@media (max-width: 560px) {
+  .ranked-hero { padding: 1rem 1rem 1.25rem; }
+  .ranked-title { font-size: 1.2rem; }
+  .ranked-emblem svg { width: 150px; height: 150px; }
+  .ranked-road { padding: .9rem .75rem; }
+  .rr-icon { width: 36px; height: 36px; }
+  .rr-icon svg { width: 26px; height: 26px; }
+  .ranked-road-list li + li::before { top: 17px; }
+  .ranked-road-list small { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ranked-archie svg { animation: none; }
+}

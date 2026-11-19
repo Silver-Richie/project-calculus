@@ -7,7 +7,7 @@ from django.urls import path
 from . import auth_views
 from .views import (
     landing_page, get_curriculum_api, get_diagnostic_api, submit_diagnostic_api, set_faculty_api,
-    session_api, submit_session_api, complete_node_api,
+    session_api, submit_session_api, leave_session_api, complete_node_api,
     free_practice_catalog_api, free_practice_start_api, trial_quiz_api,
     set_campus_api, leaderboard_api, shop_api, shop_buy_api, shop_equip_api,
 )
@@ -42,5 +42,6 @@ urlpatterns = [
     path('api/toko/pakai/', shop_equip_api, name='shop_equip_api'),
     path('api/session/<int:session_id>/', session_api, name='session_api'),
     path('api/session/<int:session_id>/submit/', submit_session_api, name='submit_session_api'),
+    path('api/session/<int:session_id>/keluar-tab/', leave_session_api, name='leave_session_api'),
     path('api/progress/node/', complete_node_api, name='complete_node_api'),
 ]

@@ -238,6 +238,7 @@ const Shop = (() => {
     look = d.equipped || {};
     State.setGems(d.gems);
     if (d.hearts) State.setHearts(d.hearts);
+    if (typeof Ranked !== 'undefined') Ranked.setShields(d.star_shields);
     render();
   }
 

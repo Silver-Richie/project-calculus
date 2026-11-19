@@ -278,7 +278,7 @@ const State = (() => {
    NAV — Bottom navigation + page routing
    ════════════════════════════════════════════════════════════════ */
 const Nav = (() => {
-  const pages = ['levelup', 'lesson', 'free', 'rank', 'user', 'shop'];
+  const pages = ['levelup', 'lesson', 'free', 'ranked', 'rank', 'user', 'shop'];
 
   return {
     go(page) {
@@ -292,6 +292,7 @@ const Nav = (() => {
       });
       if (page === 'free' && typeof FreePractice !== 'undefined') FreePractice.render();
       if (page === 'rank' && typeof Leaderboard !== 'undefined') Leaderboard.load();
+      if (page === 'ranked' && typeof Ranked !== 'undefined') Ranked.render();
       if (page === 'shop' && typeof Shop !== 'undefined') Shop.load();
     },
   };
@@ -927,11 +928,14 @@ const Drawer = (() => {
       show();
     },
 
+    /** Tutup drawer. false bila dibatalkan (sesi latihan yang berjalan tidak jadi ditinggalkan). */
     close() {
+      if (!Practice.confirmLeave()) return false;
       QuizBoard.hide();
       document.getElementById('lesson-drawer').classList.remove('open');
       hideFeedback();
       SFX.click();
+      return true;
     },
 
     switchTab(tab) {
@@ -1223,6 +1227,67 @@ const LevelUp = (() => ({
     Confetti.burst();
   },
 }))();
+
+/* ════════════════════════════════════════════════════════════════
+   FOCUS GUARD — anti-curang: deteksi keluar tab/jendela saat soal dinilai
+   (sesi skill tree di practice.js, duel ranked di duel.js)
+   ════════════════════════════════════════════════════════════════ */
+/**
+ * Mechanism: "keluar" = tab tersembunyi (pindah tab, minimize, layar terkunci) ATAU jendela
+ * kehilangan fokus (klik jendela lain, mis. chatbot di split-screen). Satu kali keluar dilaporkan
+ * sekali ke setiap pengawas sampai pengguna kembali. Hukumannya diputuskan server
+ * (sessions.leave_tab / duel.leave_tab); modul ini hanya mendeteksi dan menampilkan peringatan.
+ * Pengawas: { leave(), unload() } — unload dipanggil saat halaman ditutup/dimuat ulang.
+ */
+const FocusGuard = (() => {
+  const watchers = new Set();
+  let away = false;
+  let muted = 0;
+
+  function leave() {
+    if (away || muted || !watchers.size) return;
+    away = true;
+    watchers.forEach((w) => w.leave());
+  }
+  function back() {
+    if (!document.hidden && document.hasFocus()) away = false;
+  }
+  document.addEventListener('visibilitychange', () => (document.hidden ? leave() : back()));
+  window.addEventListener('blur', leave);
+  window.addEventListener('focus', back);
+  window.addEventListener('pagehide', () => watchers.forEach((w) => w.unload?.()));
+
+  return {
+    /** Mulai mengawasi; mengembalikan fungsi untuk berhenti. */
+    watch(w) {
+      watchers.add(w);
+      return () => watchers.delete(w);
+    },
+    /** window.confirm yang tidak dihitung sebagai keluar tab (dialog bisa membuat jendela blur). */
+    confirm(message) {
+      muted += 1;
+      try { return window.confirm(message); } finally { setTimeout(() => { muted -= 1; }, 300); }
+    },
+    /** Kartu peringatan di atas semua layar (termasuk duel). */
+    warn(title, text) {
+      document.querySelector('.tabwarn-overlay')?.remove();
+      const el = document.createElement('div');
+      el.className = 'levelup-overlay tabwarn-overlay';
+      el.innerHTML = `
+        <div class="levelup-card" role="alertdialog" aria-modal="true" aria-labelledby="tabwarn-title">
+          <div class="tabwarn-icon" aria-hidden="true">⚠️</div>
+          <h3 id="tabwarn-title">${title}</h3>
+          <p>${text}</p>
+          <button type="button" class="btn btn-accent">Saya mengerti, lanjutkan</button>
+        </div>`;
+      el.addEventListener('click', (e) => { if (e.target.closest('button')) el.remove(); });
+      document.body.appendChild(el);
+      el.querySelector('button').focus();
+      SFX.wrong();
+    },
+    dismiss() { document.querySelector('.tabwarn-overlay')?.remove(); },
+  };
+})();
 
 /* ════════════════════════════════════════════════════════════════
    BOOT

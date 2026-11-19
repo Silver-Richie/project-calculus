@@ -14,15 +14,19 @@
  *     sesi n terbuka bila sesi n−1 lulus — sama dengan aturan server (sessions.py).
  *   - Di skill tree, setiap topik tampil sebagai node bulat pada jalur zig-zag
  *     (pathHTML) dengan 5 titik sesi; Archie berdiri di samping topik aktif.
+ *   - Anti-curang: selama sesi berjalan FocusGuard (app.js) mengawasi keluar tab/jendela dan
+ *     melapor ke POST /api/session/<id>/keluar-tab/. Keluar pertama = peringatan; keluar kedua,
+ *     menutup/memuat ulang halaman, atau meninggalkan sesi (tutup drawer) = sesi gagal
+ *     (aturan & hitungan di server, sessions.leave_tab).
  *
  * Bergantung pada modul global di app.js: Curriculum, Drawer, QuizEngine, State,
- * Mascot, SFX, Confetti, postJSON; dan Lessons (lessons.js) untuk tombol materi.
+ * Mascot, SFX, Confetti, postJSON, FocusGuard; dan Lessons (lessons.js) untuk tombol materi.
  */
 const Practice = (() => {
   let node = null;
   let topic = null;
   let nodeLocked = false;
-  let running = null;    // { session, attempt }
+  let running = null;    // { session, attempt, tabLeaves, maxTabLeaves, done, unwatch }
 
   const TIER_ICON = { mudah: '🌱', sedang: '🌿', sulit: '🌳', tantangan: '🔥', olimpiade: '🏅' };
   // Geser horizontal node topik (px) membentuk jalur ular; label di sisi berlawanan.
@@ -252,15 +256,63 @@ const Practice = (() => {
       const data = await res.json();
       if (data.status === 'no_hearts') { showNoHearts(data.hearts); return; }
       if (!res.ok) throw new Error(data.message || `HTTP ${res.status}`);
-      running = { session: data.session, attempt: data.attempt };
+      stopWatching();
+      running = { session: data.session, attempt: data.attempt, tabLeaves: data.tab_leaves, maxTabLeaves: data.max_tab_leaves };
+      running.unwatch = FocusGuard.watch({ leave: () => reportLeave(false), unload: () => reportLeave(true) });
       QuizEngine.start(node.slug, data.questions, 'session');
-      Mascot.setMood('thinking', `${data.session.title}: semangat! Pakai hint bila buntu.`);
+      Mascot.setMood('thinking', data.tab_leaves
+        ? `⚠️ ${data.session.title}: kamu sudah sekali keluar tab di percobaan ini. Keluar lagi = sesi gagal!`
+        : `${data.session.title}: semangat! Jangan keluar dari tab ini sampai sesi selesai.`);
     } catch (err) {
       box.innerHTML = `<p class="loading-text">Gagal memuat sesi: ${err.message}</p>`;
     }
   }
 
+  /* ── anti-curang: keluar tab ────────────────────────────────────── */
+  const isRunning = () => !!running && !running.done;
+
+  function stopWatching() {
+    if (!running) return;
+    running.done = true;
+    running.unwatch?.();
+    FocusGuard.dismiss();
+  }
+
+  /**
+   * Lapor keluar tab ke server. quit=true (halaman ditutup / sesi ditinggalkan) langsung menggagalkan.
+   * keepalive agar laporan tetap terkirim walau halaman sedang ditutup.
+   */
+  async function reportLeave(quit) {
+    if (!isRunning()) return null;
+    const run = running;
+    let r;
+    try {
+      const res = await fetch(`/api/session/${run.session.id}/keluar-tab/`, {
+        method: 'POST', keepalive: true,
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken() },
+        body: JSON.stringify({ attempt: run.attempt, quit }),
+      });
+      r = await res.json();
+    } catch (_) { return null; }
+    if (run !== running || run.done) return r;
+    if (r.status === 'warning') {
+      run.tabLeaves = r.tab_leaves;
+      FocusGuard.warn('Jangan keluar dari tab!',
+        `Selama sesi berjalan kamu tidak boleh pindah tab atau jendela. Ini peringatan terakhir: keluar
+         sekali lagi = <b>sesi gagal</b> (−1 nyawa, tanpa XP).`);
+      Mascot.setMood('comfort', '⚠️ Tetap di tab ini sampai sesi selesai ya!');
+    } else if (r.status === 'failed') {
+      stopWatching();
+      QuizBoard.hide();
+      showResult(r, quit ? 'Sesi ditinggalkan sebelum selesai, jadi dihitung gagal.'
+        : `Sesi gagal karena kamu keluar dari tab ${run.maxTabLeaves} kali.`);
+    }
+    return r;
+  }
+
   async function finish(answers) {
+    if (!isRunning()) return;
+    stopWatching();
     const box = document.getElementById('quiz-container');
     box.innerHTML = '<p class="loading-text">Menilai jawaban…</p>';
     let r;
@@ -272,6 +324,12 @@ const Practice = (() => {
         <p>${err.message}</p><button class="btn btn-primary" onclick="Practice.renderSessions()">Kembali</button></div>`;
       return;
     }
+    showResult(r);
+  }
+
+  /** Hasil sesi (dari submit, atau dari sesi yang digagalkan karena keluar tab: `failNote`). */
+  function showResult(r, failNote) {
+    const box = document.getElementById('quiz-container');
     const s = running.session;
     Curriculum.setSessionProgress(s.id, { attempts: r.attempts, best: r.best, last: r.score, passed: r.passed || !!Curriculum.sessionProgress(s.id)?.passed });
     State.setLevel(r.level, r.xp_awarded);
@@ -283,6 +341,7 @@ const Practice = (() => {
     Mascot.setMood(r.passed ? 'celebrate' : 'comfort',
       r.passed ? '🏆 Sesi lulus! Sesi berikutnya terbuka.'
         : !State.hasHearts() ? `💔 Nyawa habis. Nyawa penuh lagi dalam ${State.refillText()}.`
+        : failNote ? '🚫 Sesi gagal karena keluar tab. Kerjakan sendiri tanpa bantuan ya!'
         : 'Hampir! Baca lagi pembahasannya lalu coba dengan soal baru.');
 
     const next = topic.sessions.find((x) => x.number === s.number + 1);
@@ -290,6 +349,7 @@ const Practice = (() => {
       <div class="level-complete session-result ${r.passed ? 'pass' : 'fail'}">
         <div class="trophy-anim">${r.passed ? '🏆' : '📚'}</div>
         <h3>${s.title}: ${r.score}/${r.total}</h3>
+        ${failNote ? `<p class="lesson-note tabwarn-note">🚫 ${failNote}</p>` : ''}
         <p>${r.passed ? 'Lulus!' : `Belum lulus — perlu minimal ${r.pass_score} benar.`}
            ${r.xp_awarded ? ` <strong>+${r.xp_awarded} XP</strong>` : ''}${r.gems_awarded ? ` <strong>+${r.gems_awarded} 💎</strong>` : ''}</p>
         ${r.heart_lost ? `<p class="lesson-note hearts-note">💔 −1 Nyawa · sisa ${State.get().hearts}/${State.get().maxHearts}${
@@ -360,5 +420,15 @@ const Practice = (() => {
     renderSessions,
     start,
     finish,
+    /**
+     * Dipanggil Drawer.close(): meninggalkan sesi yang sedang berjalan = gagal, jadi minta konfirmasi.
+     * Mengembalikan false bila pengguna batal (drawer tetap terbuka).
+     */
+    confirmLeave() {
+      if (!isRunning()) return true;
+      if (!FocusGuard.confirm(`${running.session.title} masih berjalan. Keluar sekarang = sesi GAGAL (−1 nyawa, tanpa XP). Yakin keluar?`)) return false;
+      reportLeave(true);
+      return true;
+    },
   };
 })();

@@ -511,7 +511,7 @@ const Lessons = (() => {
     },
     /** Tombol "Pelajari" di drawer topik skill tree. */
     openFromDrawer(slug) {
-      Drawer.close();
+      if (Drawer.close() === false) return;
       api.open(slug);
     },
     close(silent) {

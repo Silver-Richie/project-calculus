@@ -14,6 +14,10 @@ Mechanism
   pernah perlu disimpan.
 * Sesi n+1 terbuka setelah sesi n lulus. Topik tuntas bila sesi wajib
   (REQUIRED_SESSIONS) lulus; sub-level tuntas bila semua topiknya tuntas.
+* Anti-curang (leave_tab): selama sesi berjalan browser melapor setiap kali pengguna
+  keluar tab/jendela. Keluar pertama = peringatan; keluar ke-MAX_TAB_LEAVES, atau menutup /
+  memuat ulang halaman (quit), = percobaan dinilai gagal (skor 0: −1 nyawa, tanpa XP).
+  Hitungan disimpan per percobaan di server, jadi tidak hilang saat halaman dimuat ulang.
 """
 
 import math
@@ -28,6 +32,7 @@ from .leveling import level_for, level_info
 from .models import PracticeSession, Question, SkillNode, Topic, UserProfile, UserProgress, UserSessionProgress
 
 REQUIRED_SESSIONS = 3          # Sesi I–III wajib; IV–V tantangan opsional (XP ekstra)
+MAX_TAB_LEAVES = 2             # keluar tab ke-2 dalam satu percobaan = sesi gagal
 
 
 # ── pengundian ──────────────────────────────────────────────────────────────
@@ -270,6 +275,7 @@ def open_session(user, session):
         "topic": {"slug": session.topic.slug, "title": session.topic.title},
         "attempt": progress.attempts,
         "questions": build_quiz(session, user.id, progress.attempts),
+        "tab_leaves": progress.tab_leaves, "max_tab_leaves": MAX_TAB_LEAVES,
     }
 
 
@@ -298,6 +304,7 @@ def submit_session(user, session, attempt, answers):
 
     prev_best = progress.best_score
     progress.attempts += 1
+    progress.tab_leaves = 0
     progress.last_score = score
     progress.best_score = max(prev_best, score)
     newly_passed = score >= pass_score(session) and not progress.passed
@@ -346,6 +353,26 @@ def submit_session(user, session, attempt, answers):
         "topic_done": topic_done(user, session.topic),
         "node_completed": completed_node, "next_node": next_node,
     }
+
+
+@transaction.atomic
+def leave_tab(user, session, attempt, quit=False):
+    """
+    Catat pengguna keluar tab/jendela saat percobaan `attempt` berjalan.
+
+    Mengembalikan {"status": "warning", "tab_leaves", "max_tab_leaves"} untuk keluar pertama,
+    {"status": "failed", **hasil submit_session} bila batas tercapai atau `quit` (halaman
+    ditutup/dimuat ulang, atau sesi ditinggalkan), dan {"status": "stale"} bila percobaan itu
+    sudah selesai (mis. laporan ganda saat halaman ditutup).
+    """
+    progress = UserSessionProgress.objects.select_for_update().filter(user=user, session=session).first()
+    if not progress or attempt != progress.attempts:
+        return {"status": "stale"}
+    progress.tab_leaves += 1
+    progress.save(update_fields=["tab_leaves"])
+    if quit or progress.tab_leaves >= MAX_TAB_LEAVES:
+        return {"status": "failed", **submit_session(user, session, attempt, [])}
+    return {"status": "warning", "tab_leaves": progress.tab_leaves, "max_tab_leaves": MAX_TAB_LEAVES}
 
 
 def mark_node_completed(user, node):

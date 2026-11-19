@@ -2,8 +2,10 @@
 Calculus Bridge - WebSocket duel kalkulus real-time (ws/duel/). Aturan & penyimpanan ada di duel.py.
 
 Pesan dari browser : {"type": "queue"} · {"type": "cancel"} · {"type": "answer", "index": n, "option": id}
+                     · {"type": "left"} (keluar tab/jendela, anti-curang)
 Pesan ke browser   : queued · no_opponent · matched (you, opponent, tier, time_limit) · question (tanpa kunci)
                      · answered · progress (lawan sudah menjawab) · reveal (kunci + poin kedua pemain)
+                     · tab_warning (keluar tab pertama: soal berjalan dianggap salah)
                      · finished (hasil, perubahan bintang, rank baru) · error
 
 Mekanisme
@@ -13,6 +15,7 @@ Mekanisme
   mencoba bersamaan: hanya satu yang berhasil lalu menyiarkan kelanjutannya.
 * Pemain yang baru bergabung ke grup mengejar keadaan (catch_up) agar tidak melewatkan soal pertama.
 * Menutup halaman / koneksi putus di tengah duel = keluar (forfeit) = kalah.
+* Keluar tab: pertama = peringatan + soal berjalan dianggap salah; kedua = forfeit (duel.leave_tab).
 """
 
 import asyncio
@@ -77,6 +80,8 @@ class DuelConsumer(AsyncJsonWebsocketConsumer):
             await self.send_json({"type": "cancelled"})
         elif kind == "answer" and self.match_id:
             await self.answer(content)
+        elif kind == "left" and self.match_id:
+            await self.left_tab()
 
     async def search(self, first=False):
         match, opponent_channel = await db(duel.find_opponent)(self.user, self.channel_name)
@@ -114,6 +119,22 @@ class DuelConsumer(AsyncJsonWebsocketConsumer):
                                             {"type": "duel.progress", "user": self.user.id, "index": index})
         if both:
             await self.close_question(index)
+
+    async def left_tab(self):
+        info = await db(duel.leave_tab)(self.match_id, self.user)
+        if not info:
+            return
+        if info["forfeit"]:
+            result = await db(duel.finish_match)(self.match_id, forfeit_by=self.user.id)
+            if result:
+                await self.channel_layer.group_send(_group(self.match_id), {"type": "duel.finished", "result": result})
+            return
+        await self.send_json({"type": "tab_warning", **info})
+        if info["voided"] is not None:
+            await self.channel_layer.group_send(_group(self.match_id),
+                                                {"type": "duel.progress", "user": self.user.id, "index": info["voided"]})
+            if info["both"]:
+                await self.close_question(info["voided"])
 
     # ── Alur duel ───────────────────────────────────────────────────────────
     async def enter_match(self, match_id, starter=False):
