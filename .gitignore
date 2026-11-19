@@ -14,3 +14,6 @@ __pycache__/
 .vscode/*
 !.vscode/settings.json
 .idea/
+
+# Hasil collectstatic (server)
+staticfiles/

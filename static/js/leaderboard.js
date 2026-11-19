@@ -144,6 +144,8 @@ const Leaderboard = (() => {
 
   /* ── kartu Posisimu ─────────────────────────────────────────────── */
   function duelButton(text) {
+    // Server tanpa WebSocket (DUEL_ENABLED=False) menandai halaman Ranked dengan data-duel-off.
+    if (document.querySelector('[data-duel-off]')) return `<button type="button" class="lbx-btn" disabled>${Icon('clock')} Duel segera hadir</button>`;
     const lv = (typeof State !== 'undefined' && State.get().level?.level) || 1;
     return lv >= MIN_DUEL_LEVEL
       ? `<button type="button" class="lbx-btn" data-lbx="duel">${Icon('swords')} ${text}</button>`

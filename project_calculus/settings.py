@@ -24,14 +24,32 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
+# PRODUCTION=True (di .env server) → DEBUG mati, kunci rahasia wajib dari .env,
+# cookie hanya lewat HTTPS. Database: lihat bagian Database di bawah. Di laptop .env tidak perlu mengisinya: tetap mode pengembangan.
+PRODUCTION = os.getenv('PRODUCTION', 'False').lower() == 'true'
+
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-5d@hfviie_7*-v@q-pd&1md0j$&r$$!fh%c^lrq1gz-c5s_6a3'
+if PRODUCTION:
+    SECRET_KEY = os.environ['SECRET_KEY']   # sengaja error bila lupa diisi
+else:
+    SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-5d@hfviie_7*-v@q-pd&1md0j$&r$$!fh%c^lrq1gz-c5s_6a3')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = not PRODUCTION
 
-ALLOWED_HOSTS = ["localhost", "127.0.0.1"]
-PRODUCTION = os.getenv('PRODUCTION', 'False').lower() == 'true'
+# Domain tambahan dipisah koma, mis. ALLOWED_HOSTS=namaanda.pythonanywhere.com
+ALLOWED_HOSTS = ["localhost", "127.0.0.1"] + [h.strip() for h in os.getenv('ALLOWED_HOSTS', '').split(',') if h.strip()]
+CSRF_TRUSTED_ORIGINS = [f"https://{h}" for h in ALLOWED_HOSTS if h not in ("localhost", "127.0.0.1")]
+
+# Duel real-time butuh server ASGI (WebSocket). PythonAnywhere memakai WSGI, jadi di sana
+# DUEL_ENABLED=False: tombol duel (halaman Ranked & Peringkat) diganti "Segera hadir".
+DUEL_ENABLED = os.getenv('DUEL_ENABLED', 'True').lower() == 'true'
+
+if PRODUCTION:
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')  # HTTPS diputus di proxy hosting
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    ACCOUNT_DEFAULT_HTTP_PROTOCOL = 'https'   # alamat callback Google memakai https://
 
 # Application definition
 
@@ -98,18 +116,23 @@ else:
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
 # Database configuration
-if PRODUCTION:
+# Default: SQLite (db.sqlite3 di folder proyek) — juga di PythonAnywhere gratis, yang sejak 2026
+# tidak lagi mendapat MySQL. Isi DB_HOST di .env (akun berbayar) untuk beralih ke MySQL:
+# DB_NAME "username$namadb", DB_HOST "username.mysql.pythonanywhere-services.com".
+if os.getenv('DB_HOST'):
     DATABASES = {
-'default': {
-'ENGINE': 'django.db.backends.postgresql',
-'NAME': os.getenv('DB_NAME'),
-'USER': os.getenv('DB_USER'),
-'PASSWORD': os.getenv('DB_PASSWORD'),
-'HOST': os.getenv('DB_HOST'),
-'PORT': os.getenv('DB_PORT'),
-'OPTIONS': {
-'options': f"-c search_path={os.getenv('SCHEMA', 'public')}"
-            }
+        'default': {
+            'ENGINE': 'django.db.backends.mysql',
+            'NAME': os.environ['DB_NAME'],
+            'USER': os.environ['DB_USER'],
+            'PASSWORD': os.environ['DB_PASSWORD'],
+            'HOST': os.environ['DB_HOST'],
+            'PORT': os.getenv('DB_PORT', '3306'),
+            'CONN_MAX_AGE': 280,   # di bawah batas koneksi diam MySQL PythonAnywhere (300 dtk)
+            'OPTIONS': {
+                'charset': 'utf8mb4',
+                'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
+            },
         }
     }
 else:
@@ -117,6 +140,7 @@ else:
 'default': {
 'ENGINE': 'django.db.backends.sqlite3',
 'NAME': BASE_DIR / 'db.sqlite3',
+'OPTIONS': {'timeout': 20},   # tunggu bila ada penulisan bersamaan, bukan langsung "database is locked"
         }
     }
 
@@ -179,6 +203,7 @@ TEMPLATES = [
 ]
 
 STATIC_URL = 'static/'
+STATIC_ROOT = BASE_DIR / 'staticfiles'   # hasil collectstatic; di PythonAnywhere dipetakan ke /static/
 STATICFILES_DIRS = [
     BASE_DIR / 'static',
 ]

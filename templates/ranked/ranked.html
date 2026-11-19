@@ -7,7 +7,7 @@
      ========================================================================= -->
 
 {% load icons %}
-<section class="ranked-hero" id="ranked-hero" aria-label="Rank duel kamu">
+<section class="ranked-hero" id="ranked-hero" aria-label="Rank duel kamu"{% if not duel_enabled %} data-duel-off{% endif %}>
   <header class="ranked-top">
     <div>
       <h2 class="ranked-title">{% icon "swords" %} Ranked Duel</h2>
@@ -41,7 +41,10 @@
 
   <div class="ranked-actions">
     <button type="button" class="ranked-link" data-ranked="info">{% icon "doc" %}<span>Info Rank</span></button>
-    {% if server_profile.level.level >= 3 %}
+    {% if not duel_enabled %}
+      <button type="button" class="ranked-play locked" disabled title="Duel real-time sedang disiapkan untuk server online">
+        <span>{% icon "clock" %} Segera hadir</span><small>duel online menyusul</small></button>
+    {% elif server_profile.level.level >= 3 %}
       <button type="button" class="ranked-play" id="duel-start-btn">Mulai Duel</button>
     {% else %}
       <button type="button" class="ranked-play locked" disabled title="Kumpulin XP dari sesi latihan topik">

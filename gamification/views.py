@@ -6,6 +6,7 @@ Views dibuat tipis: pengambilan dan pengolahan data ada di services.py.
 
 import json
 
+from django.conf import settings
 from django.contrib.auth.decorators import login_required
 from django.db.models import Count, Q, Value
 from django.db.models.functions import Coalesce
@@ -42,6 +43,7 @@ def landing_page(request):
         "faculties": Faculty.objects.all(),
         "server_profile": services.profile_bootstrap(request.user),
         "campus_suggestions": campus.SUGGESTIONS,
+        "duel_enabled": settings.DUEL_ENABLED,
     })
 
 
