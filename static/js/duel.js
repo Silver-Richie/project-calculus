@@ -253,7 +253,7 @@ const Duel = (() => {
     const title = { win: 'Menang! 🏆', lose: 'Kalah', draw: 'Imbang 🤝' }[me.verdict];
     const stars = me.star_delta > 0 ? `+${me.star_delta} ★` : me.star_delta < 0 ? `${me.star_delta} ★`
       : me.verdict === 'draw' ? 'Bintang tetap'
-      : me.shield_used ? '🛡️ Perisai Bintang melindungi bintangmu'
+      : me.shield_used ? `${Icon('shield')} Perisai Bintang melindungi bintangmu`
       : me.rank.tier === 'terra' ? 'Bintang tetap (di Terra kalah tidak mengurangi bintang)'
       : '★ Bintang dilindungi (kalah tipis)';
     if (me.verdict === 'win') { SFX.fanfare(); Confetti.burst(); }
@@ -267,7 +267,7 @@ const Duel = (() => {
         <div><b>${opp.points ?? 0}</b><small>poin lawan · ${opp.correct ?? 0}/${state.total || 5} benar</small></div>
       </div>
       <p class="duel-stars ${me.star_delta > 0 ? 'up' : me.star_delta < 0 ? 'down' : ''}">${stars}</p>
-      ${me.gems_awarded ? `<p class="duel-muted">💎 +${me.gems_awarded} diamond</p>` : ''}
+      ${me.gems_awarded ? `<p class="duel-muted">${Icon('diamond')} +${me.gems_awarded} diamond</p>` : ''}
       ${RankBadge.html(me.rank, true)}
       <div class="duel-actions">
         <button type="button" class="btn btn-accent" data-act="again">⚔️ Duel lagi</button>

@@ -13,7 +13,7 @@
  *     sebelum membeli.
  *   - Membeli butuh dua klik (klik pertama = "Beli?"), agar diamond tidak terbelanjakan tak sengaja.
  *
- * Bergantung pada modul global: State, Nav, SFX, Mascot, Practice, postJSON.
+ * Bergantung pada modul global: State, Nav, SFX, Mascot, Practice, postJSON, Icon.
  */
 const Shop = (() => {
   /** Titik-titik bintang 5 sudut berpusat di (cx, cy), untuk atribut points <polygon>. */
@@ -126,6 +126,12 @@ const Shop = (() => {
     { id: 'title', label: '🏷️ Gelar', sub: 'Tampil di bawah namamu', match: (it) => it.slot === 'title' },
   ];
   const SLOT_LABEL = { head: 'kepala', face: 'wajah', neck: 'leher' };
+  // Penguat memakai ikon SVG (sprite) + lencana jumlah; kosmetik tetap memakai ikon katalognya.
+  const BOOST_ICON = {
+    'hearts-one': ['heart', '+1'], 'hearts-three': ['heart', '+3'], 'hearts-full': ['heart', 'MAX'],
+    'star-shield': ['shield', ''], 'star-shield-3': ['shield', '×3'],
+  };
+  const gem = () => Icon('diamond');
   let tab = TABS[0].id;
 
   let data = null;
@@ -169,7 +175,7 @@ const Shop = (() => {
     const poor = data.gems < it.price;
     const asking = confirmKey === it.key;
     return `<button class="btn ${asking ? 'btn-accent' : 'btn-primary'} btn-sm" ${poor ? 'disabled title="Diamond kurang"' : ''}
-      onclick="Shop.buy('${it.key}')">${asking ? `Beli? 💎 ${it.price}` : `💎 ${it.price}`}</button>`;
+      onclick="Shop.buy('${it.key}')">${asking ? `Beli? ${gem()} ${it.price}` : `${gem()} ${it.price}`}</button>`;
   }
 
   function stockHTML(it) {
@@ -181,7 +187,9 @@ const Shop = (() => {
 
   function cardHTML(it) {
     const tryOn = ACC_SLOTS.includes(it.slot);
-    const icon = it.slot === 'frame' ? `<span class="frame-demo frame ${it.key}">A</span>` : it.icon;
+    const boost = BOOST_ICON[it.key];
+    const icon = it.slot === 'frame' ? `<span class="frame-demo frame ${it.key}">A</span>`
+      : boost ? `${Icon(boost[0])}${boost[1] ? `<span class="shop-icon-badge">${boost[1]}</span>` : ''}` : it.icon;
     return `
       <div class="shop-item${it.owned ? ' owned' : ''}${it.equipped ? ' equipped' : ''}${preview?.key === it.key ? ' previewing' : ''}"
            ${tryOn ? `role="button" tabindex="0" onclick="Shop.tryOn('${it.key}', event)"` : ''}>
@@ -203,9 +211,9 @@ const Shop = (() => {
     const nextLv = (lv?.level || 1) + 1;
     document.getElementById('shop-earn').innerHTML = `
       <li>🎓 Naik level: <b>${data.rewards.level} × level baru</b>
-        <small>Level ${nextLv}: +💎 ${data.rewards.level * nextLv}${lv ? ` · ${lv.need - lv.into} XP lagi` : ''}</small></li>
-      <li>✅ Topik tuntas (lulus Sesi III): <b>+💎 ${data.rewards.topic}</b></li>
-      <li>⚔️ Menang duel: <b>+💎 ${data.rewards.duel_win}</b></li>`;
+        <small>Level ${nextLv}: +${gem()} ${data.rewards.level * nextLv}${lv ? ` · ${lv.need - lv.into} XP lagi` : ''}</small></li>
+      <li>✅ Topik tuntas (lulus Sesi III): <b>+${gem()} ${data.rewards.topic}</b></li>
+      <li>⚔️ Menang duel: <b>+${gem()} ${data.rewards.duel_win}</b></li>`;
     const name = document.getElementById('shop-preview-name');
     if (name) {
       const p = preview && data.items.find((x) => x.key === preview.key);
@@ -275,7 +283,7 @@ const Shop = (() => {
     /** Harga barang (untuk tombol di luar toko); '' bila katalog belum dimuat. */
     price(key) {
       const it = data?.items.find((x) => x.key === key);
-      return it ? `💎 ${it.price}` : '💎';
+      return it ? `${gem()} ${it.price}` : gem();
     },
     async buy(key) {
       if (confirmKey !== key) {                     // klik pertama: minta konfirmasi
@@ -294,7 +302,7 @@ const Shop = (() => {
         if (preview?.key === key) preview = null;
         render();
         message(`✅ ${it.name} berhasil dibeli!`, true);
-        Mascot.setMood('celebrate', `Asyik, ${it.name}! 💎`);
+        Mascot.setMood('celebrate', `Asyik, ${it.name}! ${gem()}`);
       } catch (err) {
         SFX.wrong();
         render();
@@ -324,7 +332,7 @@ const Shop = (() => {
     async refillHearts() {
       try {
         await purchase('hearts-full');
-        Mascot.setMood('celebrate', '💖 Nyawa penuh lagi. Ayo lanjut latihan!');
+        Mascot.setMood('celebrate', `${Icon('heart')} Nyawa penuh lagi. Ayo lanjut latihan!`);
         Practice.renderSessions();
       } catch (err) {
         SFX.wrong();

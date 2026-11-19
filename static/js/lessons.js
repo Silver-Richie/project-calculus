@@ -143,7 +143,7 @@ const Lessons = (() => {
       return `
         <div class="lp-intro">
           <div class="lp-intro-icon lp-in" style="--i:0">${topic.icon}</div>
-          <div class="lp-kicker lp-in" style="--i:1">${lvl ? `${lvl.icon} ${lvl.title} · ` : ''}${node.title} · Topik ${k}/${node.topics.length}</div>
+          <div class="lp-kicker lp-in" style="--i:1">${lvl ? `${Icon.level(lvl)} ${lvl.title} · ` : ''}${node.title} · Topik ${k}/${node.topics.length}</div>
           <h2 class="lp-in" style="--i:2">${topic.title}</h2>
           ${topic.summary ? `<p class="lp-lead lp-in" style="--i:3">${topic.summary}</p>` : ''}
           <div class="lp-agenda lp-in" style="--i:4">
@@ -390,7 +390,7 @@ const Lessons = (() => {
       return `
         <details class="lp-level" ${ts.includes(focus) ? 'open' : ''}>
           <summary>
-            <span class="lp-level-icon">${level.icon}</span>
+            <span class="lp-level-icon">${Icon.level(level)}</span>
             <span class="lp-level-name"><small>Level ${level.order}</small>${level.title}</span>
             <span class="lp-level-count">${d}/${ts.length}</span>
           </summary>

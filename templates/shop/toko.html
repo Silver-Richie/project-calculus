@@ -4,12 +4,13 @@
               Dirender oleh Shop.render() (static/js/shop.js) dari /api/toko/.
      ========================================================================= -->
 
-<h2 class="page-heading">💎 Toko Diamond</h2>
+{% load icons %}
+<h2 class="page-heading">{% icon "diamond" %} Toko Diamond</h2>
 <p class="page-subheading">Diamond didapat dari naik level, topik tuntas, dan menang duel. Belanjakan untuk penguat dan gaya Archie.</p>
 
 <div class="shop-top">
   <div class="shop-wallet">
-    <div class="shop-balance"><span>💎</span><b id="shop-gems">0</b></div>
+    <div class="shop-balance">{% icon "diamond" %}<b id="shop-gems">0</b></div>
     <ul class="shop-earn" id="shop-earn"></ul>
   </div>
   <div class="shop-preview" aria-label="Pratinjau Archie">

@@ -439,6 +439,9 @@ img {
   }
 }
 
+/* ── IKON SVG (sprite components/icons.html, {% icon %} / Icon()) ─────────── */
+.ic { display: inline-block; flex: none; width: 1.15em; height: 1.15em; vertical-align: -.22em; overflow: visible; }
+
 /* ── BOTTOM NAVIGATION BAR ───────────────────────────────────────────────── */
 .bottom-nav {
   grid-area: bottom;

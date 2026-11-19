@@ -53,7 +53,7 @@ const Ranked = (() => {
     const wins = rank.wins || 0, total = wins + (rank.losses || 0);
     $('ranked-winrate').textContent = total ? `${(wins / total * 100).toFixed(1)}%` : '–';
     $('ranked-total').textContent = total;
-    $('ranked-streak').textContent = rank.win_streak ? `🔥 ${rank.win_streak}` : '0';
+    $('ranked-streak').innerHTML = rank.win_streak ? `${Icon('flame')} ${rank.win_streak}` : '0';
     $('ranked-shields').textContent = `${shields}/${maxShields}`;
     $('ranked-shield-bar').style.width = `${Math.min(100, shields / maxShields * 100)}%`;
     $('ranked-road').innerHTML = roadHTML(rank);

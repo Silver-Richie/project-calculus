@@ -52,7 +52,7 @@ const FreePractice = (() => {
         <h3 class="fp-step-title">2. Pilih level</h3>
         <div class="fp-options">${levels().map((l) => `
           <button class="btn btn-sm ${l.slug === sel.level ? 'btn-primary' : 'btn-outline'}"
-                  onclick="FreePractice.setLevel('${l.slug}')">${l.icon || ''} ${esc(l.title)}</button>`).join('')}
+                  onclick="FreePractice.setLevel('${l.slug}')">${Icon.level(l)} ${esc(l.title)}</button>`).join('')}
         </div>
       </section>
 

@@ -6,6 +6,7 @@
               Diisi static/js/ranked.js dari server-profile; duel dimainkan lewat static/js/duel.js.
      ========================================================================= -->
 
+{% load icons %}
 <section class="ranked-hero" id="ranked-hero" aria-label="Rank duel kamu">
   <header class="ranked-top">
     <div>
@@ -32,7 +33,7 @@
       <div class="ranked-stat"><b id="ranked-total">0</b><small>Total Duel</small></div>
       <div class="ranked-stat"><b id="ranked-streak">0</b><small>Menang Beruntun</small></div>
       <div class="ranked-shield">
-        <span>🛡️ Perisai Bintang <b id="ranked-shields">0/5</b></span>
+        <span>{% icon "shield" %} Perisai Bintang <b id="ranked-shields">0/5</b></span>
         <div class="ranked-shield-track"><div class="ranked-shield-bar" id="ranked-shield-bar"></div></div>
       </div>
     </aside>

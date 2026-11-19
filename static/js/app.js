@@ -154,9 +154,9 @@ const State = (() => {
   }
 
   function updateHUD() {
-    setText('hud-xp', `⚡ ${s.xp} XP`);
+    setText('hud-xp-val', `${s.xp} XP`);
     if (s.level) {
-      setText('hud-level', `🎓 Lv ${s.level.level}`);
+      setText('hud-level-val', `Lv ${s.level.level}`);
       const lv = document.getElementById('hud-level');
       if (lv) lv.title = `Level ${s.level.level} · ${s.level.into}/${s.level.need} XP menuju Level ${s.level.level + 1}`;
       setText('profile-level', s.level.level);
@@ -164,14 +164,14 @@ const State = (() => {
       const bar = document.getElementById('profile-level-bar');
       if (bar) bar.style.width = `${s.level.percent}%`;
     }
-    setText('hud-streak', `🔥 ${s.streak}`);
+    setText('hud-streak-val', s.streak);
     setText('hud-hearts-val', `${s.hearts}/${s.maxHearts}`);
     const pill = document.getElementById('hud-hearts-pill');
     if (pill) {
       pill.title = s.heartsRefillAt ? `Nyawa penuh kembali dalam ${refillText()}` : 'Nyawa penuh';
       pill.classList.toggle('hearts-empty', s.hearts <= 0);
     }
-    setText('hud-gems', `💎 ${s.gems}`);
+    setText('hud-gems-val', s.gems);
     setText('profile-xp', s.xp);
     setText('profile-streak', s.streak);
     setText('profile-hearts', s.hearts);
@@ -208,7 +208,7 @@ const State = (() => {
     const r = el.getBoundingClientRect();
     const tag = document.createElement('span');
     tag.className = 'float-xp';
-    tag.textContent = `+${amount} ${unit}!`;
+    tag.innerHTML = `+${amount} ${unit}!`;   // unit boleh berupa ikon SVG (Icon)
     tag.style.cssText = `left:${r.left + 8}px;top:${r.top - 10}px;`;
     document.body.appendChild(tag);
     setTimeout(() => tag.remove(), 1200);
@@ -235,7 +235,7 @@ const State = (() => {
     setGems(n) {
       const gained = n - s.gems;
       s.gems = n; save();
-      if (gained > 0) floatXP(gained, '💎', 'hud-gems');
+      if (gained > 0) floatXP(gained, Icon('diamond'), 'hud-gems');
     },
     refillText,
     setFaculty(f) {
@@ -448,7 +448,7 @@ const SkillTree = (() => {
       if (group !== lastGroup) {
         const lvl = levels[group];
         header = lvl
-          ? `<div class="tree-level-label"><span>${lvl.icon}</span> Level Utama ${lvl.order}: ${lvl.title}</div>`
+          ? `<div class="tree-level-label"><span>${Icon.level(lvl)}</span> Level Utama ${lvl.order}: ${lvl.title}</div>`
           : `<div class="tree-group-label">${group === 'umum' ? '📘 Materi Umum' : '🎓 Materi Khusus'}</div>`;
         lastGroup = group;
       }
@@ -1214,7 +1214,7 @@ const LevelUp = (() => ({
       <div class="levelup-card" role="dialog" aria-modal="true" aria-labelledby="levelup-title">
         <div class="levelup-badge"><small>Level</small>${level.level}</div>
         <h3 id="levelup-title">Naik ke Level ${level.level}!</h3>
-        ${gems ? `<p class="levelup-gems">💎 +${gems} diamond</p>` : ''}
+        ${gems ? `<p class="levelup-gems">${Icon('diamond')} +${gems} diamond</p>` : ''}
         <p>Butuh ${level.need - level.into} XP lagi untuk Level ${level.level + 1}.</p>
         <button type="button" class="btn btn-growth">Mantap! ➔</button>
       </div>`;
