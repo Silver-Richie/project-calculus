@@ -1,0 +1,149 @@
+{% comment %}
+  KOMPONEN: Sprite ikon SVG (dimuat sekali di base.html).
+  Pemakaian: template → {% load icons %}{% icon "diamond" %} · JS → Icon('diamond') (static/js/icons.js).
+  Gaya: 24×24, garis 2px berujung bulat, duotone (garis tegas + isian gradien lembut).
+  Palet: azure #2563EB · oranye #F97316 · emerald #10B981 · emas #F59E0B · ruby #E11D48.
+  Catatan: sprite memakai width/height 0 (bukan display:none) agar gradien tetap tergambar di semua browser.
+{% endcomment %}
+<svg xmlns="http://www.w3.org/2000/svg" width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <defs>
+    <linearGradient id="ig-diamond" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#CFFAFE"/><stop offset=".45" stop-color="#67E8F9"/><stop offset="1" stop-color="#3B82F6"/>
+    </linearGradient>
+    <linearGradient id="ig-heart" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FDA4AF"/><stop offset="1" stop-color="#F43F5E"/>
+    </linearGradient>
+    <linearGradient id="ig-shield" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#A7F3D0"/><stop offset="1" stop-color="#10B981"/>
+    </linearGradient>
+    <linearGradient id="ig-flame" x1="0" y1="1" x2="0" y2="0">
+      <stop offset="0" stop-color="#EF4444"/><stop offset=".55" stop-color="#FB923C"/><stop offset="1" stop-color="#FDE68A"/>
+    </linearGradient>
+    <linearGradient id="ig-bolt" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FEF08A"/><stop offset="1" stop-color="#F59E0B"/>
+    </linearGradient>
+    <linearGradient id="ig-azure" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#BFDBFE"/><stop offset="1" stop-color="#60A5FA"/>
+    </linearGradient>
+    <clipPath id="ic-venn"><circle cx="9.3" cy="12" r="5.8"/></clipPath>
+    <clipPath id="ic-area"><path d="M4 15.5C8 6 13 6 20.5 12.5V20H4Z"/></clipPath>
+  </defs>
+
+  <!-- ── Ekonomi & nyawa ─────────────────────────────────────────── -->
+  <symbol id="i-diamond" viewBox="0 0 24 24">
+    <path d="M7 4h10l4 5-9 11.5L3 9Z" fill="url(#ig-diamond)" stroke="#1D4ED8" stroke-width="2" stroke-linejoin="round"/>
+    <path d="M3 9h18M9 9l3 11.5L15 9M7 4l2 5 3-5 3 5 2-5" fill="none" stroke="#1D4ED8" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" opacity=".55"/>
+    <path d="M7.4 5.3 8.5 8H5.4Z" fill="#fff" opacity=".8"/>
+  </symbol>
+
+  <symbol id="i-heart" viewBox="0 0 24 24">
+    <path d="M12 20.3S3.5 15.1 3.5 9.1A4.6 4.6 0 0 1 12 6.6a4.6 4.6 0 0 1 8.5 2.5c0 6-8.5 11.2-8.5 11.2Z"
+          fill="url(#ig-heart)" fill-opacity=".6" stroke="#E11D48" stroke-width="2" stroke-linejoin="round"/>
+    <path d="M6.6 11.2h2.5l1.4-2.6 2.2 5 1.5-2.4h3.2" fill="none" stroke="#E11D48" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+  </symbol>
+
+  <symbol id="i-heart-broken" viewBox="0 0 24 24">
+    <path d="M12 20.3S3.5 15.1 3.5 9.1A4.6 4.6 0 0 1 12 6.6a4.6 4.6 0 0 1 8.5 2.5c0 6-8.5 11.2-8.5 11.2Z"
+          fill="url(#ig-heart)" fill-opacity=".25" stroke="#E11D48" stroke-width="2" stroke-linejoin="round"/>
+    <path d="M12 6.6 10.6 10l2.5 2.3-1.7 3.6" fill="none" stroke="#E11D48" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+  </symbol>
+
+  <symbol id="i-shield" viewBox="0 0 24 24">
+    <path d="M12 3.2 19 6v5.2c0 4.5-3 8-7 9.6-4-1.6-7-5.1-7-9.6V6Z" fill="url(#ig-shield)" fill-opacity=".45"
+          stroke="#059669" stroke-width="2" stroke-linejoin="round"/>
+    <polygon points="12,7.9 12.88,10.29 15.42,10.39 13.43,11.96 14.12,14.41 12,13 9.88,14.41 10.57,11.96 8.58,10.39 11.12,10.29"
+             fill="#059669" stroke="#059669" stroke-width=".8" stroke-linejoin="round"/>
+  </symbol>
+
+  <symbol id="i-flame" viewBox="0 0 24 24">
+    <path d="M13.4 2.8c.6 3.3 5.1 5.3 5.1 10.6a6.5 6.5 0 0 1-13 0c0-2.9 1.5-4.8 3-6-.1 1.8.6 3.1 1.9 3.6-.2-3.7.9-6.4 3-8.2Z"
+          fill="url(#ig-flame)" fill-opacity=".55" stroke="#EA580C" stroke-width="2" stroke-linejoin="round"/>
+    <path d="M12 19.6a3.1 3.1 0 0 1-3.1-3.1c0-1.9 1.5-2.8 2.1-4.3 1.1 1.3 4.1 2.4 4.1 4.3a3.1 3.1 0 0 1-3.1 3.1Z" fill="#F97316"/>
+    <path d="M2.8 10.5h1.6M2.2 14h1.4" fill="none" stroke="#FB923C" stroke-width="1.6" stroke-linecap="round"/>
+  </symbol>
+
+  <symbol id="i-bolt" viewBox="0 0 24 24">
+    <path d="M13.5 2.5 5 13.5h6l-1 8 8.5-11h-6Z" fill="url(#ig-bolt)" fill-opacity=".8" stroke="#D97706" stroke-width="2" stroke-linejoin="round"/>
+  </symbol>
+
+  <symbol id="i-cap" viewBox="0 0 24 24">
+    <path d="M6.5 11v4.2c1.5 1.5 3.4 2.3 5.5 2.3s4-.8 5.5-2.3V11" fill="url(#ig-azure)" fill-opacity=".35" stroke="#1D4ED8" stroke-width="2" stroke-linejoin="round"/>
+    <path d="M2.5 9 12 4.5 21.5 9 12 13.5Z" fill="url(#ig-azure)" fill-opacity=".7" stroke="#1D4ED8" stroke-width="2" stroke-linejoin="round"/>
+    <path d="M21.5 9v4.6" stroke="#F59E0B" stroke-width="2" stroke-linecap="round"/>
+    <circle cx="21.5" cy="15" r="1.3" fill="#F59E0B"/>
+  </symbol>
+
+  <!-- ── Level kurikulum ─────────────────────────────────────────── -->
+  <symbol id="i-lv-precalculus" viewBox="0 0 24 24">
+    <circle cx="9.3" cy="12" r="5.8" fill="#2563EB" fill-opacity=".14"/>
+    <circle cx="14.7" cy="12" r="5.8" fill="#F97316" fill-opacity=".14"/>
+    <circle cx="14.7" cy="12" r="5.8" clip-path="url(#ic-venn)" fill="#10B981" fill-opacity=".5"/>
+    <circle cx="9.3" cy="12" r="5.8" fill="none" stroke="#2563EB" stroke-width="2"/>
+    <circle cx="14.7" cy="12" r="5.8" fill="none" stroke="#F97316" stroke-width="2"/>
+  </symbol>
+
+  <symbol id="i-lv-kalkulus-dasar" viewBox="0 0 24 24">
+    <path d="M4 3.5V20h16.5" fill="none" stroke="#64748B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M6 18Q14 18 19 5" fill="none" stroke="#2563EB" stroke-width="2" stroke-linecap="round"/>
+    <path d="M8.6 19 18.6 9.7" stroke="#F97316" stroke-width="1.8" stroke-linecap="round"/>
+    <circle cx="13.25" cy="14.75" r="1.8" fill="#fff" stroke="#F97316" stroke-width="2"/>
+  </symbol>
+
+  <symbol id="i-lv-kalkulus-menengah" viewBox="0 0 24 24">
+    <rect x="7.5" y="3" width="9" height="17" fill="url(#ig-azure)" fill-opacity=".75" clip-path="url(#ic-area)"/>
+    <path d="M9.75 3v17M12 3v17M14.25 3v17" stroke="#2563EB" stroke-width="1" opacity=".45" clip-path="url(#ic-area)"/>
+    <path d="M7.5 3v17M16.5 3v17" stroke="#F97316" stroke-width="1.6" clip-path="url(#ic-area)"/>
+    <path d="M4 3.5V20h16.5" fill="none" stroke="#64748B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M4 15.5C8 6 13 6 20.5 12.5" fill="none" stroke="#2563EB" stroke-width="2" stroke-linecap="round"/>
+  </symbol>
+
+  <symbol id="i-lv-kalkulus-lanjut" viewBox="0 0 24 24">
+    <path d="M3 12.5Q7.5 7 12 7.5T21 12.5Q16.5 18 12 17.5T3 12.5Z" fill="url(#ig-shield)" fill-opacity=".4"
+          stroke="#059669" stroke-width="2" stroke-linejoin="round"/>
+    <path d="M7.5 8.5Q11 13.5 16.5 16.5M16.5 9Q13 13.8 7.5 16" fill="none" stroke="#059669" stroke-width="1.2" stroke-linecap="round" opacity=".7"/>
+    <path d="M12 12.5V3.6M9.6 5.9 12 3.5l2.4 2.4" fill="none" stroke="#2563EB" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="12" cy="12.5" r="1.5" fill="#2563EB"/>
+  </symbol>
+
+  <!-- ── Fitur (beranda) ─────────────────────────────────────────── -->
+  <symbol id="i-graph" viewBox="0 0 24 24">
+    <path d="M3 12c2.5-6 5.5-6 9 0s6.5 6 9 0Z" fill="url(#ig-azure)" fill-opacity=".45"/>
+    <path d="M3 12h18" stroke="#93C5FD" stroke-width="1.2" stroke-dasharray="1.5 2"/>
+    <path d="M3 12c2.5-6 5.5-6 9 0s6.5 6 9 0" fill="none" stroke="#2563EB" stroke-width="2" stroke-linecap="round"/>
+    <circle cx="7.1" cy="7.5" r="1.6" fill="#fff" stroke="#F97316" stroke-width="1.8"/>
+    <circle cx="12" cy="12" r="1.6" fill="#fff" stroke="#F97316" stroke-width="1.8"/>
+    <circle cx="16.9" cy="16.5" r="1.6" fill="#fff" stroke="#F97316" stroke-width="1.8"/>
+  </symbol>
+
+  <symbol id="i-pen" viewBox="0 0 24 24">
+    <path d="M15.2 3.8a2 2 0 0 1 2.8 0l2.2 2.2a2 2 0 0 1 0 2.8L9.3 19.7 4 20.5l.8-5.3Z" fill="url(#ig-azure)" fill-opacity=".45"
+          stroke="#1D4ED8" stroke-width="2" stroke-linejoin="round"/>
+    <path d="m13.5 5.5 5 5" stroke="#1D4ED8" stroke-width="2" stroke-linecap="round"/>
+    <path d="M10 21c1.4-1.3 2.7-1.3 4 0s2.7 1.3 4 0 2.4-1.3 3.5-.2" fill="none" stroke="#F97316" stroke-width="1.8" stroke-linecap="round"/>
+  </symbol>
+
+  <symbol id="i-map" viewBox="0 0 24 24">
+    <path d="M5.5 18.5 9 11l6 3.5 3.5-9M9 11l2.8-6.2" fill="none" stroke="#93C5FD" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="5.5" cy="18.5" r="2.3" fill="#10B981" stroke="#059669" stroke-width="1.6"/>
+    <circle cx="9" cy="11" r="2.3" fill="#10B981" stroke="#059669" stroke-width="1.6"/>
+    <circle cx="15" cy="14.5" r="2.5" fill="#fff" stroke="#F97316" stroke-width="2"/>
+    <circle cx="15" cy="14.5" r=".9" fill="#F97316"/>
+    <circle cx="18.5" cy="5.5" r="2" fill="#E2E8F0" stroke="#94A3B8" stroke-width="1.6"/>
+    <circle cx="11.8" cy="4.8" r="2" fill="#E2E8F0" stroke="#94A3B8" stroke-width="1.6"/>
+  </symbol>
+
+  <symbol id="i-compass" viewBox="0 0 24 24">
+    <circle cx="12" cy="12" r="8.5" fill="url(#ig-azure)" fill-opacity=".3" stroke="#2563EB" stroke-width="2"/>
+    <path d="M12 3.5v1.8M12 18.7v1.8M3.5 12h1.8M18.7 12h1.8" stroke="#2563EB" stroke-width="1.6" stroke-linecap="round"/>
+    <polygon points="15.2,8.8 10.73,10.73 13.27,13.27" fill="#F97316" stroke="#F97316" stroke-width="1" stroke-linejoin="round"/>
+    <polygon points="8.8,15.2 10.73,10.73 13.27,13.27" fill="#2563EB" fill-opacity=".75" stroke="#2563EB" stroke-width="1" stroke-linejoin="round"/>
+    <circle cx="12" cy="12" r="1" fill="#fff"/>
+  </symbol>
+
+  <symbol id="i-target" viewBox="0 0 24 24">
+    <circle cx="11" cy="13" r="8.2" fill="url(#ig-azure)" fill-opacity=".3" stroke="#2563EB" stroke-width="2"/>
+    <circle cx="11" cy="13" r="4.4" fill="#fff" fill-opacity=".6" stroke="#2563EB" stroke-width="2"/>
+    <circle cx="11" cy="13" r="1.4" fill="#F97316"/>
+    <path d="M11 13 20 4M16.6 3.6H20.4V7.4" fill="none" stroke="#F97316" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  </symbol>
+</svg>

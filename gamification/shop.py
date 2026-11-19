@@ -200,7 +200,7 @@ def buy(user, key):
     with transaction.atomic():
         profile = _locked_profile(user)
         if profile.gems < item["price"]:
-            raise ShopError(f"Diamond kurang: butuh 💎 {item['price']}, kamu punya 💎 {profile.gems}.")
+            raise ShopError(f"Diamond kurang: butuh {item['price']}, kamu punya {profile.gems}.")
         fields = ["gems"]
         if item["kind"] == "hearts":
             profile.refresh_hearts()

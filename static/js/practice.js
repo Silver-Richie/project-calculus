@@ -74,7 +74,7 @@ const Practice = (() => {
   function pathHTML(n, level) {
     return `
       <div class="unit-banner">
-        ${level ? `<span class="unit-level">${level.icon} ${level.title}</span>` : ''}
+        ${level ? `<span class="unit-level">${Icon.level(level)} ${level.title}</span>` : ''}
         <span class="unit-title">${n.title}</span>
       </div>
       <div class="unit-path" data-node="${n.slug}">
@@ -179,13 +179,13 @@ const Practice = (() => {
   function noHeartsHTML() {
     return `
       <div class="level-complete hearts-out">
-        <div class="trophy-anim">💔</div>
+        <div class="trophy-anim">${Icon('heart-broken')}</div>
         <h3>Nyawamu habis</h3>
         <p>Nyawa berkurang setiap kali gagal lulus sesi. Semua ${State.get().maxHearts} nyawa penuh kembali dalam
           <strong>${State.refillText()}</strong>.</p>
         <p class="lesson-note">Sambil menunggu, kamu tetap bisa membaca materi dan berlatih di Bank Soal (tanpa nyawa).</p>
         <div class="offer-actions">
-          <button class="btn btn-accent" onclick="Shop.refillHearts()">💖 Isi penuh nyawa · ${Shop.price('hearts-full')}</button>
+          <button class="btn btn-accent" onclick="Shop.refillHearts()">${Icon('heart')} Isi penuh nyawa · ${Shop.price('hearts-full')}</button>
           <button class="btn btn-outline" onclick="Drawer.switchTab('materi')">📖 Baca materi</button>
           <button class="btn btn-outline" onclick="Practice.renderSessions()">Daftar sesi</button>
         </div>
@@ -197,7 +197,7 @@ const Practice = (() => {
     QuizBoard.hide();
     document.getElementById('quiz-container').innerHTML = noHeartsHTML();
     SFX.wrong();
-    Mascot.setMood('comfort', `💔 Nyawa habis. Istirahat dulu, nyawa penuh lagi dalam ${State.refillText()}.`);
+    Mascot.setMood('comfort', `${Icon('heart-broken')} Nyawa habis. Istirahat dulu, nyawa penuh lagi dalam ${State.refillText()}.`);
   }
 
   /* ── tampilan sesi ───────────────────────────────────────────────── */
@@ -219,7 +219,7 @@ const Practice = (() => {
     }
     const noHearts = !State.hasHearts();
     box.innerHTML = `
-      ${noHearts ? `<div class="hearts-banner">💔 Nyawa habis: sesi terkunci. Penuh lagi dalam <b>${State.refillText()}</b>.</div>` : ''}
+      ${noHearts ? `<div class="hearts-banner">${Icon('heart-broken')} Nyawa habis: sesi terkunci. Penuh lagi dalam <b>${State.refillText()}</b>.</div>` : ''}
       <div class="session-head">
         <button class="btn btn-outline btn-sm" onclick="Practice.backToTopics()">← Topik</button>
         <span>${topic.icon} <b>${topic.title}</b></span>
@@ -243,7 +243,7 @@ const Practice = (() => {
         }).join('')}
       </div>
       <p class="graph-hint">🎲 Soal setiap sesi diacak khusus untuk akunmu. Mengulang sesi memberi angka baru;
-        XP hanya bertambah bila skor terbaikmu naik. ❤️ Gagal lulus sesi mengurangi 1 nyawa.</p>`;
+        XP hanya bertambah bila skor terbaikmu naik. ${Icon('heart')} Gagal lulus sesi mengurangi 1 nyawa.</p>`;
   }
 
   async function start(sessionId) {
@@ -340,7 +340,7 @@ const Practice = (() => {
     if (r.node_completed) State.completeNode(node.slug, r.next_node || Curriculum.nextOf(node.slug));
     Mascot.setMood(r.passed ? 'celebrate' : 'comfort',
       r.passed ? '🏆 Sesi lulus! Sesi berikutnya terbuka.'
-        : !State.hasHearts() ? `💔 Nyawa habis. Nyawa penuh lagi dalam ${State.refillText()}.`
+        : !State.hasHearts() ? `${Icon('heart-broken')} Nyawa habis. Nyawa penuh lagi dalam ${State.refillText()}.`
         : failNote ? '🚫 Sesi gagal karena keluar tab. Kerjakan sendiri tanpa bantuan ya!'
         : 'Hampir! Baca lagi pembahasannya lalu coba dengan soal baru.');
 
@@ -351,8 +351,8 @@ const Practice = (() => {
         <h3>${s.title}: ${r.score}/${r.total}</h3>
         ${failNote ? `<p class="lesson-note tabwarn-note">🚫 ${failNote}</p>` : ''}
         <p>${r.passed ? 'Lulus!' : `Belum lulus — perlu minimal ${r.pass_score} benar.`}
-           ${r.xp_awarded ? ` <strong>+${r.xp_awarded} XP</strong>` : ''}${r.gems_awarded ? ` <strong>+${r.gems_awarded} 💎</strong>` : ''}</p>
-        ${r.heart_lost ? `<p class="lesson-note hearts-note">💔 −1 Nyawa · sisa ${State.get().hearts}/${State.get().maxHearts}${
+           ${r.xp_awarded ? ` <strong>+${r.xp_awarded} XP</strong>` : ''}${r.gems_awarded ? ` <strong>+${r.gems_awarded} ${Icon('diamond')}</strong>` : ''}</p>
+        ${r.heart_lost ? `<p class="lesson-note hearts-note">${Icon('heart-broken')} −1 Nyawa · sisa ${State.get().hearts}/${State.get().maxHearts}${
           State.hasHearts() ? '' : `. Nyawa habis, penuh lagi dalam ${State.refillText()}.`}</p>` : ''}
         ${r.node_completed ? '<p class="lesson-note">🎉 Semua topik sub-level ini tuntas! Sub-level berikutnya terbuka di Peta Belajar.</p>'
           : r.topic_done && s.number === Curriculum.requiredSessions ? '<p class="lesson-note">✅ Topik tuntas! Sesi IV–V tersedia sebagai tantangan bonus.</p>' : ''}

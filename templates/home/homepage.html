@@ -1,5 +1,5 @@
 {% extends 'base.html' %}
-{% load assets %}
+{% load assets icons %}
 {% comment %}
   HALAMAN: Homepage publik — tampilan pertama tamu (dari Google / tautan langsung), tanpa login.
   Isi    : navigasi (Masuk / Daftar kanan atas) · hero Archie · kartu fitur + "video" animasi
@@ -99,37 +99,37 @@
     </div>
     <div class="hp-features">
       <article class="hp-feature" style="--c:var(--clr-primary)">
-        <span class="hp-feature-icon">🗺️</span>
+        <span class="hp-feature-icon">{% icon "map" %}</span>
         <h3>Peta Belajar 4 Level</h3>
         <p>Dari PreCalculus sampai Kalkulus Tingkat Lanjut. Selesaikan node untuk membuka jalan berikutnya.</p>
         <button type="button" class="hp-play" data-video="peta">▶ Tonton <small>13 dtk</small></button>
       </article>
       <article class="hp-feature" style="--c:var(--clr-accent)">
-        <span class="hp-feature-icon">🎯</span>
+        <span class="hp-feature-icon">{% icon "target" %}</span>
         <h3>Latihan &amp; Pembahasan</h3>
         <p>Soal diacak khusus untukmu, hint bertahap, dan pembahasan langkah demi langkah. Ada juga Latihan Bebas.</p>
         <button type="button" class="hp-play" data-video="latihan">▶ Tonton <small>18 dtk</small></button>
       </article>
       <article class="hp-feature" style="--c:var(--clr-growth)">
-        <span class="hp-feature-icon">📈</span>
+        <span class="hp-feature-icon">{% icon "graph" %}</span>
         <h3>Grafik Interaktif</h3>
         <p>Geser slider dan lihat garis singgung, luas, atau kurva berubah langsung di depan matamu.</p>
         <button type="button" class="hp-play" data-video="grafik">▶ Tonton <small>15 dtk</small></button>
       </article>
       <article class="hp-feature" style="--c:#8B5CF6">
-        <span class="hp-feature-icon">✏️</span>
+        <span class="hp-feature-icon">{% icon "pen" %}</span>
         <h3>Papan Coret-coret</h3>
         <p>Hitung langsung di samping soal dengan mouse, jari, atau stylus. Coretan tersimpan per soal.</p>
         <button type="button" class="hp-play" data-video="papan">▶ Tonton <small>13 dtk</small></button>
       </article>
       <article class="hp-feature" style="--c:var(--clr-danger)">
-        <span class="hp-feature-icon">🔥</span>
+        <span class="hp-feature-icon">{% icon "flame" %}</span>
         <h3>XP, Streak &amp; Nyawa</h3>
         <p>Kumpulkan XP, jaga streak harian, hemat nyawa, dan naik di papan peringkat.</p>
         <button type="button" class="hp-play" data-video="gamifikasi">▶ Tonton <small>13 dtk</small></button>
       </article>
       <article class="hp-feature" style="--c:var(--clr-gold)">
-        <span class="hp-feature-icon">🧭</span>
+        <span class="hp-feature-icon">{% icon "compass" %}</span>
         <h3>Jalur Fakultas &amp; Tes Awal</h3>
         <p>Pilih FT, FMIPA, atau Fasilkom, lalu ikuti tes awal 10 soal untuk tahu titik mulaimu.</p>
         <button type="button" class="hp-play" data-video="diagnostik">▶ Tonton <small>13 dtk</small></button>

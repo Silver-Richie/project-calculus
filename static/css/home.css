@@ -131,6 +131,7 @@
   width: 52px; height: 52px; border-radius: 14px; display: grid; place-items: center; font-size: 1.6rem;
   background: color-mix(in srgb, var(--c) 14%, transparent);
 }
+.hp-feature-icon .ic { width: 32px; height: 32px; }
 .hp-feature h3 { font-family: var(--font-head); font-size: 1.12rem; color: var(--clr-text); margin-top: .3rem; }
 .hp-feature p { color: var(--clr-text-sec); font-size: .93rem; flex: 1; }
 .hp-play {
