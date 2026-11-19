@@ -118,12 +118,12 @@ const Shop = (() => {
   const ACC_SLOTS = ['head', 'face', 'neck'];
   // Satu tab per bagian; hanya isi tab aktif yang ditampilkan.
   const TABS = [
-    { id: 'penguat', label: '⚡ Penguat', sub: 'Habis pakai', match: (it) => it.kind !== 'cosmetic' },
-    { id: 'head', label: '🎩 Kepala', sub: 'Aksesori kepala Archie · klik kartu untuk mencoba', match: (it) => it.slot === 'head' },
-    { id: 'face', label: '🕶️ Wajah', sub: 'Aksesori wajah Archie · klik kartu untuk mencoba', match: (it) => it.slot === 'face' },
-    { id: 'neck', label: '🧣 Leher', sub: 'Aksesori leher Archie · klik kartu untuk mencoba', match: (it) => it.slot === 'neck' },
-    { id: 'frame', label: '🖼️ Bingkai', sub: 'Tampil di profil & papan peringkat', match: (it) => it.slot === 'frame' },
-    { id: 'title', label: '🏷️ Gelar', sub: 'Tampil di bawah namamu', match: (it) => it.slot === 'title' },
+    { id: 'penguat', label: `${Icon('bolt')} Booster`, sub: 'Item sekali pakai', match: (it) => it.kind !== 'cosmetic' },
+    { id: 'head', label: `${Icon('crown')} Kepala`, sub: 'Aksesori kepala Archie · klik kartu buat nyobain', match: (it) => it.slot === 'head' },
+    { id: 'face', label: `${Icon('eye')} Wajah`, sub: 'Aksesori wajah Archie · klik kartu buat nyobain', match: (it) => it.slot === 'face' },
+    { id: 'neck', label: `${Icon('medal')} Leher`, sub: 'Aksesori leher Archie · klik kartu buat nyobain', match: (it) => it.slot === 'neck' },
+    { id: 'frame', label: `${Icon('sparkle')} Bingkai`, sub: 'Muncul di profil & leaderboard', match: (it) => it.slot === 'frame' },
+    { id: 'title', label: `${Icon('tag')} Gelar`, sub: 'Muncul di bawah namamu', match: (it) => it.slot === 'title' },
   ];
   const SLOT_LABEL = { head: 'kepala', face: 'wajah', neck: 'leher' };
   // Penguat memakai ikon SVG (sprite) + lencana jumlah; kosmetik tetap memakai ikon katalognya.
@@ -174,22 +174,38 @@ const Shop = (() => {
     }
     const poor = data.gems < it.price;
     const asking = confirmKey === it.key;
-    return `<button class="btn ${asking ? 'btn-accent' : 'btn-primary'} btn-sm" ${poor ? 'disabled title="Diamond kurang"' : ''}
+    return `<button class="btn ${asking ? 'btn-accent' : 'btn-primary'} btn-sm" ${poor ? 'disabled title="Diamond kamu kurang"' : ''}
       onclick="Shop.buy('${it.key}')">${asking ? `Beli? ${gem()} ${it.price}` : `${gem()} ${it.price}`}</button>`;
   }
 
   function stockHTML(it) {
     if (it.kind === 'shield') return `<small class="shop-stock">Punya ${data.star_shields}/${data.max_shields}</small>`;
-    if (it.kind === 'hearts') return `<small class="shop-stock">Nyawa ${data.hearts.hearts}/${data.hearts.max_hearts}</small>`;
+    if (it.kind === 'hearts') return `<small class="shop-stock">Heart ${data.hearts.hearts}/${data.hearts.max_hearts}</small>`;
     if (ACC_SLOTS.includes(it.slot)) return `<small class="shop-stock">Slot ${SLOT_LABEL[it.slot]}${it.equipped ? ' · dipakai' : it.owned ? ' · dimiliki' : ''}</small>`;
     return it.equipped ? '<small class="shop-stock">Dipakai</small>' : it.owned ? '<small class="shop-stock">Dimiliki</small>' : '';
+  }
+
+  /** Archie mini yang memakai satu aksesori (ikon kartu aksesori), disalin dari Archie pratinjau toko. */
+  function miniArchie(it) {
+    const src = document.getElementById('shop-archie-svg');
+    if (!src) return Icon('sparkle');
+    const svg = src.cloneNode(true);
+    svg.removeAttribute('id');
+    svg.removeAttribute('aria-label');      // bukan target dressAll()
+    svg.setAttribute('aria-hidden', 'true');
+    svg.setAttribute('width', '48');
+    svg.setAttribute('height', '48');
+    svg.setAttribute('class', 'shop-mini-archie');
+    dress(svg, { [it.slot]: it.key });
+    return svg.outerHTML;
   }
 
   function cardHTML(it) {
     const tryOn = ACC_SLOTS.includes(it.slot);
     const boost = BOOST_ICON[it.key];
     const icon = it.slot === 'frame' ? `<span class="frame-demo frame ${it.key}">A</span>`
-      : boost ? `${Icon(boost[0])}${boost[1] ? `<span class="shop-icon-badge">${boost[1]}</span>` : ''}` : it.icon;
+      : boost ? `${Icon(boost[0])}${boost[1] ? `<span class="shop-icon-badge">${boost[1]}</span>` : ''}`
+      : tryOn ? miniArchie(it) : Icon.of(it.icon);
     return `
       <div class="shop-item${it.owned ? ' owned' : ''}${it.equipped ? ' equipped' : ''}${preview?.key === it.key ? ' previewing' : ''}"
            ${tryOn ? `role="button" tabindex="0" onclick="Shop.tryOn('${it.key}', event)"` : ''}>
@@ -210,10 +226,10 @@ const Shop = (() => {
     const lv = State.get().level;
     const nextLv = (lv?.level || 1) + 1;
     document.getElementById('shop-earn').innerHTML = `
-      <li>🎓 Naik level: <b>${data.rewards.level} × level baru</b>
+      <li>${Icon('cap')} Naik level: <b>${data.rewards.level} × level baru</b>
         <small>Level ${nextLv}: +${gem()} ${data.rewards.level * nextLv}${lv ? ` · ${lv.need - lv.into} XP lagi` : ''}</small></li>
-      <li>✅ Topik tuntas (lulus Sesi III): <b>+${gem()} ${data.rewards.topic}</b></li>
-      <li>⚔️ Menang duel: <b>+${gem()} ${data.rewards.duel_win}</b></li>`;
+      <li>${Icon('check')} Materi selesai (lulus Sesi III): <b>+${gem()} ${data.rewards.topic}</b></li>
+      <li>${Icon('swords')} Menang duel: <b>+${gem()} ${data.rewards.duel_win}</b></li>`;
     const name = document.getElementById('shop-preview-name');
     if (name) {
       const p = preview && data.items.find((x) => x.key === preview.key);
@@ -257,7 +273,7 @@ const Shop = (() => {
       apply(await res.json());
     } catch (err) {
       const box = document.getElementById('shop-catalog');
-      if (box) box.innerHTML = `<p class="loading-text">Gagal memuat toko: ${err.message}</p>`;
+      if (box) box.innerHTML = `<p class="loading-text">Item Shop gagal dimuat: ${err.message}</p>`;
     }
   }
 
@@ -301,7 +317,7 @@ const Shop = (() => {
         const it = data.items.find((x) => x.key === key);
         if (preview?.key === key) preview = null;
         render();
-        message(`✅ ${it.name} berhasil dibeli!`, true);
+        message(`${it.name} udah jadi milikmu!`, true);
         Mascot.setMood('celebrate', `Asyik, ${it.name}! ${gem()}`);
       } catch (err) {
         SFX.wrong();
@@ -332,11 +348,11 @@ const Shop = (() => {
     async refillHearts() {
       try {
         await purchase('hearts-full');
-        Mascot.setMood('celebrate', `${Icon('heart')} Nyawa penuh lagi. Ayo lanjut latihan!`);
+        Mascot.setMood('celebrate', `${Icon('heart')} Heart penuh lagi. Gas lanjut latihan!`);
         Practice.renderSessions();
       } catch (err) {
         SFX.wrong();
-        Mascot.setMood('comfort', `${err.message} Naik level atau tuntaskan topik untuk dapat diamond.`);
+        Mascot.setMood('comfort', `${err.message} Naik level atau selesaikan materi buat dapet diamond.`);
       }
     },
   };

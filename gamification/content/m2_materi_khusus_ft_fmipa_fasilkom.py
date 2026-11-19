@@ -514,7 +514,7 @@ def _faculty_nodes(fac, short, slugs, intro, examples, advanced, subtitles):
     s_easy, s_mid, s_hard = slugs
     return [
         {
-            "slug": s_easy, "faculty": fac, "stage_number": 6, "order": 6, "icon": "🧭",
+            "slug": s_easy, "faculty": fac, "stage_number": 6, "order": 6, "icon": "compass",
             "title": f"Tahap 6: {short} — Konsep Kunci",
             "badge_label": f"Khusus {short} · Mudah",
             "subtitle": subtitles[0],
@@ -522,7 +522,7 @@ def _faculty_nodes(fac, short, slugs, intro, examples, advanced, subtitles):
             "sections": intro,
         },
         {
-            "slug": s_mid, "faculty": fac, "stage_number": 7, "order": 7, "icon": "🛠️",
+            "slug": s_mid, "faculty": fac, "stage_number": 7, "order": 7, "icon": "gear",
             "title": f"Tahap 7: {short} — Contoh Terapan",
             "badge_label": f"Khusus {short} · Sedang",
             "subtitle": subtitles[1],
@@ -530,7 +530,7 @@ def _faculty_nodes(fac, short, slugs, intro, examples, advanced, subtitles):
             "sections": examples,
         },
         {
-            "slug": s_hard, "faculty": fac, "stage_number": 8, "order": 8, "icon": "🏆", "is_boss": True,
+            "slug": s_hard, "faculty": fac, "stage_number": 8, "order": 8, "icon": "trophy", "is_boss": True,
             "title": f"Tahap 8: {short} — Ujian Sulit",
             "badge_label": f"Khusus {short} · Sulit",
             "subtitle": subtitles[2],

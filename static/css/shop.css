@@ -64,6 +64,7 @@ button.hud-pill.gems:hover { filter: brightness(1.05); transform: translateY(-1p
 .shop-item.equipped { border-color: var(--clr-growth); }
 .shop-item.previewing { border-color: var(--clr-accent); box-shadow: 0 0 0 3px var(--clr-accent-l); }
 .shop-item-icon { position: relative; font-size: 2rem; line-height: 1; height: 44px; display: flex; align-items: center; }
+.shop-mini-archie { display: block; margin: -4px 0 -4px -6px; }
 .shop-icon-badge {
   margin-left: -.55rem; align-self: flex-end; padding: .05rem .35rem; border-radius: var(--radius-full);
   background: var(--clr-surface); border: 1.5px solid var(--clr-border); font: 800 .7rem var(--font-head); color: var(--clr-text);

@@ -35,12 +35,12 @@
 
   // ── Archie di hero ──────────────────────────────────────────────────────────
   const TIPS = [
-    'Turunan itu laju perubahan, seperti speedometer motormu! 🏍️',
-    '∫ artinya menjumlahkan potongan-potongan yang sangat kecil.',
-    'Di puncak bukit, garis singgungnya datar: f′(x) = 0 ⛰️',
+    'Turunan itu laju perubahan, kayak speedometer motormu!',
+    '∫ artinya ngejumlahin potongan-potongan yang super kecil.',
+    'Di puncak bukit, garis singgungnya datar: f′(x) = 0.',
     'lim<sub>x→0</sub> sin x / x = 1. Coba buktikan di grafik!',
-    'Mau coba? Ada 5 soal di bawah, tanpa daftar 🎯',
-    'Klik ▶ <b>Tonton pengenalan</b> untuk tur singkat bersamaku.',
+    'Mau nyoba? Ada 5 soal di bawah, gak perlu daftar.',
+    'Klik ▶ <b>Tonton pengenalan</b> buat tur singkat bareng aku.',
   ];
 
   function initHero() {
@@ -84,19 +84,19 @@
     function intro() {
       root.innerHTML = `
         <div class="tq-intro">
-          <div class="tq-big">🎯</div>
-          <h3>Uji dirimu dalam 5 soal</h3>
-          <p>Soal acak lengkap dengan pembahasan. Tidak ada nyawa yang hilang, tenang saja!</p>
+          <div class="tq-big">${Icon('target')}</div>
+          <h3>Tes dirimu pakai 5 soal</h3>
+          <p>Soal acak lengkap sama pembahasannya. Gak ada heart yang hilang, tenang aja!</p>
           <ul class="tq-plan">
-            <li>📐 3 × Kalkulus Dasar</li><li>🌀 2 × Kalkulus Tingkat Menengah</li><li>🌱 Mudah–Sedang</li>
+            <li>${Icon('lv-kalkulus-dasar')} 3 × Kalkulus Dasar</li><li>${Icon('lv-kalkulus-menengah')} 2 × Kalkulus Tingkat Menengah</li><li>${Icon('sprout')} Mudah–Sedang</li>
           </ul>
           <button type="button" class="btn btn-accent btn-lg" data-tq="start">Mulai coba ➔</button>
         </div>`;
     }
 
     async function start() {
-      root.innerHTML = '<div class="tq-loading"><div><div class="tq-spin"></div>Archie sedang menyiapkan soal…</div></div>';
-      coach('Semangat! Baca soalnya pelan-pelan ya.');
+      root.innerHTML = '<div class="tq-loading"><div><div class="tq-spin"></div>Archie lagi nyiapin soal…</div></div>';
+      coach('Semangat! Baca soalnya pelan-pelan, ya.');
       try {
         const res = await fetch(root.dataset.api, { headers: { Accept: 'application/json' } });
         const data = await res.json();
@@ -105,9 +105,9 @@
       } catch (err) {
         root.innerHTML = `
           <div class="tq-intro">
-            <div class="tq-big">😵</div>
+            <div class="tq-big">${Icon('warning')}</div>
             <h3>Soal gagal dimuat</h3>
-            <p>${esc(err.message)}. Coba lagi sebentar lagi.</p>
+            <p>${esc(err.message)}. Coba lagi bentar, ya.</p>
             <button type="button" class="btn btn-primary" data-tq="start">↺ Coba lagi</button>
           </div>`;
         return;
@@ -126,7 +126,7 @@
             <span class="quiz-num">Soal ${idx + 1} dari ${questions.length} · ${esc(q.level)}</span>
             <span class="quiz-diff-badge diff-${q.difficulty}">${esc(q.difficulty_label)}</span>
           </div>
-          <p class="tq-meta-topic">📖 ${esc(q.topic)}</p>
+          <p class="tq-meta-topic">${Icon('book')} ${esc(q.topic)}</p>
           <div class="quiz-prompt">${q.prompt}</div>
           <div class="options-list">
             ${q.options.map((o, i) => `
@@ -154,27 +154,27 @@
           ${ok ? '✓ Benar!' : '✗ Belum tepat.'} <span>Jawaban: ${q.answer}</span>
         </div>
         <div class="tq-actions">
-          <button type="button" class="btn btn-outline btn-sm" data-tq="explain">📚 Lihat pembahasan</button>
-          <button type="button" class="btn btn-primary" data-tq="next">${last ? 'Lihat hasil 🏁' : 'Lanjut ➔'}</button>
+          <button type="button" class="btn btn-outline btn-sm" data-tq="explain">${Icon('book')} Lihat pembahasan</button>
+          <button type="button" class="btn btn-primary" data-tq="next">${last ? `Lihat hasil ${Icon('flag')}` : 'Lanjut ➔'}</button>
         </div>
         <div id="tq-explain"></div>`;
-      coach(ok ? ['Mantap! 🎉', 'Tepat sekali! ✨', 'Keren, lanjutkan! 🚀'][idx % 3]
-               : 'Tidak apa-apa, cek pembahasannya ya 💪', ok ? 'is-happy' : 'is-sad');
+      coach(ok ? ['Mantap!', 'Tepat banget!', 'Keren, lanjut!'][idx % 3]
+               : 'Gapapa, cek pembahasannya, ya.', ok ? 'is-happy' : 'is-sad');
       $('[data-tq="next"]', root).focus({ preventScroll: true });
     }
 
     function explain(btn) {
       const q = questions[idx];
       const box = $('#tq-explain', root);
-      if (box.childElementCount) { box.innerHTML = ''; btn.textContent = '📚 Lihat pembahasan'; return; }
-      btn.textContent = '📚 Tutup pembahasan';
+      if (box.childElementCount) { box.innerHTML = ''; btn.innerHTML = `${Icon('book')} Lihat pembahasan`; return; }
+      btn.innerHTML = `${Icon('book')} Tutup pembahasan`;
       box.innerHTML = `
         <div class="pembahasan">
-          <h5>📚 Pembahasan</h5>
+          <h5>${Icon('book')} Pembahasan</h5>
           <ol class="steps-list">${(q.steps || []).map((s) => `<li>${s}</li>`).join('')}</ol>
           <div class="answer-box"><strong>Jawaban:</strong> ${q.answer || ''}</div>
-          ${q.explanation ? `<p class="expl-note">💬 ${q.explanation}</p>` : ''}
-          ${(q.graphs || []).length ? '<p class="graph-hint">🎛️ Geser slider untuk memanipulasi grafiknya.</p><div class="tq-graphs"></div>' : ''}
+          ${q.explanation ? `<p class="expl-note">${Icon('chat')} ${q.explanation}</p>` : ''}
+          ${(q.graphs || []).length ? `<p class="graph-hint">${Icon('sliders')} Geser slider buat ngubah-ngubah grafiknya.</p><div class="tq-graphs"></div>` : ''}
         </div>`;
       const g = $('.tq-graphs', box);
       if (g && window.GraphLab) GraphLab.mountList(g, q.graphs);
@@ -188,22 +188,22 @@
 
     function end() {
       const score = results.filter(Boolean).length;
-      const msg = score === 5 ? ['Sempurna! 🏆', 'Kamu siap melompat ke level yang lebih tinggi.']
-        : score >= 3 ? ['Bagus sekali! 🎉', 'Fondasimu sudah kuat. Tinggal diasah lagi.']
-        : score >= 1 ? ['Awal yang baik! 💪', 'Peta belajar akan menuntunmu langkah demi langkah.']
-        : ['Jangan menyerah! 🌱', 'Mulai dari PreCalculus dulu, Archie temani.'];
+      const msg = score === 5 ? ['Sempurna!', 'Kamu siap melompat ke level yang lebih tinggi.']
+        : score >= 3 ? ['Keren banget!', 'Fondasimu udah kuat, tinggal diasah lagi.']
+        : score >= 1 ? ['Awal yang bagus!', 'Skill tree bakal nuntun kamu step-by-step.']
+        : ['Jangan nyerah!', 'Mulai dari PreCalculus dulu, Archie temenin.'];
       root.innerHTML = `
         <div class="tq-end tq-intro">
           <div class="tq-score" style="--p:${score * 20}"><b>${score}/5</b></div>
           <div class="tq-dots">${results.map((ok) => `<i class="${ok ? 'ok' : ''}"></i>`).join('')}</div>
           <h3>${msg[0]}</h3>
-          <p>${msg[1]} Daftar untuk menyimpan progres, mengumpulkan XP, dan membuka semua level.</p>
+          <p>${msg[1]} Daftar buat nyimpen progres, ngumpulin XP, dan buka semua level.</p>
           <div class="tq-cta">
             <a class="btn btn-growth btn-lg" href="${root.dataset.signup}">Daftar &amp; simpan progres ➔</a>
             <button type="button" class="btn btn-outline" data-tq="start">↺ Coba soal baru</button>
           </div>
         </div>`;
-      coach(score >= 3 ? `${score} dari 5! Aku bangga padamu! 🥳` : 'Ayo belajar bareng aku, pasti bisa! 🤝', score >= 3 ? 'is-happy' : null);
+      coach(score >= 3 ? `${score} dari 5! Aku bangga sama kamu!` : 'Yuk belajar bareng aku, pasti bisa!', score >= 3 ? 'is-happy' : null);
     }
 
     function init() {

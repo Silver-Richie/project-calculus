@@ -554,7 +554,7 @@ const GraphLab = (() => {
         </div>
         ${hasParams ? `
         <div class="gl-actions">
-          <button type="button" class="gl-btn" data-act="pin">📌 Pin untuk dibandingkan</button>
+          <button type="button" class="gl-btn" data-act="pin">${Icon('pin')} Pin buat dibandingin</button>
           <button type="button" class="gl-btn" data-act="reset">↺ Kembali ke nilai soal</button>
           <label class="gl-check"><input type="checkbox" data-act="orig" ${inst.showOriginal ? 'checked' : ''}> Tampilkan grafik soal</label>
         </div>` : ''}` : ''}

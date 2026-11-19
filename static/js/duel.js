@@ -24,7 +24,7 @@ const Duel = (() => {
     el.setAttribute('aria-label', 'Duel kalkulus');
     el.innerHTML = `
       <div class="duel-top">
-        <span class="duel-brand">⚔️ Duel Kalkulus</span>
+        <span class="duel-brand">${Icon('swords')} Duel Kalkulus</span>
         <button type="button" class="btn-close duel-x" aria-label="Tutup duel">×</button>
       </div>
       <div class="duel-body" aria-live="polite"></div>`;
@@ -47,14 +47,14 @@ const Duel = (() => {
 
   function connect() {
     state = { phase: 'connecting' };
-    body('<div class="duel-center"><div class="duel-spin"></div><p>Menghubungkan…</p></div>');
+    body('<div class="duel-center"><div class="duel-spin"></div><p>Lagi nyambungin…</p></div>');
     const proto = location.protocol === 'https:' ? 'wss' : 'ws';
     ws = new WebSocket(`${proto}://${location.host}/ws/duel/`);
     ws.onopen = () => send({ type: 'queue' });
     ws.onmessage = (e) => handle(JSON.parse(e.data));
     ws.onclose = () => {
       if (['connecting', 'queued', 'match'].includes(state.phase)) {
-        body(`<div class="duel-center"><div class="duel-big">📡</div><p>${esc(state.closeMsg || 'Koneksi duel terputus.')}</p>
+        body(`<div class="duel-center"><div class="duel-big">${Icon('signal-off')}</div><p>${esc(state.closeMsg || 'Koneksi duel putus.')}</p>
           <button type="button" class="btn btn-primary" data-act="again">Coba lagi</button></div>`);
         state.phase = 'closed';
       }
@@ -78,7 +78,7 @@ const Duel = (() => {
 
   function close() {
     if (!el || el.hidden) return;
-    if (state.phase === 'match' && !FocusGuard.confirm('Keluar di tengah duel dihitung KALAH. Yakin keluar?')) return;
+    if (state.phase === 'match' && !FocusGuard.confirm('Keluar di tengah duel = KALAH. Yakin mau keluar?')) return;
     state.phase = 'closed';
     stopWatching();
     if (ws) ws.close();
@@ -91,7 +91,7 @@ const Duel = (() => {
   // ── Pesan server ──────────────────────────────────────────────────────────
   function handle(m) {
     if (m.type === 'queued') return showSearching(m.timeout);
-    if (m.type === 'no_opponent') return showRetry('🕐', m.message);
+    if (m.type === 'no_opponent') return showRetry(Icon('clock'), m.message);
     if (m.type === 'cancelled') return close();
     if (m.type === 'matched') return showVs(m);
     if (m.type === 'question') return showQuestion(m);
@@ -101,7 +101,7 @@ const Duel = (() => {
     if (m.type === 'tab_warning') return showTabWarning(m);
     if (m.type === 'finished') return showResult(m);
     if (m.type === 'error') {
-      if (m.code === 'level') { state.closeMsg = m.message; state.phase = 'locked'; return showRetry('🔒', m.message, false); }
+      if (m.code === 'level') { state.closeMsg = m.message; state.phase = 'locked'; return showRetry(Icon('lock'), m.message, false); }
       const note = $('.duel-note');
       if (note) note.textContent = m.message;
     }
@@ -111,9 +111,9 @@ const Duel = (() => {
     state.phase = 'queued';
     const start = Date.now();
     body(`<div class="duel-center">
-      <div class="duel-radar"><span></span><span></span>⚔️</div>
-      <h3>Mencari lawan setara…</h3>
-      <p class="duel-muted">Lawan dicari dari pemain se-Indonesia dengan kemampuan mirip. <b class="duel-wait">0</b> dtk</p>
+      <div class="duel-radar"><span></span><span></span>${Icon('swords')}</div>
+      <h3>Lagi nyari lawan selevel…</h3>
+      <p class="duel-muted">Nyari pemain se-Indonesia yang kemampuannya mirip kamu. <b class="duel-wait">0</b> dtk</p>
       <button type="button" class="btn btn-outline" data-act="cancel">Batal</button></div>`);
     const tick = () => {
       if (state.phase !== 'queued' || !el || el.hidden) return;
@@ -143,8 +143,8 @@ const Duel = (() => {
     startWatching();
     SFX.click();
     body(`<div class="duel-vs">${card(m.you, 'me')}<div class="duel-vs-mark">VS</div>${card(m.opponent, 'opp')}</div>
-      <p class="duel-center duel-muted">${m.total} soal identik · ${m.time_limit} detik per soal · bersiap…</p>
-      <p class="duel-center duel-muted">⚠️ Jangan keluar dari tab ini selama duel: sekali = soal dihitung salah, dua kali = kalah.</p>`);
+      <p class="duel-center duel-muted">${m.total} soal yang sama · ${m.time_limit} detik per soal · siap-siap…</p>
+      <p class="duel-center duel-muted">${Icon('warning')} Jangan pindah tab selama duel: sekali = soal itu dihitung salah, dua kali = kalah.</p>`);
   }
 
   function scoreboard() {
@@ -188,7 +188,7 @@ const Duel = (() => {
       if (left <= 0) {
         if (!state.answered) {
           el.querySelectorAll('.option-btn').forEach((b) => { b.disabled = true; });
-          $('.duel-note').textContent = '⏰ Waktu habis!';
+          $('.duel-note').innerHTML = `${Icon('clock')} Waktu habis!`;
         }
         return;
       }
@@ -202,7 +202,7 @@ const Duel = (() => {
     state.answered = true;
     btn.classList.add('selected');
     el.querySelectorAll('.option-btn').forEach((b) => { b.disabled = true; });
-    $('.duel-note').textContent = 'Jawaban terkirim. Menunggu lawan…';
+    $('.duel-note').textContent = 'Jawaban terkirim. Nunggu lawan…';
     send({ type: 'answer', index: state.index, option: Number(btn.dataset.option) });
   }
 
@@ -211,16 +211,16 @@ const Duel = (() => {
       state.answered = true;
       el.querySelectorAll('.option-btn').forEach((b) => { b.disabled = true; });
       const note = $('.duel-note');
-      if (note) note.textContent = '🚫 Kamu keluar dari tab: soal ini dihitung salah.';
+      if (note) note.innerHTML = `${Icon('x')} Kamu pindah tab, jadi soal ini dihitung salah.`;
     }
-    FocusGuard.warn('Jangan keluar dari tab!',
-      `${m.voided != null ? `Soal ${m.voided + 1} dihitung salah. ` : ''}Keluar sekali lagi = <b>kalah</b>
-       (dihitung keluar dari duel, bintang bisa berkurang).`);
+    FocusGuard.warn('Eits, jangan pindah tab!',
+      `${m.voided != null ? `Soal ${m.voided + 1} dihitung salah. ` : ''}Sekali lagi keluar, kamu <b>kalah</b>
+       (dihitung kabur dari duel, bintang bisa berkurang).`);
   }
 
   function markOpponent(index) {
     const s = $('.duel-opp-status');
-    if (s && index === state.index) s.textContent = '✓ sudah menjawab';
+    if (s && index === state.index) s.textContent = '✓ udah jawab';
   }
 
   function showReveal(r) {
@@ -239,8 +239,8 @@ const Duel = (() => {
     const board = $('.duel-score');
     if (board) board.outerHTML = scoreboard();
     $('.duel-timer-fill')?.style.setProperty('width', '0%');
-    $('.duel-note').innerHTML = `${mine.correct ? `✓ Benar! <b>+${mine.points}</b>` : '✗ Belum tepat. +0'} ·
-      Lawan: ${theirs.correct ? `benar <b>+${theirs.points}</b>` : 'salah'}${r.last ? '' : ' · soal berikutnya segera…'}`;
+    $('.duel-note').innerHTML = `${mine.correct ? `✓ Bener! <b>+${mine.points}</b>` : '✗ Belum tepat. +0'} ·
+      Lawan: ${theirs.correct ? `bener <b>+${theirs.points}</b>` : 'salah'}${r.last ? '' : ' · soal berikutnya bentar lagi…'}`;
   }
 
   function showResult(m) {
@@ -250,18 +250,18 @@ const Duel = (() => {
     const me = m.you;
     const oppId = Object.keys(m.players).find((id) => id !== String(state.me?.id));
     const opp = m.players[oppId] || {};
-    const title = { win: 'Menang! 🏆', lose: 'Kalah', draw: 'Imbang 🤝' }[me.verdict];
+    const title = { win: `Menang! ${Icon('trophy')}`, lose: 'Kalah', draw: 'Imbang' }[me.verdict];
     const stars = me.star_delta > 0 ? `+${me.star_delta} ★` : me.star_delta < 0 ? `${me.star_delta} ★`
       : me.verdict === 'draw' ? 'Bintang tetap'
-      : me.shield_used ? `${Icon('shield')} Perisai Bintang melindungi bintangmu`
-      : me.rank.tier === 'terra' ? 'Bintang tetap (di Terra kalah tidak mengurangi bintang)'
-      : '★ Bintang dilindungi (kalah tipis)';
+      : me.shield_used ? `${Icon('shield')} Streak Shield nyelamatin bintangmu`
+      : me.rank.tier === 'terra' ? 'Bintang aman (di Terra, kalah gak ngurangin bintang)'
+      : '★ Bintang aman (kalahnya tipis)';
     if (me.verdict === 'win') { SFX.fanfare(); Confetti.burst(); }
     if (me.gems_awarded && typeof State !== 'undefined') State.setGems(State.get().gems + me.gems_awarded);
     body(`<div class="duel-center duel-result ${me.verdict}">
       <h2>${title}</h2>
-      ${m.forfeit ? `<p class="duel-muted">${me.verdict === 'win' ? 'Lawan keluar dari duel.'
-        : state.left >= 2 ? '🚫 Kamu keluar dari tab 2 kali, jadi dihitung keluar dari duel.' : 'Kamu keluar dari duel.'}</p>` : ''}
+      ${m.forfeit ? `<p class="duel-muted">${me.verdict === 'win' ? 'Lawan kabur dari duel.'
+        : state.left >= 2 ? `${Icon('x')} Kamu pindah tab 2 kali, jadi dihitung kabur dari duel.` : 'Kamu keluar dari duel.'}</p>` : ''}
       <div class="duel-final">
         <div><b>${me.points}</b><small>poin kamu · ${me.correct}/${state.total || 5} benar</small></div>
         <div><b>${opp.points ?? 0}</b><small>poin lawan · ${opp.correct ?? 0}/${state.total || 5} benar</small></div>
@@ -270,7 +270,7 @@ const Duel = (() => {
       ${me.gems_awarded ? `<p class="duel-muted">${Icon('diamond')} +${me.gems_awarded} diamond</p>` : ''}
       ${RankBadge.html(me.rank, true)}
       <div class="duel-actions">
-        <button type="button" class="btn btn-accent" data-act="again">⚔️ Duel lagi</button>
+        <button type="button" class="btn btn-accent" data-act="again">${Icon('swords')} Duel lagi</button>
         <button type="button" class="btn btn-outline" data-act="close">Tutup</button>
       </div></div>`);
     if (typeof Leaderboard !== 'undefined') Leaderboard.setMyRank(me.rank);

@@ -1,4 +1,5 @@
 {% extends 'auth/base_auth.html' %}
+{% load icons %}
 {% comment %}
   HALAMAN: Tes kemampuan awal — 10 soal (5 mudah, 3 sedang, 2 sulit) sesuai prodi.
   Tanpa JS semua soal tampil sekaligus; dengan auth.js soal ditampilkan satu per satu.
@@ -11,8 +12,8 @@
 <section class="auth-card auth-card-wide diag-test">
   <div class="diag-test-head">
     <div>
-      <h2 class="auth-title">🧪 Tes Kemampuan Awal · {{ faculty.short_name }}</h2>
-      <p class="auth-sub">Pilih satu jawaban untuk setiap soal. Tidak ada pengurangan nyawa — santai saja.</p>
+      <h2 class="auth-title">{% icon "flask" %} Tes Diagnostik · {{ faculty.short_name }}</h2>
+      <p class="auth-sub">Pilih satu jawaban di tiap soal. Gak ada heart yang berkurang, santai aja.</p>
     </div>
     <span class="diag-counter" id="diag-counter">{{ questions|length }} soal</span>
   </div>

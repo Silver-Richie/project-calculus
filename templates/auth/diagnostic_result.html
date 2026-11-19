@@ -1,4 +1,5 @@
 {% extends 'auth/base_auth.html' %}
+{% load icons %}
 {% comment %}
   HALAMAN: Hasil tes kemampuan awal + rekomendasi tahap mulai → beranda.
 {% endcomment %}
@@ -32,12 +33,12 @@
   </div>
 
   <details class="diag-review">
-    <summary>Lihat jawabanmu per soal</summary>
+    <summary>Lihat jawabanmu tiap soal</summary>
     <ol>
       {% for r in result.results %}
         <li class="{% if r.is_correct %}ok{% else %}bad{% endif %}">
           <div class="diag-review-q">{{ r.code }} · {{ r.prompt|safe }}</div>
-          <div>Jawabanmu: {{ r.chosen|safe }} {% if r.is_correct %}✅{% else %}❌{% endif %}</div>
+          <div>Jawabanmu: {{ r.chosen|safe }} {% if r.is_correct %}{% icon "check" label="Benar" %}{% else %}{% icon "x" label="Salah" %}{% endif %}</div>
           {% if not r.is_correct %}<div>Jawaban benar: {{ r.correct|safe }}</div>{% endif %}
         </li>
       {% endfor %}
@@ -45,9 +46,9 @@
   </details>
 
   <div class="offer-actions">
-    <a href="{% url 'gamification:home' %}" class="btn btn-primary btn-lg" data-nav>Masuk ke Beranda 🗺️</a>
+    <a href="{% url 'gamification:home' %}" class="btn btn-primary btn-lg" data-nav>Masuk ke beranda {% icon "map" %}</a>
   </div>
-  <p class="auth-help">Pembahasan lengkap tiap soal ada di Bank Soal. XP didapat dari menyelesaikan sesi latihan tiap topik.</p>
+  <p class="auth-help">Pembahasan lengkap tiap soal ada di Bank Soal. XP kamu dapat dari sesi latihan tiap topik.</p>
 </section>
 {% endblock %}
 

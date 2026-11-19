@@ -66,7 +66,7 @@ const SFX = (() => {
     toggle() {
       on = !on;
       const btn = document.getElementById('sound-toggle-btn');
-      if (btn) { btn.innerHTML = on ? '🔊<span class="snd-label"> Suara</span>' : '🔇<span class="snd-label"> Mute</span>'; btn.classList.toggle('muted', !on); }
+      if (btn) { btn.innerHTML = on ? `${Icon('sound')}<span class="snd-label"> Suara</span>` : `${Icon('sound-off')}<span class="snd-label"> Mute</span>`; btn.classList.toggle('muted', !on); }
       if (on) this.click();
       return on;
     },
@@ -99,7 +99,7 @@ const State = (() => {
     progress: {},   // { ft: { completed: [slug...], active: slug|null } }
     sound: true,
   };
-  const FAC_LABELS = { fasilkom: '💻 Fasilkom', fmipa: '🔬 FMIPA', ft: '⚙️ Fak. Teknik' };
+  const FAC_LABELS = { fasilkom: `${Icon('fac-fasilkom')} Fasilkom`, fmipa: `${Icon('fac-fmipa')} FMIPA`, ft: `${Icon('fac-ft')} Fak. Teknik` };
 
   let s = (() => {
     try { return Object.assign({}, DEFAULTS, JSON.parse(localStorage.getItem(KEY))); }
@@ -168,7 +168,7 @@ const State = (() => {
     setText('hud-hearts-val', `${s.hearts}/${s.maxHearts}`);
     const pill = document.getElementById('hud-hearts-pill');
     if (pill) {
-      pill.title = s.heartsRefillAt ? `Nyawa penuh kembali dalam ${refillText()}` : 'Nyawa penuh';
+      pill.title = s.heartsRefillAt ? `Heart penuh lagi dalam ${refillText()}` : 'Heart penuh';
       pill.classList.toggle('hearts-empty', s.hearts <= 0);
     }
     setText('hud-gems-val', s.gems);
@@ -176,7 +176,8 @@ const State = (() => {
     setText('profile-streak', s.streak);
     setText('profile-hearts', s.hearts);
     setText('profile-gems', s.gems);
-    setText('hud-faculty-badge', FAC_LABELS[s.faculty] || 'Fasilkom');
+    const facBadge = document.getElementById('hud-faculty-badge');
+    if (facBadge) facBadge.innerHTML = FAC_LABELS[s.faculty] || FAC_LABELS.fasilkom;
 
     ['fasilkom', 'fmipa', 'ft'].forEach((f) => {
       const el = document.getElementById(`sidebar-${f}`);
@@ -304,13 +305,13 @@ const Nav = (() => {
 const Mascot = (() => {
   const moods = ['idle', 'celebrate', 'thinking', 'comfort'];
   const quotes = [
-    "Halo! Aku Archie, pemandumu taklukkan kalkulus! 🦎",
-    "Tahukah kamu? dy/dx dibuat Leibniz, Newton pakai notasi titik ẏ!",
-    "Limit itu seperti mendekati gebetan — sedekat mungkin tanpa disentuh 😄",
-    "Turunan = speedometer mobilmu — laju perubahan sesaat!",
-    "Integral = menghitung area di bawah kurva — menjumlahkan hal kecil.",
-    "Salah itu normal — otakmu sedang membentuk sinapsis baru!",
-    "Satu kuis sehari, kalkulus jadi teman sejati 🌟",
+    "Halo! Aku Archie, partner kamu buat naklukin kalkulus!",
+    "Fun fact: notasi dy/dx itu dari Leibniz, kalau Newton pakai titik ẏ!",
+    "Limit itu kayak ngedeketin gebetan: sedekat mungkin, tapi gak pernah nyentuh.",
+    "Turunan itu speedometer: laju perubahan di satu momen!",
+    "Integral itu ngitung luas di bawah kurva dengan ngejumlahin potongan-potongan kecil.",
+    "Salah itu normal. Otakmu lagi bikin koneksi baru!",
+    "Satu kuis sehari, lama-lama kalkulus jadi temen.",
   ];
 
   function setMood(mood, text) {
@@ -355,14 +356,14 @@ const Curriculum = (() => {
 
   async function load(faculty) {
     const treeEl = document.getElementById('skill-tree');
-    if (treeEl) treeEl.innerHTML = '<p class="loading-text">Memuat peta belajar…</p>';
+    if (treeEl) treeEl.innerHTML = '<p class="loading-text">Lagi nyiapin skill tree…</p>';
     try {
       const res = await fetch(`/api/curriculum/?faculty=${encodeURIComponent(faculty)}`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       data = await res.json();
     } catch (err) {
       console.error('[Curriculum] gagal memuat', err);
-      if (treeEl) treeEl.innerHTML = '<p class="loading-text">Gagal memuat materi. Pastikan server berjalan dan data sudah di-seed.</p>';
+      if (treeEl) treeEl.innerHTML = '<p class="loading-text">Materi gagal dimuat. Coba refresh halaman, ya. (Dev: pastikan server jalan &amp; data sudah di-seed.)</p>';
       return;
     }
     const desc = document.getElementById('tree-fac-desc');
@@ -449,7 +450,7 @@ const SkillTree = (() => {
         const lvl = levels[group];
         header = lvl
           ? `<div class="tree-level-label"><span>${Icon.level(lvl)}</span> Level Utama ${lvl.order}: ${lvl.title}</div>`
-          : `<div class="tree-group-label">${group === 'umum' ? '📘 Materi Umum' : '🎓 Materi Khusus'}</div>`;
+          : `<div class="tree-group-label">${group === 'umum' ? `${Icon('book')} Materi Umum` : `${Icon('cap')} Materi Khusus`}</div>`;
         lastGroup = group;
       }
       const connector = i < tree.length - 1 ? '<div class="tree-connector"></div>' : '';
@@ -457,7 +458,7 @@ const SkillTree = (() => {
       return `${header}
         <div class="tree-node${n.is_boss ? ' node-boss' : ''} ${zig}" id="node-${n.slug}" data-slug="${n.slug}"
              onclick="Drawer.open('${n.slug}')">
-          <button class="node-btn" title="${n.title}">${n.icon}</button>
+          <button class="node-btn" title="${n.title}">${Icon.of(n.icon)}</button>
           <span class="node-label">${n.title.replace(/^Tahap \d+:\s*/, '')}${(n.topics || []).length ? `<small>${n.topics.length} topik</small>` : ''}</span>
         </div>${connector}`;
     }).join('');
@@ -472,7 +473,7 @@ const SkillTree = (() => {
       el.classList.add(`node-${st}`);
       const btn = el.querySelector('.node-btn');
       const n = Curriculum.node(el.dataset.slug);
-      if (btn && n) btn.textContent = st === 'completed' ? '✓' : st === 'locked' ? '🔒' : n.icon;
+      if (btn && n) btn.innerHTML = st === 'completed' ? Icon('check') : st === 'locked' ? Icon('lock') : Icon.of(n.icon);
     });
     if (typeof Practice !== 'undefined') Practice.refreshPath();
     if (typeof Catalogue !== 'undefined') Catalogue.refreshStates();
@@ -485,12 +486,12 @@ const SkillTree = (() => {
    CATALOGUE — Halaman Lesson, dikelompokkan per berkas sumber
    ════════════════════════════════════════════════════════════════ */
 const Catalogue = (() => {
-  const CAT_ICON = { materi: '📖', soal: '📝', lampiran: '📚', buku: '📕' };
+  const CAT_ICON = { materi: 'book', soal: 'doc', lampiran: 'book', buku: 'book' };
 
   function nodeCard(n) {
     return `
       <div class="lesson-card" data-slug="${n.slug}" onclick="Drawer.open('${n.slug}', { browse: true })">
-        <div class="lesson-card-icon">${n.icon}</div>
+        <div class="lesson-card-icon">${Icon.of(n.icon)}</div>
         <div class="lesson-card-title">${n.title}</div>
         <div class="lesson-card-desc">${n.subtitle || ''}</div>
         <div class="lesson-card-meta">
@@ -512,7 +513,7 @@ const Catalogue = (() => {
         <span class="qbank-code">${q.code}</span>
         <span class="quiz-diff-badge diff-${q.difficulty}">${DIFF_LABEL[q.difficulty] || q.difficulty}</span>
         <span class="qbank-prompt">${plain.length > 110 ? plain.slice(0, 110) + '…' : plain}</span>
-        ${(q.graphs || []).length ? '<span class="qbank-graph" title="Pembahasan memiliki grafik interaktif">🎛️</span>' : ''}
+        ${(q.graphs || []).length ? `<span class="qbank-graph" title="Pembahasan punya grafik interaktif">${Icon('sliders')}</span>` : ''}
       </button>`;
   }
 
@@ -523,7 +524,7 @@ const Catalogue = (() => {
     box.innerHTML = Curriculum.documents.map((doc) => `
       <section class="doc-section">
         <header class="doc-header">
-          <span class="doc-icon">${CAT_ICON[doc.category] || '📄'}</span>
+          <span class="doc-icon">${Icon(CAT_ICON[doc.category] || 'doc')}</span>
           <div>
             <div class="doc-filename">${doc.filename}</div>
             <h3 class="doc-title">${doc.title}</h3>
@@ -544,7 +545,7 @@ const Catalogue = (() => {
       if (!tree.find((n) => n.slug === slug)) { el.textContent = ''; return; }
       const st = State.nodeStatus(slug, tree);
       el.className = `lesson-card-status status-${st === 'completed' ? 'done' : st}`;
-      el.textContent = st === 'completed' ? '✓ Selesai' : st === 'active' ? '▶ Aktif' : '🔒 Kuis terkunci';
+      el.innerHTML = st === 'completed' ? '✓ Selesai' : st === 'active' ? '▶ Aktif' : `${Icon('lock')} Kuis terkunci`;
     });
   }
 
@@ -557,12 +558,12 @@ const Catalogue = (() => {
 function renderSections(container, node) {
   container.innerHTML = '';
   if (node.source) {
-    container.insertAdjacentHTML('beforeend', `<div class="source-tag">📄 Sumber: ${node.source.filename}</div>`);
+    container.insertAdjacentHTML('beforeend', `<div class="source-tag">${Icon('doc')} Sumber: ${node.source.filename}</div>`);
   }
   (node.sections || []).forEach((sec) => {
     const block = document.createElement('div');
     block.className = 'lesson-block';
-    block.innerHTML = `<h4>${sec.heading}</h4>${sec.source ? `<div class="source-tag">📄 Dari berkas: ${sec.source}</div>` : ''}<div class="lesson-body">${sec.body_html}</div>`;
+    block.innerHTML = `<h4>${sec.heading}</h4>${sec.source ? `<div class="source-tag">${Icon('doc')} Dari berkas: ${sec.source}</div>` : ''}<div class="lesson-body">${sec.body_html}</div>`;
     container.appendChild(block);
     if ((sec.graphs || []).length) {
       const g = document.createElement('div');
@@ -612,16 +613,16 @@ const QuizEngine = (() => {
   function pembahasanHTML(q) {
     return `
       <div class="pembahasan" id="pembahasan">
-        <h5>📚 Pembahasan</h5>
+        <h5>${Icon('book')} Pembahasan</h5>
         <ol class="steps-list">${(q.steps || []).map((s) => `<li>${s}</li>`).join('')}</ol>
         <div class="answer-box"><strong>Jawaban:</strong> ${q.answer || ''}</div>
-        ${q.explanation ? `<p class="expl-note">💬 ${q.explanation}</p>` : ''}
+        ${q.explanation ? `<p class="expl-note">${Icon('chat')} ${q.explanation}</p>` : ''}
         ${(q.graphs || []).length ? `
           <div class="pembahasan-graphs" id="pembahasan-graphs">
-            <p class="graph-hint">🎛️ Geser slider untuk memanipulasi variabel. Grafik soal tetap tampil sebagai bayangan abu-abu,
-            dan tombol <b>📌 Pin</b> menyimpan kondisi untuk dibandingkan.</p>
+            <p class="graph-hint">${Icon('sliders')} Geser slider buat ngubah variabelnya. Grafik soal tetap tampil sebagai bayangan abu-abu,
+            dan tombol <b>${Icon('pin')} Pin</b> nyimpen kondisi buat dibandingin.</p>
           </div>` : ''}
-        <div class="source-tag">📄 ${q.source || 'Soal acak khusus akunmu'} · ${q.code}</div>
+        <div class="source-tag">${Icon('doc')} ${q.source || 'Soal acak khusus akunmu'} · ${q.code}</div>
       </div>`;
   }
 
@@ -633,9 +634,9 @@ const QuizEngine = (() => {
       QuizBoard.hide();
       container.innerHTML = `
         <div class="level-complete">
-          <div class="trophy-anim">📖</div>
-          <h3>Tahap ini berisi materi saja</h3>
-          <p>Berkas soal tidak memuat latihan untuk tahap ini. Tandai selesai setelah membaca materinya.</p>
+          <div class="trophy-anim">${Icon('book')}</div>
+          <h3>Tahap ini isinya materi aja</h3>
+          <p>Belum ada soal latihan buat tahap ini. Tandai selesai kalau materinya udah kamu baca.</p>
           <button class="btn btn-growth btn-lg" onclick="QuizEngine.finish()">✓ Tandai Selesai</button>
         </div>`;
       return;
@@ -673,8 +674,8 @@ const QuizEngine = (() => {
 
         <div class="quiz-actions">
           ${hints.length ? `<button class="btn btn-accent btn-sm" id="btn-hint" onclick="QuizEngine.showNextHint()">
-            💡 Minta Hint (${hints.length} tersedia)</button>` : ''}
-          <button class="btn btn-primary" id="btn-submit" onclick="QuizEngine.submit()" disabled>✅ Jawab</button>
+            ${Icon('bulb')} Minta hint (${hints.length} tersedia)</button>` : ''}
+          <button class="btn btn-primary" id="btn-submit" onclick="QuizEngine.submit()" disabled>${Icon('check')} Jawab</button>
         </div>
 
         <div class="hint-section" id="hint-section"></div>
@@ -704,15 +705,15 @@ const QuizEngine = (() => {
     if (!container) return;
     SFX.fanfare();
     Confetti.burst();
-    Mascot.setMood('celebrate', '🏆 Selamat! Level ini berhasil kamu taklukkan!');
+    Mascot.setMood('celebrate', `${Icon('trophy')} Mantap! Level ini udah kamu taklukin!`);
     finishNode();
     const next = Curriculum.nextOf(nodeSlug);
     container.innerHTML = `
       <div class="level-complete">
-        <div class="trophy-anim">🏆</div>
+        <div class="trophy-anim">${Icon('trophy')}</div>
         <h3>Level Selesai!</h3>
-        <p>${next ? 'Tahap berikutnya sudah terbuka!' : 'Semua tahap jalur ini tuntas!'} XP didapat dari sesi latihan tiap topik.</p>
-        <button class="btn btn-growth btn-lg" onclick="Drawer.close(); Nav.go('levelup');">Kembali ke Peta Belajar 🗺️</button>
+        <p>${next ? 'Tahap berikutnya udah kebuka!' : 'Semua tahap di jalur ini beres!'} XP kamu dapat dari sesi latihan tiap topik.</p>
+        <button class="btn btn-growth btn-lg" onclick="Drawer.close(); Nav.go('levelup');">Balik ke Skill Tree ${Icon('map')}</button>
       </div>`;
   }
 
@@ -764,15 +765,15 @@ const QuizEngine = (() => {
       const actionLabel = mode === 'practice' ? 'Tutup' : isLast ? 'Selesai ➔' : 'Lanjut ➔';
       if (sel === correct) {
         SFX.correct();
-        Mascot.setMood('celebrate', '🎉 Jawaban tepat! Coba geser slider di pembahasan.');
+        Mascot.setMood('celebrate', `${Icon('sparkle')} Bener! Coba geser slider di pembahasannya.`);
         showFeedback(true, 'Jawaban Tepat!',
           `Jawaban: ${q.answer}`, actionLabel);
       } else {
         SFX.wrong();
         // Nyawa tidak berkurang per soal: hanya saat gagal lulus satu sesi (dinilai server).
-        Mascot.setMood('comfort', 'Jangan menyerah! Baca pembahasannya ya.');
+        Mascot.setMood('comfort', 'Gapapa, salah itu bagian dari belajar. Cek pembahasannya, ya.');
         showFeedback(false, 'Belum tepat',
-          'Baca pembahasan langkah demi langkah di atas.', actionLabel);
+          'Cek pembahasan step-by-step di atas.', actionLabel);
       }
     },
 
@@ -787,7 +788,7 @@ const QuizEngine = (() => {
     finish() {
       finishNode();
       SFX.fanfare();
-      Mascot.setMood('celebrate', '📖 Materi tuntas! Tahap berikutnya terbuka.');
+      Mascot.setMood('celebrate', `${Icon('book')} Materi selesai! Tahap berikutnya udah kebuka.`);
       Drawer.close();
       Nav.go('levelup');
     },
@@ -801,7 +802,7 @@ const QuizEngine = (() => {
       card.className = 'hint-card open';
       card.innerHTML = `
         <div class="hint-card-header" onclick="this.parentElement.classList.toggle('open')">
-          <span>💡 Petunjuk ${hintsUsed + 1}/${hints.length}</span>
+          <span>${Icon('bulb')} Hint ${hintsUsed + 1}/${hints.length}</span>
           <span style="font-size:.75rem;color:var(--clr-muted);">▾</span>
         </div>
         <div class="hint-card-body">${hints[hintsUsed]}</div>`;
@@ -810,10 +811,10 @@ const QuizEngine = (() => {
       const hintBtn = document.getElementById('btn-hint');
       if (hintBtn) {
         const left = hints.length - hintsUsed;
-        hintBtn.textContent = left > 0 ? `💡 Hint Berikutnya (${left} tersisa)` : '🚫 Semua Hint Telah Digunakan';
+        hintBtn.innerHTML = left > 0 ? `${Icon('bulb')} Hint berikutnya (${left} lagi)` : `${Icon('x')} Hint udah habis`;
         if (left === 0) hintBtn.disabled = true;
       }
-      Mascot.setMood('thinking', '🤔 Semoga petunjuknya membantu!');
+      Mascot.setMood('thinking', 'Semoga hint-nya ngebantu!');
     },
 
     /** Mode latihan: tampilkan pembahasan tanpa menjawab. */
@@ -859,9 +860,9 @@ const Drawer = (() => {
 
   function setTabs(materiLabel, kuisLabel) {
     const tabs = document.querySelectorAll('.drawer-tab');
-    tabs[0].textContent = materiLabel;
+    tabs[0].innerHTML = materiLabel;
     tabs[0].hidden = !materiLabel;
-    tabs[1].textContent = kuisLabel || '';
+    tabs[1].innerHTML = kuisLabel || '';
     tabs[1].hidden = !kuisLabel;
   }
 
@@ -888,7 +889,7 @@ const Drawer = (() => {
 
       if (status === 'locked' && !opts.browse) {
         SFX.wrong();
-        Mascot.setMood('comfort', '🔒 Selesaikan tahap sebelumnya untuk membuka ini!');
+        Mascot.setMood('comfort', `${Icon('lock')} Beresin tahap sebelumnya dulu buat buka ini!`);
         const el = document.getElementById(`node-${slug}`);
         if (el) { el.classList.add('node-shake'); setTimeout(() => el.classList.remove('node-shake'), 500); }
         return;
@@ -904,13 +905,13 @@ const Drawer = (() => {
       quizMode = isRef ? 'none' : status === 'locked' ? 'locked' : 'level';
       SFX.click();
       setHeader(node.badge_label, node.title, node.subtitle);
-      setTabs('📖 Materi', isRef ? '' : `🎯 Kuis (${(node.questions || []).length} soal)`);
+      setTabs(`${Icon('book')} Materi`, isRef ? '' : `${Icon('target')} Kuis (${(node.questions || []).length} soal)`);
       renderSections(document.getElementById('drawer-lesson-content'), node);
       const startBtn = document.getElementById('drawer-start-quiz');
       if (startBtn) startBtn.hidden = isRef;
       this.switchTab('materi');
       show();
-      Mascot.setMood('wave', `Selamat datang di <strong>${node.title}</strong>! Pelajari materi dulu ya.`);
+      Mascot.setMood('wave', `Masuk ke <strong>${node.title}</strong>! Baca materinya dulu, ya.`);
     },
 
     /** Bank Soal: buka satu soal beserta pembahasannya. */
@@ -923,7 +924,7 @@ const Drawer = (() => {
       quizMode = 'practice';
       SFX.click();
       setHeader(`Bank Soal · ${q.code}`, q.source, `Latihan dari ${node.title}`);
-      setTabs('', '🎯 Soal & Pembahasan');
+      setTabs('', `${Icon('target')} Soal & Pembahasan`);
       this.switchTab('kuis');
       show();
     },
@@ -956,13 +957,13 @@ const Drawer = (() => {
         QuizEngine.start(current, [q], 'practice');
         const actions = container.querySelector('.quiz-actions');
         if (actions) actions.insertAdjacentHTML('beforeend',
-          '<button class="btn btn-outline btn-sm" id="btn-reveal" onclick="QuizEngine.reveal()">👀 Lihat Pembahasan</button>');
+          '<button class="btn btn-outline btn-sm" id="btn-reveal" onclick="QuizEngine.reveal()">' + Icon('eye') + ' Lihat pembahasan</button>');
       } else if (quizMode === 'locked') {
         container.innerHTML = `
           <div class="level-complete">
-            <div class="trophy-anim">🔒</div>
-            <h3>Kuis masih terkunci</h3>
-            <p>Selesaikan tahap sebelumnya di Peta Belajar. Soal tetap bisa dilatih lewat Bank Soal di halaman Lesson.</p>
+            <div class="trophy-anim">${Icon('lock')}</div>
+            <h3>Kuisnya masih dikunci</h3>
+            <p>Beresin tahap sebelumnya di Skill Tree dulu. Soalnya tetap bisa kamu latih lewat Bank Soal di Kurikulum.</p>
           </div>`;
       } else if (node) {
         QuizEngine.start(current, node.questions || [], 'level');
@@ -990,7 +991,7 @@ const Review = (() => {
       <details class="rv-item ${ok ? 'ok' : 'bad'}" data-i="${i}" ontoggle="Review.mountGraphs(this)">
         <summary>
           <span class="rv-num">${i + 1}</span>
-          <span class="rv-status">${ok ? '✅ Benar' : '❌ Salah'}</span>
+          <span class="rv-status">${ok ? `${Icon('check')} Benar` : `${Icon('x')} Salah`}</span>
           ${q.topic ? `<span class="rv-topic">${q.topic}</span>` : ''}
           <span class="rv-code">${q.code || ''}</span>
         </summary>
@@ -1002,10 +1003,10 @@ const Review = (() => {
           </li>`).join('')}
         </ul>
         <div class="pembahasan">
-          <h5>📚 Pembahasan</h5>
+          <h5>${Icon('book')} Pembahasan</h5>
           <ol class="steps-list">${(q.steps || []).map((st) => `<li>${st}</li>`).join('')}</ol>
           <div class="answer-box"><strong>Jawaban:</strong> ${q.answer || ''}</div>
-          ${q.explanation ? `<p class="expl-note">💬 ${q.explanation}</p>` : ''}
+          ${q.explanation ? `<p class="expl-note">${Icon('chat')} ${q.explanation}</p>` : ''}
           ${(q.graphs || []).length ? '<div class="rv-graphs"></div>' : ''}
         </div>
       </details>`;
@@ -1019,13 +1020,13 @@ const Review = (() => {
       if (!items.length) return summaryHTML;
       return `
         <div class="rv-tabs">
-          <button class="rv-tab active" data-pane="sum" onclick="Review.show('sum')">📊 Ringkasan</button>
-          <button class="rv-tab" data-pane="rev" onclick="Review.show('rev')">📚 Pembahasan (${items.length} soal${wrong ? `, ${wrong} salah` : ''})</button>
+          <button class="rv-tab active" data-pane="sum" onclick="Review.show('sum')">${Icon('graph')} Ringkasan</button>
+          <button class="rv-tab" data-pane="rev" onclick="Review.show('rev')">${Icon('book')} Pembahasan (${items.length} soal${wrong ? `, ${wrong} salah` : ''})</button>
         </div>
         <div class="rv-pane active" id="rv-pane-sum">${summaryHTML}</div>
         <div class="rv-pane" id="rv-pane-rev">
           <div class="rv-toolbar">
-            <label><input type="checkbox" onchange="Review.onlyWrong(this.checked)"> Hanya soal yang salah</label>
+            <label><input type="checkbox" onchange="Review.onlyWrong(this.checked)"> Cuma yang salah</label>
             <button class="btn btn-outline btn-sm" onclick="Review.openAll()">Buka semua</button>
           </div>
           ${items.map(itemHTML).join('')}
@@ -1066,7 +1067,7 @@ const DiagnosticModal = (() => {
     const q = qs[step];
     const pct = Math.round((step / qs.length) * 100);
     container().innerHTML = `
-      <h3 class="diag-title">🧪 Tes Diagnostik</h3>
+      <h3 class="diag-title">${Icon('flask')} Tes Diagnostik</h3>
       <p class="diag-sub">Soal ${step + 1} dari ${qs.length} · <span class="quiz-diff-badge diff-${q.difficulty}">${q.difficulty_label}</span></p>
       <div class="quiz-progress-bar" style="margin-bottom:1.5rem;"><div class="quiz-progress-fill" style="width:${pct}%;"></div></div>
       <div class="quiz-prompt">${q.prompt}</div>
@@ -1100,26 +1101,26 @@ const DiagnosticModal = (() => {
 
     const cls = { weak_foundation: 'warning', ready_for_calculus: 'ready', mastery: 'mastery' }[result.evaluation] || 'ready';
     if (result.evaluation === 'weak_foundation') {
-      Mascot.setMood('comfort', 'Jangan khawatir! Kita perkuat fondasi dulu ya!');
+      Mascot.setMood('comfort', 'Santai, kita kuatin fondasinya dulu, ya!');
     } else {
-      Mascot.setMood('celebrate', 'Kamu siap! Selamat belajar Kalkulus!');
+      Mascot.setMood('celebrate', 'Kamu udah siap! Selamat belajar kalkulus!');
       SFX.fanfare(); Confetti.burst();
     }
     if (result.recommended_node) State.startFrom(result.recommended_node, Curriculum.tree);
 
     container().innerHTML = `
       <div style="text-align:center;padding:1rem 0 .5rem;">
-        <div style="font-size:3rem;margin-bottom:.75rem;">✨</div>
+        <div style="font-size:3rem;margin-bottom:.75rem;">${Icon('sparkle')}</div>
         <h3 class="diag-title">Evaluasi Selesai!</h3>
         <div class="diag-result-card ${cls}" style="margin:1.25rem 0;text-align:left;"><p>${result.message}</p></div>
         <div class="diag-summary">
           ${result.results.map((r) => `
             <div>${r.code} (${r.difficulty_label || r.difficulty}):
-              <strong style="color:${r.is_correct ? 'var(--clr-growth)' : 'var(--clr-danger)'}">${r.is_correct ? '✅ Benar' : '❌ Salah'}</strong>
+              <strong style="color:${r.is_correct ? 'var(--clr-growth)' : 'var(--clr-danger)'}">${r.is_correct ? `${Icon('check')} Benar` : `${Icon('x')} Salah`}</strong>
               — Jawaban: ${r.answer || ''}</div>`).join('')}
         </div>
         <button class="btn btn-primary btn-lg" style="margin-top:1.25rem;" onclick="DiagnosticModal.close(); Nav.go('levelup');">
-          Lihat Peta Belajar 🗺️
+          Lihat Skill Tree ${Icon('map')}
         </button>
       </div>`;
   }
@@ -1130,12 +1131,12 @@ const DiagnosticModal = (() => {
       document.getElementById('diagnostic-modal').classList.add('open');
       container().innerHTML = '<p class="loading-text">Menyiapkan soal…</p>';
       SFX.click();
-      Mascot.setMood('thinking', 'Ayo ukur kemampuan dasarmu! Santai saja 😊');
+      Mascot.setMood('thinking', 'Yuk cek kemampuan dasarmu. Santai aja.');
       try {
         const res = await fetch(`/api/diagnostic/?faculty=${encodeURIComponent(State.get().faculty)}`);
         qs = (await res.json()).questions || [];
       } catch (_) { qs = []; }
-      if (!qs.length) { container().innerHTML = '<p class="loading-text">Soal diagnostik belum tersedia.</p>'; return; }
+      if (!qs.length) { container().innerHTML = '<p class="loading-text">Soal diagnostiknya belum tersedia.</p>'; return; }
       render();
     },
     close() {
@@ -1275,10 +1276,10 @@ const FocusGuard = (() => {
       el.className = 'levelup-overlay tabwarn-overlay';
       el.innerHTML = `
         <div class="levelup-card" role="alertdialog" aria-modal="true" aria-labelledby="tabwarn-title">
-          <div class="tabwarn-icon" aria-hidden="true">⚠️</div>
+          <div class="tabwarn-icon" aria-hidden="true">${Icon('warning')}</div>
           <h3 id="tabwarn-title">${title}</h3>
           <p>${text}</p>
-          <button type="button" class="btn btn-accent">Saya mengerti, lanjutkan</button>
+          <button type="button" class="btn btn-accent">Oke, lanjut</button>
         </div>`;
       el.addEventListener('click', (e) => { if (e.target.closest('button')) el.remove(); });
       document.body.appendChild(el);

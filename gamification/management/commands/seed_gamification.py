@@ -232,7 +232,7 @@ class Command(BaseCommand):
                     "main_level": lvl, "faculty": Faculty.objects.get(slug=sub["faculty"]) if sub.get("faculty") else None,
                     "source_document": None, "kind": "lesson",
                     "stage_number": lvl.order, "order": lvl.order * 100 + sub.get("order", i), "title": sub["title"],
-                    "subtitle": sub.get("subtitle", ""), "icon": sub.get("icon", "📘"),
+                    "subtitle": sub.get("subtitle", ""), "icon": sub.get("icon", "book"),
                     "badge_label": sub.get("badge_label", lvl.title), "summary_html": sub.get("summary_html", ""),
                     "is_boss": False,
                 })
@@ -240,7 +240,7 @@ class Command(BaseCommand):
                 slugs.add(node.slug)
                 for t_order, t in enumerate(sub["topics"], start=1):
                     topic, _ = Topic.objects.update_or_create(slug=t["slug"], defaults={
-                        "node": node, "order": t_order, "title": t["title"], "icon": t.get("icon", "📗"),
+                        "node": node, "order": t_order, "title": t["title"], "icon": t.get("icon", "book"),
                         "summary": t.get("summary", ""), "references": t.get("references", ""),
                     })
                     topic_slugs.add(topic.slug)

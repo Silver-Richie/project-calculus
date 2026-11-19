@@ -45,10 +45,10 @@ const Whiteboard = (() => {
       this.host.innerHTML = `
         <div class="wb-toolbar" role="toolbar" aria-label="Alat papan tulis">
           <div class="wb-group">
-            <button type="button" class="wb-btn active" data-tool="pen" title="Spidol">🖊️</button>
-            <button type="button" class="wb-btn" data-tool="highlighter" title="Stabilo">🖍️</button>
-            <button type="button" class="wb-btn" data-tool="line" title="Garis lurus">📏</button>
-            <button type="button" class="wb-btn" data-tool="eraser" title="Penghapus">🧽</button>
+            <button type="button" class="wb-btn active" data-tool="pen" title="Spidol">${Icon('pen')}</button>
+            <button type="button" class="wb-btn" data-tool="highlighter" title="Stabilo">${Icon('highlighter')}</button>
+            <button type="button" class="wb-btn" data-tool="line" title="Garis lurus">${Icon('ruler')}</button>
+            <button type="button" class="wb-btn" data-tool="eraser" title="Penghapus">${Icon('eraser')}</button>
           </div>
           <div class="wb-group wb-colors">
             ${COLORS.map((k, i) => `<button type="button" class="wb-color${i === 0 ? ' active' : ''}" data-color="${k.c}" title="${k.name}" style="--c:${k.c}"></button>`).join('')}
@@ -59,7 +59,7 @@ const Whiteboard = (() => {
           <div class="wb-group">
             <button type="button" class="wb-btn" data-act="undo" title="Batalkan (Ctrl+Z)">↶</button>
             <button type="button" class="wb-btn" data-act="redo" title="Ulangi (Ctrl+Y)">↷</button>
-            <button type="button" class="wb-btn" data-act="clear" title="Hapus semua">🗑️</button>
+            <button type="button" class="wb-btn" data-act="clear" title="Hapus semua">${Icon('trash')}</button>
             <button type="button" class="wb-btn wb-bg" data-act="bg" title="Ganti latar">▦</button>
           </div>
         </div>
@@ -67,7 +67,7 @@ const Whiteboard = (() => {
           <canvas class="wb-layer wb-bg-layer"></canvas>
           <canvas class="wb-layer wb-ink"></canvas>
           <canvas class="wb-layer wb-live"></canvas>
-          <span class="wb-hint">Papan tulis ✏️ — coret-coret di sini</span>
+          <span class="wb-hint">Kanvas Coretan · corat-coret di sini</span>
         </div>`;
       this.surface = this.host.querySelector('.wb-surface');
       [this.bgCanvas, this.inkCanvas, this.liveCanvas] = this.host.querySelectorAll('canvas');

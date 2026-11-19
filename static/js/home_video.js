@@ -119,17 +119,17 @@ const HomeVideo = (() => {
     },
 
     peta: {
-      title: 'Peta Belajar 4 Level',
+      title: 'Skill Tree 4 Level',
       scenes: [
         {
           cap: 'Kurikulumnya punya 4 level, dari PreCalculus sampai Kalkulus Tingkat Lanjut.',
           dur: 4500,
           html: () => `
-            ${title('Peta Belajar Kalkulus')}
-            <div class="v-pill v-pop" ${at(40, 280, d(0.3))}>🧱 PreCalculus</div>
-            <div class="v-pill v-pop" ${at(130, 222, d(0.7))}>📐 Kalkulus Dasar</div>
-            <div class="v-pill v-pop" ${at(230, 164, d(1.1))}>🌀 Kalkulus Tingkat Menengah</div>
-            <div class="v-pill v-pop" ${at(360, 106, d(1.5, 'border-color:#F59E0B'))}>🚀 Kalkulus Tingkat Lanjut</div>
+            ${title('Skill Tree Kalkulus')}
+            <div class="v-pill v-pop" ${at(40, 280, d(0.3))}>${Icon('lv-precalculus')} PreCalculus</div>
+            <div class="v-pill v-pop" ${at(130, 222, d(0.7))}>${Icon('lv-kalkulus-dasar')} Kalkulus Dasar</div>
+            <div class="v-pill v-pop" ${at(230, 164, d(1.1))}>${Icon('lv-kalkulus-menengah')} Kalkulus Tingkat Menengah</div>
+            <div class="v-pill v-pop" ${at(360, 106, d(1.5, 'border-color:#F59E0B'))}>${Icon('lv-kalkulus-lanjut')} Kalkulus Tingkat Lanjut</div>
             ${archie(90, 500, 230, 'v-pop v-wave', d(1.9))}`,
         },
         {
@@ -140,13 +140,13 @@ const HomeVideo = (() => {
             <svg class="v-abs" ${at(0, 0, 'width:640px;height:360px')} viewBox="0 0 640 360">
               <path d="M149 289 L289 199 L429 269 L549 149" fill="none" stroke="#334155" stroke-width="5" stroke-dasharray="4 10" stroke-linecap="round"/>
             </svg>
-            <div class="v-node done v-turn-done" ${at(120, 260, d(1))}><span class="v-fade-out" style="${d(0.8)}">🔢</span></div>
+            <div class="v-node done v-turn-done" ${at(120, 260, d(1))}><span class="v-fade-out" style="${d(0.8)}">${Icon('m-number-line')}</span></div>
             <div class="v-abs v-pop" ${at(139, 270, d(1.1, 'font-size:26px;font-weight:900;color:#fff'))}>✓</div>
             <div class="v-xp v-float-up" ${at(110, 220, d(1.2))}>+10 XP</div>
-            <div class="v-node on v-turn-on" ${at(260, 170, d(2))}><span class="v-fade-out" style="${d(1.8)}">🔒</span></div>
-            <div class="v-abs v-pop" ${at(276, 183, d(2.1, 'font-size:24px'))}>📈</div>
-            <div class="v-node" ${at(400, 240)}>🔒</div>
-            <div class="v-node" ${at(520, 120)}>🔒</div>
+            <div class="v-node on v-turn-on" ${at(260, 170, d(2))}><span class="v-fade-out" style="${d(1.8)}">${Icon('lock')}</span></div>
+            <div class="v-abs v-pop" ${at(276, 183, d(2.1, 'font-size:24px'))}>${Icon('m-tangent')}</div>
+            <div class="v-node" ${at(400, 240)}>${Icon('lock')}</div>
+            <div class="v-node" ${at(520, 120)}>${Icon('lock')}</div>
             ${archie(54, 262, 108, 'v-hop', d(2.3, '--fx:-140px;--fy:90px;--t:.9s'))}`,
         },
         {
@@ -154,11 +154,11 @@ const HomeVideo = (() => {
           dur: 4500,
           html: () => `
             ${title('5 sesi latihan per topik')}
-            <div class="v-row on v-left" ${at(150, 76, d(0.2))}>🌱 Sesi I · Mudah<em class="v-glow" style="${d(1.4)}">Mulai ➔</em></div>
-            <div class="v-row v-left" ${at(150, 124, d(0.4))}>🔒 Sesi II · Sedang<em>Terkunci</em></div>
-            <div class="v-row v-left" ${at(150, 172, d(0.6))}>🔒 Sesi III · Sulit<em>Terkunci</em></div>
-            <div class="v-row v-left" ${at(150, 220, d(0.8))}>🔒 Sesi IV · Tantangan<em>Terkunci</em></div>
-            <div class="v-row v-left" ${at(150, 268, d(1))}>🔒 Sesi V · Olimpiade<em>Terkunci</em></div>
+            <div class="v-row on v-left" ${at(150, 76, d(0.2))}>${Icon('sprout')} Sesi I · Mudah<em class="v-glow" style="${d(1.4)}">Mulai ➔</em></div>
+            <div class="v-row v-left" ${at(150, 124, d(0.4))}>${Icon('lock')} Sesi II · Sedang<em>Terkunci</em></div>
+            <div class="v-row v-left" ${at(150, 172, d(0.6))}>${Icon('lock')} Sesi III · Sulit<em>Terkunci</em></div>
+            <div class="v-row v-left" ${at(150, 220, d(0.8))}>${Icon('lock')} Sesi IV · Tantangan<em>Terkunci</em></div>
+            <div class="v-row v-left" ${at(150, 268, d(1))}>${Icon('lock')} Sesi V · Olimpiade<em>Terkunci</em></div>
             ${archie(80, 520, 250, 'v-pop', d(1.3))}`,
         },
       ],
@@ -180,7 +180,7 @@ const HomeVideo = (() => {
           html: () => `
             ${QUIZ_CARD({ a: 'ok v-turn-ok', ad: d(0.3) })}
             <div class="v-toast v-pop" ${at(462, 190, d(0.5))}>✓ Benar! +10 XP</div>
-            <div class="v-pill v-pop v-glow" ${at(520, 60, d(1.2, 'background:#F97316;border-color:#F97316;color:#fff;font-size:13px'))}>💡 Hint</div>
+            <div class="v-pill v-pop v-glow" ${at(520, 60, d(1.2, 'background:#F97316;border-color:#F97316;color:#fff;font-size:13px'))}>${Icon('bulb')} Hint</div>
             ${archie(84, 540, 262, 'v-pop mascot-celebrate', d(0.9))}`,
         },
         {
@@ -188,24 +188,24 @@ const HomeVideo = (() => {
           dur: 5000,
           html: () => `
             <div class="v-card v-in" ${at(110, 30, 'width:420px;height:290px;padding:20px 22px;')}>
-              <div style="font-weight:800;color:#4ADE80;font-size:16px">📚 Pembahasan</div>
+              <div style="font-weight:800;color:#4ADE80;font-size:16px">${Icon('book')} Pembahasan</div>
               <ol style="margin:12px 0 0 20px;font-size:15px;line-height:1.5">
                 <li class="v-in" style="${d(0.5)}">Turunkan tiap suku: (3x²)′ = 6x</li>
                 <li class="v-in" style="${d(1.4)}">(5x)′ = 5</li>
                 <li class="v-in" style="${d(2.3)}">Jadi f′(x) = <b>6x + 5</b></li>
               </ol>
               <div class="v-in" style="${d(3.1, 'margin-top:16px;padding:10px 14px;border-radius:10px;background:rgba(34,197,94,.16);border:1px solid #22C55E;font-weight:700')}">Jawaban: 6x + 5</div>
-              <div class="v-in" style="${d(3.6, 'margin-top:12px;font-size:12px;color:#94A3B8')}">💬 Aturan pangkat: (axⁿ)′ = n·axⁿ⁻¹</div>
+              <div class="v-in" style="${d(3.6, 'margin-top:12px;font-size:12px;color:#94A3B8')}">${Icon('chat')} Aturan pangkat: (axⁿ)′ = n·axⁿ⁻¹</div>
             </div>`,
         },
         {
-          cap: 'Mau santai? Latihan Bebas: pilih topik sesukamu, tanpa nyawa dan tanpa XP.',
+          cap: 'Mau santai? Mode Latihan: pilih topik sesukamu, gak pakai heart dan gak dapat XP.',
           dur: 4500,
           html: () => {
             const topics = ['Aturan Rantai', 'Limit Fungsi', 'Integral Tentu', 'Optimasi'];
             return `
-              ${title('Latihan Bebas')}
-              <div class="v-sub v-in" style="${d(0.2)}">❤️ tanpa nyawa · ⚡ tanpa XP · 🎲 soal acak</div>
+              ${title('Mode Latihan')}
+              <div class="v-sub v-in" style="${d(0.2)}">${Icon('heart')} tanpa heart · ${Icon('bolt')} tanpa XP · ${Icon('dice')} soal acak</div>
               ${topics.map((tp, i) => `
                 <div class="v-row v-left" ${at(150, 92 + i * 48, d(0.3 + i * 0.15))}>
                   <span style="position:relative;width:20px;height:20px;border-radius:5px;border:2px solid #64748B">
@@ -225,7 +225,7 @@ const HomeVideo = (() => {
           dur: 4500,
           html: () => `
             <div class="v-card v-in" ${at(130, 36, 'width:380px;height:280px;padding:22px;')}>
-              <span class="v-chip">📚 Whitman · Strang · Stewart</span>
+              <span class="v-chip">${Icon('book')} Whitman · Strang · Stewart</span>
               <div style="font:800 19px var(--font-head);margin-top:12px">Turunan = gradien garis singgung</div>
               <div class="v-line v-left" style="${d(0.5, 'width:95%')}"></div>
               <div class="v-line v-left" style="${d(0.7, 'width:88%')}"></div>
@@ -243,29 +243,29 @@ const HomeVideo = (() => {
           tick: (c, t) => setTangent(c, -1.6 + 3.2 * (0.5 - 0.5 * Math.cos((Math.PI * t) / 3000))),
         },
         {
-          cap: 'Tekan 📌 Pin untuk menyimpan kondisi, lalu bandingkan dengan kondisi lain.',
+          cap: 'Tekan Pin buat nyimpen kondisi, terus bandingin sama kondisi lain.',
           dur: 5000,
           html: () => graphHTML(`
             <line class="v-in" style="${d(0.6)}" x1="${GX(-0.3)}" y1="${GY(-1.6)}" x2="${GX(2.3)}" y2="${GY(3.6)}" stroke="#A78BFA" stroke-width="3" stroke-dasharray="7 5"/>
             <circle class="v-in" style="${d(0.6)}" cx="${GX(1)}" cy="${GY(1)}" r="6" fill="#A78BFA"/>`) + `
-            <div class="v-pill v-pop" ${at(400, 30, d(0.7, 'font-size:12px;border-color:#A78BFA;color:#C4B5FD'))}>📌 Pin 1: a = 1 · f′ = 2</div>`,
+            <div class="v-pill v-pop" ${at(400, 30, d(0.7, 'font-size:12px;border-color:#A78BFA;color:#C4B5FD'))}>${Icon('pin')} Pin 1: a = 1 · f′ = 2</div>`,
           tick: (c, t) => setTangent(c, -1.7 + 1.3 * Math.min(t / 4000, 1)),
         },
       ],
     },
 
     papan: {
-      title: 'Papan Coret-coret',
+      title: 'Kanvas Coretan',
       scenes: [
         {
-          cap: 'Setiap soal punya papan coret-coret. Bisa pakai mouse, jari, atau stylus.',
+          cap: 'Tiap soal punya kanvas coretan sendiri. Bisa pakai mouse, jari, atau stylus.',
           dur: 4500,
           html: () => `
             <div class="v-board v-in"></div>
             <div class="v-tools v-in" style="${d(0.2)}">
               <span class="v-swatch on" style="--c:#1E1B16"></span><span class="v-swatch" style="--c:#2563EB"></span>
               <span class="v-swatch" style="--c:#DC2626"></span><span class="v-swatch" style="--c:#16A34A"></span>
-              <span class="v-tool">✏️ Pena</span><span class="v-tool">🧽 Hapus</span><span class="v-tool">↶ Undo</span><span class="v-tool">▦ Petak</span>
+              <span class="v-tool">${Icon('pen')} Pena</span><span class="v-tool">${Icon('eraser')} Hapus</span><span class="v-tool">↶ Undo</span><span class="v-tool">▦ Petak</span>
             </div>
             ${write('∫ 2x dx', 130, 90, 0.6, 1400, 46)}
             ${write('= x² + C', 160, 175, 2.2, 1300, 46, '#2563EB')}`,
@@ -278,7 +278,7 @@ const HomeVideo = (() => {
             <div class="v-tools">
               <span class="v-swatch" style="--c:#1E1B16"></span><span class="v-swatch" style="--c:#2563EB"></span>
               <span class="v-swatch on v-pop" style="--c:#DC2626;${d(0.3)}"></span><span class="v-swatch" style="--c:#16A34A"></span>
-              <span class="v-tool">✏️ Pena</span><span class="v-tool">🧽 Hapus</span><span class="v-tool">↶ Undo</span><span class="v-tool">▦ Petak</span>
+              <span class="v-tool">${Icon('pen')} Pena</span><span class="v-tool">${Icon('eraser')} Hapus</span><span class="v-tool">↶ Undo</span><span class="v-tool">▦ Petak</span>
             </div>
             ${write('∫ 2x dx', 130, 90, 0, 1, 46)}
             ${write('= x² + C', 160, 175, 0, 1, 46, '#2563EB')}
@@ -289,29 +289,29 @@ const HomeVideo = (() => {
             ${write('jawab!', 470, 92, 2.6, 600, 30, '#DC2626')}`,
         },
         {
-          cap: 'Pindah soal? Coretanmu tersimpan dan muncul lagi saat kamu kembali.',
+          cap: 'Pindah soal? Coretanmu tersimpan dan muncul lagi pas kamu balik.',
           dur: 4500,
           html: () => `
             ${[['Soal 1', '∫ 2x dx = x² + C', 30, 0.2], ['Soal 2', 'lim sin x / x = 1', 340, 1.4]].map(([lbl, txt, l, s]) => `
               <div class="v-abs v-in" ${at(l, 40, d(s, 'font-weight:800;font-size:14px'))}>${lbl}</div>
               <div class="v-board v-in" ${at(l, 66, d(s, 'width:270px;height:190px'))}></div>
               ${write(txt, l + 16, 130, s + 0.4, 1000, 21)}
-              <div class="v-pill v-pop" ${at(l + 40, 272, d(s + 1.6, 'font-size:12px;border-color:#22C55E;color:#4ADE80'))}>💾 tersimpan untuk ${lbl.toLowerCase()}</div>`).join('')}`,
+              <div class="v-pill v-pop" ${at(l + 40, 272, d(s + 1.6, 'font-size:12px;border-color:#22C55E;color:#4ADE80'))}>${Icon('check')} tersimpan untuk ${lbl.toLowerCase()}</div>`).join('')}`,
         },
       ],
     },
 
     gamifikasi: {
-      title: 'XP, Streak & Nyawa',
+      title: 'XP, Streak & Heart',
       scenes: [
         {
-          cap: 'Setiap jawaban benar memberi XP. Belajar tiap hari untuk menjaga streak 🔥.',
+          cap: 'Tiap jawaban benar ngasih XP. Belajar tiap hari biar streak-mu kejaga.',
           dur: 4500,
           html: () => `
-            <div class="v-pill v-pop" ${at(90, 110, d(0.1, 'font-size:24px;padding:14px 22px;color:#93C5FD'))}>⚡ <span id="v-xpnum">0</span> XP</div>
-            <div class="v-pill v-pop" ${at(330, 110, d(0.3, 'font-size:24px;padding:14px 22px;color:#FDBA74'))}>🔥
+            <div class="v-pill v-pop" ${at(90, 110, d(0.1, 'font-size:24px;padding:14px 22px;color:#93C5FD'))}>${Icon('bolt')} <span id="v-xpnum">0</span> XP</div>
+            <div class="v-pill v-pop" ${at(330, 110, d(0.3, 'font-size:24px;padding:14px 22px;color:#FDBA74'))}>${Icon('flame')}
               <span style="position:relative;display:inline-block;width:18px"><span class="v-fade-out" style="${d(2.6, 'position:absolute')}">2</span><span class="v-pop" style="${d(2.8)}">3</span></span></div>
-            <div class="v-pill v-pop" ${at(460, 110, d(0.5, 'font-size:24px;padding:14px 22px;color:#4ADE80'))}>💎 100</div>
+            <div class="v-pill v-pop" ${at(460, 110, d(0.5, 'font-size:24px;padding:14px 22px;color:#4ADE80'))}>${Icon('diamond')} 100</div>
             <div class="v-abs" ${at(90, 200, 'width:460px;height:14px;border-radius:7px;background:#334155;overflow:hidden')}>
               <div class="v-fill" style="${d(0.5, '--t:2s;width:75%;height:100%;background:linear-gradient(90deg,#3B82F6,#22C55E)')}"></div></div>
             <div class="v-sub" style="top:226px">Menuju level berikutnya</div>
@@ -324,27 +324,27 @@ const HomeVideo = (() => {
           },
         },
         {
-          cap: 'Gagal lulus sesi mengurangi 1 nyawa. Nyawa penuh lagi 24 jam setelah nyawa pertama hilang.',
+          cap: 'Gagal lulus sesi = −1 heart. Heart penuh lagi 24 jam setelah heart pertama hilang.',
           dur: 4500,
           html: () => `
-            ${title('Nyawa')}
+            ${title('Heart')}
             <div class="v-abs" ${at(110, 120, 'display:flex;gap:6px')}>
               ${Array.from({ length: 10 }, (_, i) => i < 9
-                ? `<span class="v-heart v-pop" style="${d(0.1 + i * 0.06)}">❤️</span>`
-                : `<span style="position:relative"><span class="v-heart v-break" style="${d(1.4)}"><span class="v-fade-out" style="${d(1.9)}">❤️</span></span><span class="v-heart v-pop" style="${d(2.1, 'position:absolute;left:0;top:0')}">🤍</span></span>`).join('')}
+                ? `<span class="v-heart v-pop" style="${d(0.1 + i * 0.06)}">${Icon('heart')}</span>`
+                : `<span style="position:relative"><span class="v-heart v-break" style="${d(1.4)}"><span class="v-fade-out" style="${d(1.9)}">${Icon('heart')}</span></span><span class="v-heart v-pop" style="${d(2.1, 'position:absolute;left:0;top:0')}">${Icon('heart-broken')}</span></span>`).join('')}
             </div>
             <div class="v-pill" ${at(270, 180, 'font-size:18px;color:#FCA5A5')}>
               <span style="position:relative;display:inline-block;width:48px"><span class="v-fade-out" style="${d(1.9, 'position:absolute')}">10/10</span><span class="v-pop" style="${d(2.1)}">9/10</span></span></div>
-            <div class="v-pill v-in" ${at(150, 250, d(2.6, 'font-size:13px;color:#CBD5E1'))}>⏳ Penuh lagi 24 jam setelah nyawa pertama hilang</div>`,
+            <div class="v-pill v-in" ${at(150, 250, d(2.6, 'font-size:13px;color:#CBD5E1'))}>${Icon('clock')} Penuh lagi 24 jam setelah heart pertama hilang</div>`,
         },
         {
-          cap: 'Kumpulkan XP dan naik di papan peringkat!',
+          cap: 'Kumpulin XP dan naik di leaderboard!',
           dur: 5000,
           html: () => {
             const row = (rank, name, xp, color, top, cls = '', more = '') =>
               `<div class="v-rank ${cls}" ${at(150, top, more)}><b style="width:16px">${rank}</b><span class="av" style="background:${color}">${name[0]}</span><span>${name}</span><span>${xp} XP</span></div>`;
             return `
-              ${title('Papan Peringkat')}
+              ${title('Leaderboard')}
               ${row(1, 'Andi', '1.840', '#D97706', 80, 'v-in')}
               ${row(3, 'Sari', '1.620', '#6B7280', 180, 'v-move', d(1.6, '--fy:-50px;--t:.7s'))}
               ${row(4, 'Rizky', '1.380', '#B45309', 230, 'v-move', d(1.6, '--fy:-50px;--t:.7s'))}
@@ -357,20 +357,20 @@ const HomeVideo = (() => {
     },
 
     diagnostik: {
-      title: 'Jalur Fakultas & Tes Awal',
+      title: 'Jalur Fakultas & Tes Diagnostik',
       scenes: [
         {
           cap: 'Pilih jalurmu: Fasilkom, FMIPA, atau Fakultas Teknik. Materinya ikut menyesuaikan.',
           dur: 4500,
           html: () => `
             ${title('Pilih jalurmu')}
-            <div class="v-fac on v-pop v-turn-sel" ${at(50, 110, d(0.2, 'animation-name:vPop,vTurnSel;animation-delay:.2s,2.4s;animation-duration:.45s,.3s'))}><i>💻</i>Fasilkom<small>Gradient descent, AI math</small></div>
-            <div class="v-fac v-pop" ${at(240, 110, d(0.4))}><i>🔬</i>FMIPA<small>Pembuktian ε-δ, analisis</small></div>
-            <div class="v-fac v-pop" ${at(430, 110, d(0.6))}><i>⚙️</i>Fak. Teknik<small>Laju terkait, optimasi</small></div>
+            <div class="v-fac on v-pop v-turn-sel" ${at(50, 110, d(0.2, 'animation-name:vPop,vTurnSel;animation-delay:.2s,2.4s;animation-duration:.45s,.3s'))}><i>${Icon('fac-fasilkom')}</i>Fasilkom<small>Gradient descent, AI math</small></div>
+            <div class="v-fac v-pop" ${at(240, 110, d(0.4))}><i>${Icon('fac-fmipa')}</i>FMIPA<small>Pembuktian ε-δ, analisis</small></div>
+            <div class="v-fac v-pop" ${at(430, 110, d(0.6))}><i>${Icon('fac-ft')}</i>Fak. Teknik<small>Laju terkait, optimasi</small></div>
             ${cursor(150, 215, 'v-move', d(1.2, '--fx:300px;--fy:100px;--t:1s'))}`,
         },
         {
-          cap: 'Ikuti tes awal 10 soal (opsional) untuk mengukur kemampuanmu.',
+          cap: 'Ikut tes diagnostik 10 soal (opsional) buat ngecek kemampuanmu.',
           dur: 5000,
           html: () => {
             const res = [1, 1, 1, 0, 1, 1, 0, 1, 1, 1];
@@ -418,8 +418,8 @@ const HomeVideo = (() => {
         html: () => `
           ${archie(140, 250, 40, 'v-pop mascot-celebrate')}
           <div class="v-title v-in" style="top:200px;${d(0.4)}">Siap menyeberang?</div>
-          <div class="v-pill v-pop" ${at(170, 262, d(0.9, 'background:#F97316;border-color:#F97316;font-size:16px'))}>🎯 Coba 5 soal</div>
-          <div class="v-pill v-pop" ${at(360, 262, d(1.2, 'background:#3B82F6;border-color:#3B82F6;font-size:16px'))}>📝 Daftar</div>`,
+          <div class="v-pill v-pop" ${at(170, 262, d(0.9, 'background:#F97316;border-color:#F97316;font-size:16px'))}>${Icon('target')} Coba 5 soal</div>
+          <div class="v-pill v-pop" ${at(360, 262, d(1.2, 'background:#3B82F6;border-color:#3B82F6;font-size:16px'))}>${Icon('doc')} Daftar</div>`,
       }],
     },
   };
@@ -474,7 +474,7 @@ const HomeVideo = (() => {
   function setPlaying(on) {
     playing = on;
     root.classList.toggle('is-paused', !on);
-    $('vp-play').textContent = on ? '⏸' : '▶';
+    $('vp-play').innerHTML = Icon(on ? 'pause' : 'resume');
     $('vp-play').setAttribute('aria-label', on ? 'Jeda' : 'Putar');
     cancelAnimationFrame(raf);
     if (on) { last = performance.now(); raf = requestAnimationFrame(frame); }

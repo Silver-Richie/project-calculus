@@ -1,38 +1,39 @@
+{% load icons %}
 <!-- =========================================================================
      KOMPONEN: Bottom Navigation Bar
      Branch  : ui/design-system
-     Isi     : Level Up | Lesson | Latihan | Ranked | Rank | User
+     Isi     : Level Up | Kurikulum | Latihan | Ranked | Leaderboard | Profil
      ========================================================================= -->
 <nav class="bottom-nav">
 
   <button class="bottom-nav-item active" id="bnav-levelup" onclick="Nav.go('levelup')">
-    <span class="bottom-nav-icon">🌳</span>
+    <span class="bottom-nav-icon">{% icon "tree" %}</span>
     Level Up
   </button>
 
   <button class="bottom-nav-item" id="bnav-lesson" onclick="Nav.go('lesson')">
-    <span class="bottom-nav-icon">📖</span>
-    Lesson
+    <span class="bottom-nav-icon">{% icon "book" %}</span>
+    Kurikulum
   </button>
 
   <button class="bottom-nav-item" id="bnav-free" onclick="Nav.go('free')">
-    <span class="bottom-nav-icon">🎯</span>
+    <span class="bottom-nav-icon">{% icon "target" %}</span>
     Latihan
   </button>
 
   <button class="bottom-nav-item" id="bnav-ranked" onclick="Nav.go('ranked')">
-    <span class="bottom-nav-icon">⚔️</span>
+    <span class="bottom-nav-icon">{% icon "swords" %}</span>
     Ranked
   </button>
 
   <button class="bottom-nav-item" id="bnav-rank" onclick="Nav.go('rank')">
-    <span class="bottom-nav-icon">🏆</span>
-    Rank
+    <span class="bottom-nav-icon">{% icon "podium" %}</span>
+    Leaderboard
   </button>
 
   <button class="bottom-nav-item" id="bnav-user" onclick="Nav.go('user')">
-    <span class="bottom-nav-icon">👤</span>
-    User
+    <span class="bottom-nav-icon">{% icon "user" %}</span>
+    Profil
   </button>
 
 </nav>
