@@ -24,8 +24,8 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
-# PRODUCTION=True (di .env server) → DEBUG mati, kunci rahasia wajib dari .env, database MySQL,
-# cookie hanya lewat HTTPS. Di laptop .env tidak perlu mengisinya: tetap mode pengembangan.
+# PRODUCTION=True (di .env server) → DEBUG mati, kunci rahasia wajib dari .env,
+# cookie hanya lewat HTTPS. Database: lihat bagian Database di bawah. Di laptop .env tidak perlu mengisinya: tetap mode pengembangan.
 PRODUCTION = os.getenv('PRODUCTION', 'False').lower() == 'true'
 
 # SECURITY WARNING: keep the secret key used in production secret!
@@ -116,9 +116,10 @@ else:
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
 # Database configuration
-# Produksi: MySQL PythonAnywhere (tab Databases). DB_NAME berbentuk "username$namadb",
-# DB_HOST berbentuk "username.mysql.pythonanywhere-services.com".
-if PRODUCTION:
+# Default: SQLite (db.sqlite3 di folder proyek) — juga di PythonAnywhere gratis, yang sejak 2026
+# tidak lagi mendapat MySQL. Isi DB_HOST di .env (akun berbayar) untuk beralih ke MySQL:
+# DB_NAME "username$namadb", DB_HOST "username.mysql.pythonanywhere-services.com".
+if os.getenv('DB_HOST'):
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.mysql',
@@ -139,6 +140,7 @@ else:
 'default': {
 'ENGINE': 'django.db.backends.sqlite3',
 'NAME': BASE_DIR / 'db.sqlite3',
+'OPTIONS': {'timeout': 20},   # tunggu bila ada penulisan bersamaan, bukan langsung "database is locked"
         }
     }
 
