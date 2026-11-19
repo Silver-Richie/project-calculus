@@ -208,6 +208,11 @@ STATICFILES_DIRS = [
     BASE_DIR / 'static',
 ]
 
+# Unggahan pengguna (foto profil). Di PythonAnywhere: petakan /media/ → folder media/ di tab Web.
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
+
+
 # Autentikasi (templates/auth/)
 LOGIN_URL = 'gamification:auth_login'
 LOGIN_REDIRECT_URL = 'gamification:home'

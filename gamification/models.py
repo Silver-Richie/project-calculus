@@ -370,6 +370,11 @@ class UserProfile(models.Model):
     star_shields = models.PositiveIntegerField(default=0, help_text="Perisai Bintang: otomatis menahan bintang saat kalah duel")
     equipped = models.JSONField(default=dict, blank=True,
                                 help_text="Kosmetik terpasang per slot: head/face/neck/frame/title → kunci barang toko")
+    # Foto profil (gamification/avatar.py): polos (inisial), template bawaan, atau unggahan sendiri.
+    avatar_kind = models.CharField(max_length=10, default="initial",
+                                   choices=[("initial", "Polos"), ("preset", "Template"), ("upload", "Unggahan")])
+    avatar_preset = models.CharField(max_length=30, blank=True, default="", help_text="Kunci template (avatar.PRESETS)")
+    avatar_file = models.FileField(upload_to="avatars/", blank=True, help_text="Foto unggahan 256×256 (dipotong di browser)")
     campus = models.CharField(
         max_length=120, blank=True, default="",
         help_text="Asal kampus untuk papan peringkat per kampus; 'Umum' = bukan mahasiswa / tidak disebutkan; kosong = belum diisi",

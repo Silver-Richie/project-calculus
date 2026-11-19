@@ -32,7 +32,7 @@ from django.db import transaction
 from django.db.models import F, Q
 from django.utils import timezone
 
-from . import generators, ranking, shop
+from . import avatar, generators, ranking, shop
 from .leveling import level_for
 from .models import DuelAnswer, DuelMatch, DuelQueue, Topic, UserProfile, rank_of
 from .ranking import TIERS, describe
@@ -381,4 +381,6 @@ def player_card(user):
         "campus": profile.campus if profile and profile.campus != "Umum" else "",
         "faculty": profile.faculty.short_name if profile and profile.faculty else "",
         "rank": describe(rank_of(user).state),
+        "username": user.username,
+        "avatar": avatar.describe(profile) if profile else {"kind": "initial"},
     }

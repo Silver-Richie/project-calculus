@@ -6,7 +6,10 @@
      ========================================================================= -->
 
 <div class="profile-hero">
-  <div class="profile-avatar-lg" id="profile-avatar-lg">{{ server_profile.display_name|first|upper|default:"M" }}</div>
+  <div class="profile-avatar-wrap">
+    {% avatar server_profile.avatar server_profile.display_name|default:"Mahasiswa" server_profile.username cls="profile-avatar-lg" id="profile-avatar-lg" %}
+    <button type="button" class="profile-avatar-edit" data-avatar-edit title="Ganti foto profil" aria-label="Ganti foto profil">{% icon "pen" %}</button>
+  </div>
   <div>
     <div class="profile-hero-name" id="profile-name">{{ server_profile.display_name|default:"Mahasiswa Baru" }}</div>
     <div class="profile-title" id="profile-title">{{ server_profile.look.title_text }}</div>

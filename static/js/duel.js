@@ -133,7 +133,7 @@ const Duel = (() => {
   function card(p, side) {
     const sub = [p.faculty, p.campus].filter(Boolean).join(' · ');
     return `<div class="duel-card ${side}">
-      <div class="duel-avatar">${esc((p.name[0] || '?').toUpperCase())}</div>
+      ${Avatar.html(p.avatar, p.name, p.username, 'duel-avatar')}
       <b>${esc(p.name)}</b><small>${esc(sub)}</small>
       ${RankBadge.html(p.rank)}<span class="duel-lv">Lv ${p.level}</span></div>`;
   }

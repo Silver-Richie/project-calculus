@@ -15,7 +15,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_POST
 
-from . import campus, duel, free_practice, generators, ranking, services, sessions, shop
+from . import avatar, campus, duel, free_practice, generators, ranking, services, sessions, shop
 from .leveling import level_for, level_info
 from .models import Faculty, MainLevel, PracticeSession, SkillNode, Topic, UserProfile
 
@@ -63,6 +63,31 @@ def set_faculty_api(request):
     profile.save(update_fields=["faculty", "updated_at"])
     return JsonResponse({"status": "success", "faculty": faculty.slug})
 
+
+
+@login_required
+@require_POST
+def set_avatar_api(request):
+    """
+    POST /api/profile/avatar/ — ganti foto profil (gamification/avatar.py).
+    JSON {"kind": "initial"} | {"kind": "preset", "preset": "integral"};
+    unggahan: multipart dengan kind=upload dan berkas "file" (sudah dipotong 256×256 di browser).
+    """
+    profile, _ = UserProfile.objects.get_or_create(user=request.user)
+    body = request.POST if request.FILES or request.content_type.startswith("multipart") else _json_body(request)
+    kind = body.get("kind")
+    try:
+        if kind == "initial":
+            avatar.set_initial(profile)
+        elif kind == "preset":
+            avatar.set_preset(profile, body.get("preset", ""))
+        elif kind == "upload":
+            avatar.set_upload(profile, request.FILES.get("file"))
+        else:
+            raise avatar.AvatarError("Jenis foto gak dikenal.")
+    except avatar.AvatarError as err:
+        return JsonResponse({"status": "error", "message": str(err)}, status=400)
+    return JsonResponse({"status": "success", "avatar": avatar.describe(profile)})
 
 
 @login_required
@@ -131,7 +156,8 @@ def leaderboard_api(request):
         st = pr.state if pr else ranking.RankState()
         r = {"pos": pos, "index": index, "name": p.user.first_name or p.user.username, "username": p.user.username,
              "user_id": p.user_id, "faculty": p.faculty.short_name if p.faculty else "", "campus": p.campus,
-             "me": p.pk == me.pk, "frame": look.get("frame", ""), "title": look["title_text"], "tier": st.tier}
+             "me": p.pk == me.pk, "frame": look.get("frame", ""), "title": look["title_text"], "tier": st.tier,
+             "avatar": avatar.describe(p)}
         if board == "level":
             r.update(xp=p.xp, level=level_for(p.xp))
         else:

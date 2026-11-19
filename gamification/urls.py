@@ -9,7 +9,7 @@ from .views import (
     landing_page, get_curriculum_api, get_diagnostic_api, submit_diagnostic_api, set_faculty_api,
     session_api, submit_session_api, leave_session_api, complete_node_api,
     free_practice_catalog_api, free_practice_start_api, trial_quiz_api,
-    set_campus_api, leaderboard_api, shop_api, shop_buy_api, shop_equip_api,
+    set_campus_api, set_avatar_api, leaderboard_api, shop_api, shop_buy_api, shop_equip_api,
 )
 
 app_name = 'gamification'
@@ -36,6 +36,7 @@ urlpatterns = [
     path('api/diagnostic/submit/', submit_diagnostic_api, name='submit_diagnostic_api'),
     path('api/profile/faculty/', set_faculty_api, name='set_faculty_api'),
     path('api/profile/campus/', set_campus_api, name='set_campus_api'),
+    path('api/profile/avatar/', set_avatar_api, name='set_avatar_api'),
     path('api/peringkat/', leaderboard_api, name='leaderboard_api'),
     path('api/toko/', shop_api, name='shop_api'),
     path('api/toko/beli/', shop_buy_api, name='shop_buy_api'),
