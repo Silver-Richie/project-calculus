@@ -530,6 +530,31 @@ class PracticeSessionApiTests(TestCase):
         self.assertEqual(retry["attempt"], 1)
         self.assertNotEqual([q["id"] for q in retry["questions"]], [q["id"] for q in data["questions"]])
 
+    def _leave(self, session, attempt, quit=False):
+        return self.client.post(f"/api/session/{session.id}/keluar-tab/",
+                                data=json.dumps({"attempt": attempt, "quit": quit}), content_type="application/json").json()
+
+    def test_leaving_tab_warns_then_fails_session(self):
+        data = self._open(self.s1).json()
+        self.assertEqual((data["tab_leaves"], data["max_tab_leaves"]), (0, 2))
+        self.assertEqual(self._leave(self.s1, data["attempt"])["status"], "warning")
+        again = self._open(self.s1).json()                                              # muat ulang: hitungan tetap
+        self.assertEqual((again["attempt"], again["tab_leaves"]), (data["attempt"], 1))
+        res = self._leave(self.s1, data["attempt"])
+        self.assertEqual((res["status"], res["passed"], res["score"], res["xp_awarded"], res["heart_lost"]),
+                         ("failed", False, 0, 0, True))
+        self.assertEqual(self._leave(self.s1, data["attempt"])["status"], "stale")     # percobaan sudah selesai
+        retry = self._open(self.s1).json()
+        self.assertEqual((retry["attempt"], retry["tab_leaves"]), (data["attempt"] + 1, 0))
+        # jawaban percobaan yang sudah digagalkan tidak bisa dikirim lagi
+        self.assertEqual(self._submit(self.s1, data["attempt"], self._answers(data)).status_code, 409)
+
+    def test_quitting_mid_session_fails_immediately(self):
+        data = self._open(self.s1).json()
+        res = self._leave(self.s1, data["attempt"], quit=True)
+        self.assertEqual((res["status"], res["passed"]), ("failed", False))
+        self.assertEqual(UserProfile.objects.get(user=self.user).hearts, 9)
+
     def test_xp_only_for_improvement(self):
         data = self._open(self.s1).json()
         first = self._submit(self.s1, data["attempt"], self._answers(data)).json()
@@ -1063,6 +1088,26 @@ class RankLeaderboardTests(TestCase):
                          [("ani", 1, "Apex Orbit"), ("cici", 2, "Nova I"), ("budi", 2, "Nova I"), ("dedi", 4, "Terra III")])
         self.assertEqual(data["me"]["rank"]["stars"], 0)
 
+    def test_rank_board_layers_neighbours_and_recent_duels(self):
+        data = self.board()
+        self.assertEqual({t["tier"]: t["count"] for t in data["tiers"]}, {"terra": 1, "luna": 0, "solar": 0, "nova": 2, "apex": 1})
+        self.assertEqual([(r["name"], r["index"]) for r in data["around"]], [("cici", 1), ("budi", 2), ("dedi", 3)])
+        self.assertEqual((data["me"]["index"], data["me"]["rank"]["next_label"], data["played"]), (3, "Terra II", False))
+        ani, dedi = User.objects.get(username="ani"), User.objects.get(username="dedi")
+        DuelMatch.objects.create(player_a=ani, player_b=dedi, tier="terra", time_limit=45, status=DuelMatch.FINISHED,
+                                 winner=ani, finished_at=timezone.now())
+        PlayerRank.objects.filter(user=ani).update(wins=1)
+        data = self.board()
+        self.assertEqual((data["me"]["recent"], data["rows"][0]["recent"], data["played"]), (["l"], ["w"], True))
+
+    def test_wins_board_sorted_by_wins(self):
+        for name, wins in (("budi", 7), ("ani", 3)):
+            PlayerRank.objects.filter(user__username=name).update(wins=wins, losses=1)
+        data = self.client.get("/api/peringkat/?board=wins").json()
+        self.assertEqual([(r["name"], r["pos"], r["wins"]) for r in data["rows"]][:2], [("budi", 1, 7), ("ani", 2, 3)])
+        self.assertEqual((data["me"]["wins"], data["me"]["pos"]), (0, 3))
+        self.assertEqual(self.client.get("/api/peringkat/?board=wins&scope=apex").status_code, 400)
+
     def test_top_apex_only_lists_apex(self):
         self.assertEqual([r["name"] for r in self.board("apex")["rows"]], ["ani"])
         self.assertEqual(self.client.get("/api/peringkat/?board=level&scope=apex").status_code, 400)
@@ -1157,6 +1202,17 @@ class DuelLogicTests(TestCase):
         self.assertEqual((summary["correct_option"], summary["players"][str(b.id)]["option"]), (right, None))
         self.assertIsNone(duel.resolve_question(match.pk, 0, force=True))             # sekali saja
         self.assertEqual(DuelMatch.objects.get(pk=match.pk).current, 1)
+
+    def test_leaving_tab_voids_question_then_forfeits(self):
+        match, a, b = self.match()
+        duel.start_question(match.pk, 0)
+        right, _ = self.correct_option(match, 0)
+        info = duel.leave_tab(match.pk, a)
+        self.assertEqual((info["forfeit"], info["tab_leaves"], info["voided"], info["both"]), (False, 1, 0, False))
+        self.assertFalse(duel.record_answer(match.pk, a, 0, right)[0])                # soal itu sudah dihitung salah
+        self.assertEqual(DuelAnswer.objects.get(match=match, user=a, index=0).points, 0)
+        self.assertTrue(duel.leave_tab(match.pk, a)["forfeit"])
+        self.assertIsNone(duel.leave_tab(match.pk, self.player("orang-lain")))         # bukan pemain duel ini
 
     def test_outcome_and_protection(self):
         t = lambda pts, ms, c: {"points": pts, "ms": ms, "correct": c}
@@ -1257,6 +1313,19 @@ class DuelWebSocketTests(TransactionTestCase):
         await ca.disconnect()
         fb = await self.until(cb, "finished")
         self.assertEqual((fb["you"]["verdict"], fb["forfeit"]), ("win", True))
+        await cb.disconnect()
+
+    async def test_leaving_tab_twice_is_a_loss(self):
+        ca, cb, match_id = await self.matched_pair()
+        q = await self.until(ca, "question")
+        await ca.send_json_to({"type": "left"})
+        warn = await self.until(ca, "tab_warning")
+        self.assertEqual((warn["voided"], warn["tab_leaves"]), (q["index"], 1))
+        self.assertEqual((await self.until(cb, "progress"))["index"], q["index"])      # lawan melihat soal itu terjawab
+        await ca.send_json_to({"type": "left"})
+        fa, fb = await self.until(ca, "finished"), await self.until(cb, "finished")
+        self.assertEqual((fa["you"]["verdict"], fb["you"]["verdict"], fb["forfeit"]), ("lose", "win", True))
+        await ca.disconnect()
         await cb.disconnect()
 
     async def test_low_level_is_refused(self):

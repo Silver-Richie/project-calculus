@@ -1,0 +1,72 @@
+<!-- =========================================================================
+     MODUL: Ranked  (Page: Ranked)
+     Isi    : Layar rank duel bergaya lobi game: lambang tier + bintang di tengah, statistik
+              (win rate, total duel, menang beruntun, Perisai Bintang), tombol Mulai Duel,
+              jalan menuju Apex, dan penjelasan cara naik rank.
+              Diisi static/js/ranked.js dari server-profile; duel dimainkan lewat static/js/duel.js.
+     ========================================================================= -->
+
+<section class="ranked-hero" id="ranked-hero" aria-label="Rank duel kamu">
+  <header class="ranked-top">
+    <div>
+      <h2 class="ranked-title">⚔️ Ranked Duel</h2>
+      <small>Duel kalkulus 1 lawan 1 · 5 soal identik · adu cepat &amp; tepat</small>
+    </div>
+    <button type="button" class="ranked-help" data-ranked="info" aria-label="Cara naik rank">?</button>
+  </header>
+
+  <div class="ranked-stage">
+    <div class="ranked-archie" aria-hidden="true">
+      {% include 'components/mascot.html' with svg_id="ranked-archie-svg" size=150 %}
+    </div>
+
+    <div class="ranked-emblem-wrap">
+      <p class="ranked-label" id="ranked-label">Terra III</p>
+      <div class="ranked-emblem" id="ranked-emblem" aria-hidden="true"></div>
+      <div class="ranked-stars" id="ranked-stars"></div>
+      <small class="ranked-next" id="ranked-next"></small>
+    </div>
+
+    <aside class="ranked-stats" aria-label="Statistik duel">
+      <div class="ranked-stat"><b id="ranked-winrate">–</b><small>Win Rate</small></div>
+      <div class="ranked-stat"><b id="ranked-total">0</b><small>Total Duel</small></div>
+      <div class="ranked-stat"><b id="ranked-streak">0</b><small>Menang Beruntun</small></div>
+      <div class="ranked-shield">
+        <span>🛡️ Perisai Bintang <b id="ranked-shields">0/5</b></span>
+        <div class="ranked-shield-track"><div class="ranked-shield-bar" id="ranked-shield-bar"></div></div>
+      </div>
+    </aside>
+  </div>
+
+  <div class="ranked-actions">
+    <button type="button" class="ranked-link" data-ranked="info">📜<span>Info Rank</span></button>
+    {% if server_profile.level.level >= 3 %}
+      <button type="button" class="ranked-play" id="duel-start-btn">Mulai Duel</button>
+    {% else %}
+      <button type="button" class="ranked-play locked" disabled title="Selesaikan sesi latihan topik untuk menambah XP">
+        🔒 Terbuka di Level 3<small>kamu Lv {{ server_profile.level.level|default:1 }}</small></button>
+    {% endif %}
+    <button type="button" class="ranked-link" data-ranked="board">🏆<span>Papan Rank</span></button>
+  </div>
+</section>
+
+<section class="ranked-road" aria-label="Jalan menuju Apex">
+  <h3>Jalan menuju Apex</h3>
+  <ol class="ranked-road-list" id="ranked-road"></ol>
+</section>
+
+<details class="ranked-info tier-help" id="ranked-info">
+  <summary>Cara naik rank</summary>
+  <p>Adu cepat dan tepat dengan soal yang sama persis dengan lawanmu. Menang +1 bintang; bintang penuh lalu
+    menang sekali lagi = naik sub-rank. Kalah −1 bintang, kecuali di Terra dan saat kalah tipis. Tiap
+    3 kemenangan beruntun di Terra–Solar memberi bonus bintang. Perisai Bintang dari Toko otomatis
+    menahan bintangmu saat kalah.</p>
+  <p>⚠️ Selama duel jangan keluar dari tab: sekali = soal itu dihitung salah, dua kali = kalah.</p>
+  <ol class="tier-list">
+    <li class="tier-terra"><b><span class="tier-emb" data-tier="terra"></span>Terra</b><span>Bumi · III → I · 3★ per sub-rank</span></li>
+    <li class="tier-luna"><b><span class="tier-emb" data-tier="luna"></span>Luna</b><span>Bulan · III → I · 4★ per sub-rank</span></li>
+    <li class="tier-solar"><b><span class="tier-emb" data-tier="solar"></span>Solar</b><span>Matahari · III → I · 4★ per sub-rank</span></li>
+    <li class="tier-nova"><b><span class="tier-emb" data-tier="nova"></span>Nova</b><span>Bintang Baru · III → I · 5★ per sub-rank</span></li>
+    <li class="tier-apex"><b><span class="tier-emb" data-tier="apex"></span>Apex</b><span>Bintang tanpa batas · Orbit 25★ · Galaksi 50★ · Kosmos 100★</span></li>
+  </ol>
+</details>

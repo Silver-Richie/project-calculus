@@ -545,6 +545,7 @@ class DuelMatch(models.Model):
     Soal disimpan sebagai resep generator (key, seed, tier) sehingga kedua pemain mendapat soal
     identik dan kunci jawaban hanya pernah dihitung di server.
     `current` = indeks soal yang sedang berjalan; `q_started_at` kosong saat jeda antarsoal.
+    `tab_leaves` = {user_id: berapa kali keluar tab} (anti-curang, duel.leave_tab).
     """
     ACTIVE, FINISHED = "active", "finished"
 
@@ -559,6 +560,7 @@ class DuelMatch(models.Model):
     status = models.CharField(max_length=10, default=ACTIVE)
     winner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="duels_won")
     result = models.JSONField(default=dict, blank=True)
+    tab_leaves = models.JSONField(default=dict, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     finished_at = models.DateTimeField(null=True, blank=True)
 
@@ -660,6 +662,8 @@ class UserSessionProgress(models.Model):
 
     Mechanism: `attempts` ikut menentukan seed soal, jadi setiap percobaan ulang
     memberi angka baru. Sesi berikutnya terbuka bila `passed` = True.
+    `tab_leaves` = berapa kali keluar tab pada percobaan berjalan (anti-curang, sessions.leave_tab);
+    kembali 0 setiap percobaan selesai.
     """
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
                              related_name="session_progress")
@@ -669,6 +673,7 @@ class UserSessionProgress(models.Model):
     best_score = models.PositiveSmallIntegerField(default=0)
     passed = models.BooleanField(default=False)
     passed_at = models.DateTimeField(null=True, blank=True)
+    tab_leaves = models.PositiveSmallIntegerField(default=0, help_text="Keluar tab pada percobaan berjalan")
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:

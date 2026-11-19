@@ -20,6 +20,9 @@ Alur
                Bintang & nilai kemampuan diperbarui lewat PlayerRank (aturan di ranking.py). Duel tidak memberi XP.
                Menang (bukan karena lawan keluar) memberi +2 diamond; Perisai Bintang dari toko
                otomatis menahan bintang saat kalah (use_shield).
+6. Anti-curang: browser melapor saat pemain keluar tab/jendela (leave_tab). Keluar pertama =
+               soal yang sedang berjalan dianggap salah (bila belum dijawab) + peringatan;
+               keluar ke-MAX_TAB_LEAVES = keluar dari duel (forfeit).
 """
 
 import random
@@ -41,6 +44,7 @@ REMATCH_COOLDOWN = timedelta(minutes=10)
 QUEUE_TIMEOUT = 60            # detik menunggu lawan sebelum menyerah
 GRACE_MS = 1500               # toleransi latensi jaringan setelah waktu soal habis
 BASE_POINTS, SPEED_BONUS = 100, 50
+MAX_TAB_LEAVES = 2            # keluar tab ke-2 = kalah (forfeit)
 
 # Tier → (level kurikulum sumber soal, tingkat generator) dan waktu per soal (detik).
 POOLS = {
@@ -203,6 +207,34 @@ def record_answer(match_id, user, index, option_id, now=None):
         return True, "", both
 
 
+def leave_tab(match_id, user):
+    """
+    Catat pemain keluar tab/jendela di tengah duel.
+
+    Mengembalikan None bila duel tidak aktif, {"forfeit": True} bila batas tercapai (pemanggil
+    mengakhiri duel lewat finish_match), selain itu {"forfeit": False, "tab_leaves", "max_tab_leaves",
+    "voided": indeks soal yang dianggap salah atau None, "both": kedua pemain sudah menjawab soal itu}.
+    """
+    with transaction.atomic():
+        match = DuelMatch.objects.select_for_update().filter(pk=match_id, status=DuelMatch.ACTIVE).first()
+        if not match or user.id not in match.players():
+            return None
+        key = str(user.id)
+        match.tab_leaves = {**match.tab_leaves, key: match.tab_leaves.get(key, 0) + 1}
+        match.save(update_fields=["tab_leaves"])
+        if match.tab_leaves[key] >= MAX_TAB_LEAVES:
+            return {"forfeit": True}
+        voided, both = None, False
+        if match.q_started_at is not None:
+            _, created = DuelAnswer.objects.get_or_create(match=match, user=user, index=match.current,
+                                                          defaults={"ms": match.time_limit * 1000})
+            if created:
+                voided = match.current
+                both = DuelAnswer.objects.filter(match=match, index=match.current).count() == 2
+        return {"forfeit": False, "tab_leaves": match.tab_leaves[key], "max_tab_leaves": MAX_TAB_LEAVES,
+                "voided": voided, "both": both}
+
+
 def _totals(match):
     totals = {uid: {"points": 0, "correct": 0, "ms": 0} for uid in match.players()}
     for a in match.answers.all():
@@ -318,6 +350,22 @@ def finish_match(match_id, forfeit_by=None):
         match.result = {"players": players, "forfeit_by": forfeit_by}
         match.save(update_fields=["winner", "result"])
         return match.result
+
+
+def recent_results(user_ids, n=5):
+    """
+    Hasil n duel terakhir tiap pemain, urut lama → baru: 'w' menang, 'l' kalah, 'd' imbang.
+    Satu kueri untuk semua pemain (papan peringkat), dibatasi agar tetap ringan.
+    """
+    out = {uid: [] for uid in user_ids}
+    matches = (DuelMatch.objects.filter(status=DuelMatch.FINISHED)
+               .filter(Q(player_a_id__in=user_ids) | Q(player_b_id__in=user_ids))
+               .order_by("-finished_at").values_list("player_a_id", "player_b_id", "winner_id")[:n * len(user_ids) * 4])
+    for a, b, winner in matches:
+        for uid in (a, b):
+            if uid in out and len(out[uid]) < n:
+                out[uid].append("d" if winner is None else "w" if winner == uid else "l")
+    return {uid: res[::-1] for uid, res in out.items()}
 
 
 def active_match_of(user):
