@@ -7,10 +7,10 @@ from fractions import Fraction as Fr
 import math
 
 from .. import register
-from ..fmt import MINUS, n, paren, sup
+from ..fmt import MINUS, n, paren, sqrt_simplify, sup, surd, terms, times
 from ..graphs import fn, g2d, param, readout
 from ..precalc.common import distinct, nz
-from ..dasar.aplikasi import pi_txt
+from ..dasar.aplikasi import per_pi, pi_txt
 
 GL, LG, MS, FL, LP = "kl-ft-galat", "kl-ft-lagrange", "kl-ft-massa", "kl-ft-fluks", "kl-ft-laplace"
 
@@ -85,43 +85,72 @@ def ftl_ekstrem(rng, tier):
             "explanation": "Titik kritis: ∇f = 0."}
 
 
+def rt(v):
+    c, r = sqrt_simplify(v)
+    return surd(c, r)
+
+
 @register("ftl.lagrange", LG, (1, 2, 3))
 def ftl_lagrange(rng, tier):
     if tier <= 2:
-        P = 4 * rng.randint(2, 15)
-        val = (P // 4) ** 2
-        return {"prompt": f"Pagar sepanjang {P} m membentuk persegi panjang. Gunakan pengali Lagrange untuk luas maksimum.", "correct": f"{val} m²",
-                "distractors": [f"{P * P // 8} m²", f"{(P // 4) * (P // 4 + 1)} m²", f"{P} m²", f"{val * 2} m²"],
-                "steps": [f"Maksimumkan A = xy dengan kendala 2x + 2y = {P}.", "∇A = λ∇g: y = 2λ, x = 2λ ⇒ x = y.", f"x = y = {P // 4} ⇒ A = <b>{val} m²</b>."],
+        P = 4 * rng.randint(2, 25)
+        if rng.random() < 0.5:
+            val = (P // 4) ** 2
+            return {"prompt": f"Pagar sepanjang {P} m membentuk persegi panjang. Gunakan pengali Lagrange untuk luas maksimum.", "correct": f"{val} m²",
+                    "distractors": [f"{P * P // 8} m²", f"{(P // 4) * (P // 4 + 1)} m²", f"{P} m²", f"{val * 2} m²"],
+                    "steps": [f"Maksimumkan A = xy dengan kendala 2x + 2y = {P}.", "∇A = λ∇g: y = 2λ, x = 2λ ⇒ x = y.", f"x = y = {P // 4} ⇒ A = <b>{val} m²</b>."],
+                    "explanation": "Lagrange: di titik optimum ∇f sejajar ∇g."}
+        val = P * P // 8
+        return {"prompt": f"Lahan persegi panjang di tepi sungai dipagari pada tiga sisi saja (sisi sungai tidak dipagar) dengan pagar {P} m. Berapa luas maksimum?",
+                "correct": f"{val} m²", "distractors": [f"{(P // 4) ** 2} m²", f"{P * P // 9} m²" if P * P % 9 == 0 else f"{P * P // 6} m²", f"{val * 2} m²", f"{P} m²"],
+                "steps": [f"Maksimumkan A = xy dengan 2x + y = {P} (y sejajar sungai).", "∇A = λ∇g: y = 2λ, x = λ ⇒ y = 2x.", f"4x = {P} ⇒ x = {P // 4}, y = {P // 2} ⇒ A = <b>{val} m²</b>."],
                 "explanation": "Lagrange: di titik optimum ∇f sejajar ∇g."}
-    r = rng.randint(1, 6)
-    return {"prompt": f"Tentukan nilai maksimum f(x, y) = x + y pada lingkaran x² + y² = {r * r}.", "correct": f"{r}√2" if r > 1 else "√2",
-            "distractors": [f"{2 * r}", f"{r}", f"{r * r}", f"{r}√3" if r > 1 else "√3"],
-            "steps": ["∇f = ⟨1, 1⟩ = λ⟨2x, 2y⟩ ⇒ x = y.", f"2x² = {r * r} ⇒ x = y = {r}/√2.", f"f = 2·{r}/√2 = <b>{r}√2</b>."], "explanation": "Kendala lingkaran: titik optimum di arah ∇f."}
+    a, b, r = rng.randint(1, 4), rng.randint(1, 4), rng.randint(1, 6)
+    m = a * a + b * b
+    correct = rt(r * r * m)
+    return {"prompt": f"Tentukan nilai maksimum f(x, y) = {a if a > 1 else ''}x + {b if b > 1 else ''}y pada lingkaran x² + y² = {r * r}.", "correct": correct,
+            "distractors": [str(r * (a + b)), str(r), rt(r * r * (a + b)) if a + b != m else str(r * m), rt(r * m) if r > 1 else str(m)],
+            "steps": [f"∇f = ⟨{a}, {b}⟩ = λ⟨2x, 2y⟩ ⇒ (x, y) sejajar ⟨{a}, {b}⟩.", f"(x, y) = {r}⟨{a}, {b}⟩/√{m}.", f"f maks = {r}·√({a * a} + {b * b}) = <b>{correct}</b> (Cauchy–Schwarz)."],
+            "explanation": "Kendala lingkaran: titik optimum searah ∇f."}
 
 
 @register("ftl.kotak", LG, (2, 3, 4, 5))
 def ftl_kotak(rng, tier):
-    k = rng.randint(1, 5)
-    V, S = 4 * k ** 3, 12 * k * k
-    return {"prompt": f"Kotak tanpa tutup bervolume {V} m³ dibuat dengan bahan seminimal mungkin. Berapa luas bahan minimum?", "correct": f"{S} m²",
-            "distractors": [f"{6 * k * k} m²", f"{16 * k * k} m²", f"{S + 4 * k * k} m²", f"{V} m²"],
-            "steps": [f"Minimumkan S = xy + 2xz + 2yz dengan xyz = {V}.", "Simetri & Lagrange ⇒ x = y = 2z.", f"4z³ = {V} ⇒ z = {k}, x = y = {2 * k}.",
-                      f"S = {4 * k * k} + {4 * k * k} + {4 * k * k} = <b>{S} m²</b>."], "explanation": "Optimasi desain wadah (Stewart §14.7)."}
+    if rng.random() < 0.3:
+        s = rng.randint(1, 9)
+        return {"prompt": f"Kotak tertutup bervolume {s ** 3} m³ dibuat dengan bahan seminimal mungkin. Berapa luas bahan minimum?", "correct": f"{6 * s * s} m²",
+                "distractors": [f"{5 * s * s} m²", f"{4 * s * s} m²", f"{8 * s * s} m²", f"{s ** 3} m²"],
+                "steps": [f"Minimumkan S = 2(xy + xz + yz) dengan xyz = {s ** 3}.", "Lagrange + simetri ⇒ x = y = z (kubus).", f"x = {s} ⇒ S = 6·{s * s} = <b>{6 * s * s} m²</b>."],
+                "explanation": "Optimasi desain wadah (Stewart §14.7)."}
+    m, j = rng.randint(1, 3), rng.randint(1, 5)
+    V, C = 4 * m * j ** 3, 12 * m * j * j
+    unit = "m²" if m == 1 else "satuan biaya"
+    cost = "" if m == 1 else f" Biaya bahan alas {m} kali biaya bahan dinding per m²."
+    ask = "Berapa luas bahan minimum?" if m == 1 else "Berapa biaya minimum (dinding = 1 satuan/m²)?"
+    return {"prompt": f"Kotak tanpa tutup bervolume {V} m³.{cost} {ask}", "correct": f"{C} {unit}",
+            "distractors": [f"{6 * m * j * j} {unit}", f"{16 * m * j * j} {unit}", f"{C + 4 * j * j} {unit}", f"{V} {unit}"],
+            "steps": [f"Minimumkan {'' if m == 1 else f'{m}'}xy + 2xz + 2yz dengan xyz = {V}.", f"Lagrange ⇒ x = y dan {m}x = 2z.",
+                      f"x = y = {2 * j}, z = {m * j} ⇒ {m}·{4 * j * j} + 4·{2 * j}·{m * j} = <b>{C} {unit}</b>."],
+            "explanation": "Optimasi desain wadah (Stewart §14.7)."}
 
 
 @register("ftl.tiga_var", LG, (4, 5))
 def ftl_tiga(rng, tier):
     if tier == 4:
+        p, q, r = rng.randint(1, 3), rng.randint(1, 3), rng.randint(1, 3)
         s = 3 * rng.randint(1, 6)
-        return {"prompt": f"Tentukan nilai maksimum xyz dengan x + y + z = {s}, x, y, z &gt; 0.", "correct": n((s // 3) ** 3),
-                "distractors": [n(s ** 3 // 9), n((s // 3) ** 2), n(s), n((s // 3) ** 3 * 2)],
-                "steps": ["∇(xyz) = λ∇(x + y + z): yz = xz = xy = λ ⇒ x = y = z.", f"x = y = z = {s // 3} ⇒ <b>{(s // 3) ** 3}</b>."], "explanation": "Lagrange tiga variabel (juga AM–GM)."}
-    a, b, c = rng.choice([(1, 2, 2), (2, 3, 6), (1, 4, 8), (2, 1, 2)])
+        val = Fr(s ** 3, 27 * p * q * r)
+        cons = terms([(p, "x"), (q, "y"), (r, "z")])
+        return {"prompt": f"Tentukan nilai maksimum xyz dengan {cons} = {s}, x, y, z &gt; 0.", "correct": n(val),
+                "distractors": [n(Fr(s ** 3, 27)), n(val * 2), n(Fr(s ** 3, 9 * p * q * r)), n(Fr(s, 3) ** 2)],
+                "steps": [f"∇(xyz) = λ∇g: yz = {p}λ, xz = {q}λ, xy = {r}λ ⇒ {p}x = {q}y = {r}z.".replace("1x", "x").replace("1y", "y").replace("1z", "z"),
+                          f"Masing-masing suku = {s}/3 = {s // 3} ⇒ x = {n(Fr(s, 3 * p))}, y = {n(Fr(s, 3 * q))}, z = {n(Fr(s, 3 * r))}.", f"xyz = <b>{n(val)}</b>."],
+                "explanation": "Lagrange tiga variabel (juga AM–GM)."}
+    a, b, c = rng.randint(1, 4), rng.randint(1, 4), rng.randint(1, 4)
     d = rng.randint(1, 9)
     m = a * a + b * b + c * c
     val = Fr(d * d, m)
-    return {"prompt": f"Tentukan nilai minimum x² + y² + z² pada bidang {a if a > 1 else ''}x + {b if b > 1 else ''}y + {c if c > 1 else ''}z = {d}.", "correct": n(val),
+    return {"prompt": f"Tentukan nilai minimum x² + y² + z² pada bidang {terms([(a, 'x'), (b, 'y'), (c, 'z')])} = {d}.", "correct": n(val),
             "distractors": [n(Fr(d, m)), n(Fr(d * d, a + b + c)), n(val * 2), n(d * d)],
             "steps": ["∇(x² + y² + z²) = λ⟨a, b, c⟩ ⇒ (x, y, z) = (λ/2)⟨a, b, c⟩.", f"Substitusi: λ/2 = {d}/{m}.", f"Minimum = {d}²/{m} = <b>{n(val)}</b> (kuadrat jarak bidang ke asal)."],
             "explanation": "Jarak bidang ax + by + cz = d ke titik asal = |d|/√(a² + b² + c²)."}
@@ -157,18 +186,33 @@ def ftm_massa(rng, tier):
 @register("ftm.inersia", MS, (2, 3, 4, 5))
 def ftm_inersia(rng, tier):
     if tier <= 3:
-        a, b = rng.randint(1, 4), rng.randint(1, 4)
-        val = Fr(a * b ** 3, 3)
-        return {"prompt": f"Momen inersia luas I<sub>x</sub> = ∬ y² dA penampang balok [0, {a}] × [0, {b}] terhadap sumbu-x (alas).", "correct": n(val),
-                "distractors": [n(Fr(a * b ** 3, 12)), n(Fr(a ** 3 * b, 3)), n(a * b * b), n(val * 2)],
-                "steps": [f"∫₀^{a}∫₀^{b} y² dy dx = {a}·{b}³/3 = <b>{n(val)}</b>.", f"Terhadap sumbu berat (tengah) menjadi ab³/12 = {n(Fr(a * b ** 3, 12))} — dasar kekakuan balok (FT sipil)."],
-                "explanation": "Momen inersia luas menentukan kekakuan lentur."}
-    R = rng.randint(1, 4)
-    val = Fr(R ** 4, 2)
-    return {"prompt": f"Hitung momen inersia polar I<sub>0</sub> = ∬ (x² + y²) dA cakram berjari-jari {R} (rapat 1).", "correct": pi_txt(val),
-            "distractors": [pi_txt(R ** 4), pi_txt(Fr(R ** 4, 4)), pi_txt(Fr(R ** 3, 3)), n(val)],
-            "steps": ["Koordinat kutub: ∫₀^{2π}∫₀^R r²·r dr dθ.", f"= 2π·{R ** 4}/4 = <b>{pi_txt(val)}</b>. (Poros/as berbentuk lingkaran, FT mesin.)"],
-            "explanation": "I₀ = I_x + I_y."}
+        a, b = rng.randint(1, 6), rng.randint(1, 6)
+        about = rng.choice(["alas", "berat"]) if tier == 3 else "alas"
+        val = Fr(a * b ** 3, 3 if about == "alas" else 12)
+        return {"prompt": f"Momen inersia luas I<sub>x</sub> = ∬ y² dA penampang balok selebar {a} dan setinggi {b} terhadap sumbu {'di alas' if about == 'alas' else 'berat (mendatar melalui pusat)'}.",
+                "correct": n(val), "distractors": [n(Fr(a * b ** 3, 12 if about == "alas" else 3)), n(Fr(a ** 3 * b, 3 if about == "alas" else 12)), n(a * b * b), n(val * 2)],
+                "steps": [f"∫₀^{a}∫ y² dy dx dengan y dari {'0 sampai ' + str(b) if about == 'alas' else f'−{n(Fr(b, 2))} sampai {n(Fr(b, 2))}'}.",
+                          f"= {a}·{b}³/{3 if about == 'alas' else 12} = <b>{n(val)}</b> — dasar kekakuan balok (FT sipil)."],
+                "explanation": "Momen inersia luas menentukan kekakuan lentur; terhadap sumbu berat ab³/12."}
+    R = rng.randint(1, 5)
+    kind = rng.choice(["polar", "cincin", "ix", "rapat"])
+    if kind == "polar":
+        val, prompt = Fr(R ** 4, 2), f"Hitung momen inersia polar I<sub>0</sub> = ∬ (x² + y²) dA cakram berjari-jari {R} (rapat 1)."
+        steps = ["Koordinat kutub: ∫₀^{2π}∫₀^R r²·r dr dθ.", f"= 2π·{R ** 4}/4 = <b>{times(val, 'π')}</b>. (Poros pejal, FT mesin.)"]
+    elif kind == "cincin":
+        R1 = rng.randint(1, R) if R > 1 else 1
+        R2 = R + 1
+        val, prompt = Fr(R2 ** 4 - R1 ** 4, 2), f"Hitung momen inersia polar I<sub>0</sub> penampang pipa {R1} ≤ r ≤ {R2} (rapat 1)."
+        steps = [f"∫₀^{{2π}}∫<sub>{R1}</sub><sup>{R2}</sup> r³ dr dθ = 2π({R2}⁴ − {R1}⁴)/4.", f"= <b>{times(val, 'π')}</b> (poros berongga: kaku dengan bahan lebih sedikit)."]
+    elif kind == "ix":
+        val, prompt = Fr(R ** 4, 4), f"Hitung I<sub>x</sub> = ∬ y² dA untuk cakram berjari-jari {R} berpusat di asal."
+        steps = ["Simetri: I<sub>x</sub> = I<sub>y</sub> = I<sub>0</sub>/2.", f"I<sub>0</sub> = π{R ** 4}/2 ⇒ I<sub>x</sub> = <b>{times(val, 'π')}</b>."]
+    else:
+        k = rng.randint(1, 4)
+        val, prompt = Fr(2 * k * R ** 5, 5), f"Pelat cakram berjari-jari {R} dengan rapat ρ = {k if k > 1 else ''}r. Hitung I<sub>0</sub> = ∬ (x² + y²)ρ dA."
+        steps = [f"∫₀^{{2π}}∫₀^{R} r²·{k if k > 1 else ''}r·r dr dθ = 2π·{k}·{R}⁵/5.", f"= <b>{times(val, 'π')}</b>."]
+    return {"prompt": prompt, "correct": times(val, "π"), "distractors": [times(val * 2, "π"), times(val / 2, "π"), n(val), times(Fr(R ** 3, 3), "π")],
+            "steps": steps, "explanation": "I₀ = I_x + I_y; koordinat kutub untuk penampang lingkaran."}
 
 
 @register("ftm.pusat", MS, (3, 4, 5))
@@ -178,11 +222,22 @@ def ftm_pusat(rng, tier):
         return {"prompt": f"Tentukan sentroid segitiga dengan titik sudut (0, 0), ({a * 3}, 0), (0, {b * 3}).", "correct": f"({a}, {b})",
                 "distractors": [f"({n(Fr(3 * a, 2))}, {n(Fr(3 * b, 2))})", f"({b}, {a})", f"({2 * a}, {2 * b})", f"({a}, {2 * b})"],
                 "steps": ["x̄ = (1/A)∬ x dA; untuk segitiga = rata-rata titik sudut.", f"x̄ = {3 * a}/3 = {a}, ȳ = {3 * b}/3 = {b}.", f"<b>({a}, {b})</b>."], "explanation": "Sentroid segitiga = titik berat."}
-    R = rng.randint(1, 6) * 3
-    val = Fr(4 * R, 3)
-    return {"prompt": f"Tentukan x̄ = ȳ untuk seperempat cakram x² + y² ≤ {R * R}, x, y ≥ 0.", "correct": f"{n(val)}/π",
-            "distractors": [f"{n(Fr(R, 2))}", f"{n(Fr(2 * R, 3))}/π", f"{n(val)}", f"{n(Fr(R, 3))}"],
-            "steps": [f"A = π{R * R}/4; ∬ x dA = ∫₀^{{π/2}}∫₀^{R} r cos θ·r dr dθ = {R ** 3}/3.", f"x̄ = ({R ** 3}/3)/(π{R * R}/4) = <b>{n(val)}/π</b>."], "explanation": "Sentroid seperempat lingkaran 4R/(3π)."}
+    R = rng.randint(1, 9)
+    kind = rng.choice(["seperempat", "setengah", "kawat"] if tier == 5 else ["seperempat", "setengah"])
+    if kind == "seperempat":
+        val = Fr(4 * R, 3)
+        prompt = f"Tentukan x̄ = ȳ untuk seperempat cakram x² + y² ≤ {R * R}, x, y ≥ 0."
+        steps = [f"A = π{R * R}/4; ∬ x dA = ∫₀^{{π/2}}∫₀^{R} r cos θ·r dr dθ = {R ** 3}/3.", f"x̄ = ({R ** 3}/3)/(π{R * R}/4) = <b>{per_pi(val)}</b>."]
+    elif kind == "setengah":
+        val = Fr(4 * R, 3)
+        prompt = f"Tentukan ȳ untuk setengah cakram x² + y² ≤ {R * R}, y ≥ 0."
+        steps = [f"A = π{R * R}/2; ∬ y dA = ∫₀^π∫₀^{R} r sin θ·r dr dθ = 2·{R ** 3}/3.", f"ȳ = <b>{per_pi(val)}</b>."]
+    else:
+        val = Fr(2 * R)
+        prompt = f"Tentukan ȳ kawat setengah lingkaran berjari-jari {R} (y ≥ 0, rapat seragam)."
+        steps = [f"Panjang = π{R}; ∫ y ds = ∫₀^π {R} sin θ·{R} dθ = 2·{R * R}.", f"ȳ = 2·{R * R}/(π{R}) = <b>{per_pi(val)}</b> (lebih jauh dari pusat daripada pelat)."]
+    return {"prompt": prompt, "correct": per_pi(val), "distractors": [n(Fr(R, 2)), per_pi(val / 2), n(val), per_pi(val * 2) if kind != "kawat" else per_pi(Fr(4 * R, 3))],
+            "steps": steps, "explanation": "Sentroid = (1/A)∬ x dA; simetri mengurangi kerja."}
 
 
 # ════════════════════════ Fluks, divergensi, Stokes ═══════════════════════

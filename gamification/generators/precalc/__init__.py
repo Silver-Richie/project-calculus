@@ -2,4 +2,5 @@
 
 from . import (  # noqa: F401
     bilangan, pertidaksamaan, nilai_mutlak, fungsi, linear, kuadrat, trigonometri, eksponensial, logaritma,
+    lanjutan,
 )

@@ -7,7 +7,7 @@ from fractions import Fraction as Fr
 import math
 
 from .. import register
-from ..fmt import MINUS, lin, n, paren, sup
+from ..fmt import MINUS, frac_terms, lin, n, over, paren, sup, terms, times
 from ..graphs import fn, g2d, param, readout
 from ..precalc.common import distinct, nz
 from ..dasar.aplikasi import per_pi, pi_txt
@@ -30,33 +30,80 @@ def solid_graph(title, expr, a, b, caption):
                [readout("Jari-jari cakram f(x)", expr.replace("x", "X"), 4), readout("Luas cakram πf(x)²", f"pi*({expr.replace('x', 'X')})**2", 4)], caption)
 
 
+def kx(k):
+    return "x" if k == 1 else f"{k}x"
+
+
+def xpow(k):
+    return "x" if k == 1 else f"x{sup(k)}"
+
+
+def _inv(c, e):
+    """c/xᵉ sebagai teks: 1/(2x), 2/x², 1/(4x³)."""
+    c = Fr(c)
+    xe = xpow(e)
+    return f"{c.numerator}/{xe}" if c.denominator == 1 else f"{c.numerator}/({c.denominator}{xe})"
+
+
+def coef(c):
+    """Koefisien di depan simbol: 1 → '', 3 → '3', 2/3 → '(2/3)'."""
+    c = Fr(c)
+    return "" if c == 1 else n(c) if c.denominator == 1 else f"({n(c)})"
+
+
 # ════════════════════════ Topik 1: Luas lanjutan ═══════════════════════════
 @register("al.luas_sin", LS, (1, 2))
 def luas_sin(rng, tier):
+    A, b = rng.randint(1, 5), rng.randint(1, 4 if tier == 2 else 3)
+    f = f"{A if A > 1 else ''}sin({kx(b)})"
     if tier == 1:
         k = rng.randint(1, 4)
-        return {"prompt": f"Hitung luas total daerah antara y = sin x dan sumbu-x pada [0, {k if k > 1 else ''}π].", "correct": n(2 * k),
-                "distractors": ["0", n(k), n(4 * k), "2" if k > 1 else "1"],
-                "steps": ["Setiap setengah gelombang [mπ, (m + 1)π] memiliki luas ∫ |sin x| dx = 2.", f"Ada {k} setengah gelombang ⇒ <b>{2 * k}</b>.",
-                          "Perhatikan: integral bertanda ∫₀^{kπ} sin x dx bisa 0, tetapi luas selalu positif."],
-                "graphs": [region("|sin x| pada [0, kπ]", "abs(sin(x))", "0", 0, round(k * math.pi, 3), "Luas = jumlah semua ‘bukit’.", yr=(-1.5, 1.5))],
+        val = Fr(2 * A * k, b)
+        return {"prompt": f"Hitung luas total daerah antara y = {f} dan sumbu-x pada [0, {times(Fr(k, b), 'π')}].", "correct": n(val),
+                "distractors": ["0", n(Fr(A * k, b)), n(val * 2), n(Fr(2 * A, b)) if k > 1 else n(val + 1)],
+                "steps": [f"Satu ‘bukit’ {f} selebar π/{b} (dari nol ke nol berikutnya) memiliki luas ∫ |{f}| dx = {A}·2/{b} = {n(Fr(2 * A, b))}.".replace("π/1 ", "π "),
+                          f"Interval [0, {times(Fr(k, b), 'π')}] memuat {k} bukit ⇒ luas = <b>{n(val)}</b>.",
+                          "Perhatikan: integral bertanda bisa 0 (bukit di bawah sumbu bernilai negatif), tetapi luas selalu positif."],
+                "graphs": [region(f"|{f}| pada [0, kπ/{b}]", f"abs({A}*sin({b}*x))", "0", 0, round(k * math.pi / b, 3), "Luas = jumlah semua ‘bukit’.", yr=(-A - 0.5, A + 0.5))],
                 "explanation": "Luas = ∫|f|, bukan ∫f."}
-    return {"prompt": "Hitung luas daerah yang dibatasi y = sin x dan y = cos x pada [π/4, 5π/4].", "correct": "2√2",
-            "distractors": ["√2", "2", "4", "0"],
-            "steps": ["Di (π/4, 5π/4) sin x ≥ cos x.", "∫ (sin x − cos x) dx = [−cos x − sin x] = (√2/2 + √2/2) − (−√2/2 − √2/2).", "<b>2√2</b>."],
-            "graphs": [region("Antara sin x dan cos x", "sin(x)", "cos(x)", 0.785, 3.927, "Kedua kurva berpotongan di π/4 dan 5π/4.", yr=(-1.5, 1.5))],
+    g = f"{A if A > 1 else ''}cos({kx(b)})"
+    kind = rng.choice(["lensa", "awal", "simetri"])
+    if kind == "lensa":
+        lo, hi, val = times(Fr(1, 4 * b), "π"), times(Fr(5, 4 * b), "π"), [(Fr(2 * A, b), "√2")]
+        work = f"Pada interval itu {f} ≥ {g}; ∫ ({f} − {g}) dx = ({A}/{b})[−cos u − sin u] dari π/4 ke 5π/4 = ({A}/{b})·2√2."
+        upper, lower, a0, b0 = f"{A}*sin({b}*x)", f"{A}*cos({b}*x)", math.pi / (4 * b), 5 * math.pi / (4 * b)
+    elif kind == "awal":
+        lo, hi, val = "0", times(Fr(1, 4 * b), "π"), [(Fr(A, b), "√2"), (Fr(-A, b), "")]
+        work = f"Pada [0, π/{4 * b}] {g} ≥ {f}; ∫ ({g} − {f}) dx = ({A}/{b})[sin u + cos u] dari 0 ke π/4 = ({A}/{b})(√2 − 1).".replace("π/4 ", "π/4 ")
+        upper, lower, a0, b0 = f"{A}*cos({b}*x)", f"{A}*sin({b}*x)", 0, math.pi / (4 * b)
+    else:
+        lo, hi, val = "0", times(Fr(1, b), "π"), [(Fr(4 * A, b), "")]
+        g = f"{MINUS}{A if A > 1 else ''}sin({kx(b)})"
+        work = f"Kurva {g} adalah cerminan {f}; luas = 2∫₀^{{π/{b}}} {f} dx = 2·{n(Fr(2 * A, b))}."
+        upper, lower, a0, b0 = f"{A}*sin({b}*x)", f"-{A}*sin({b}*x)", 0, math.pi / b
+    correct = over([p for p in val if p[1]], sum((p[0] for p in val if not p[1]), Fr(0)))
+    alt = lambda pairs: over([p for p in pairs if p[1]], sum((p[0] for p in pairs if not p[1]), Fr(0)))
+    wrong = [alt([(c * 2, s) for c, s in val]), alt([(c / 2, s) for c, s in val]), alt([(c, s) for c, s in val if s]) if len(val) > 1 else alt([(val[0][0], "√2" if not val[0][1] else "")]), "0"]
+    return {"prompt": f"Hitung luas daerah yang dibatasi y = {f} dan y = {g} pada [{lo}, {hi}].", "correct": correct, "distractors": wrong,
+            "steps": ["Cari kurva yang di atas pada interval itu, lalu integralkan (atas − bawah).", work, f"<b>{correct}</b>."],
+            "graphs": [region("Daerah antara dua kurva trigonometri", upper, lower, round(a0, 3), round(b0, 3), "Arsir = (atas − bawah) di sepanjang interval.", yr=(-A - 0.5, A + 0.5))],
             "explanation": "Luas antara kurva = ∫ (atas − bawah)."}
 
 
 @register("al.dua_parabola", LS, (1, 2, 3))
 def dua_parabola(rng, tier):
-    s = rng.randint(1, 3)
-    k = 2 * s * s
-    val = Fr(8 * s ** 3, 3)
-    return {"prompt": f"Hitung luas daerah yang dibatasi y = x² dan y = {k} − x².", "correct": n(val),
-            "distractors": [n(val / 2), n(Fr(4 * s ** 3, 3)), n(val * 2), n(k * s)],
-            "steps": [f"Titik potong: x² = {k} − x² ⇒ x = ±{s}.", f"Luas = ∫₋{s}^{s} ({k} − 2x²) dx = 2[{k}x − 2x³/3]₀^{s}.", f"= 2({k * s} − {n(Fr(2 * s ** 3, 3))}) = <b>{n(val)}</b>."],
-            "graphs": [region("Daerah lensa antara dua parabola", f"{k}-x*x", "x*x", -s, s, "Simetris terhadap sumbu-y: hitung separuh lalu kalikan 2.", yr=(-1, k + 2))],
+    a, b, s = rng.randint(1, 3), rng.randint(1, 3), rng.randint(1, 3)
+    d = 0 if tier == 1 else rng.randint(-2, 2)
+    U = (a + b) * s * s + d
+    val = Fr(4 * (a + b) * s ** 3, 3)
+    low, up = terms([(a, "x²")], d), terms([(-b, "x²")], U)
+    return {"prompt": f"Hitung luas daerah yang dibatasi y = {low} dan y = {up}.", "correct": n(val),
+            "distractors": [n(val / 2), n(Fr(2 * (a + b) * s ** 3, 3)), n(val * 2), n((a + b) * s ** 3)],
+            "steps": [f"Titik potong: {low} = {up} ⇒ {a + b}x² = {(a + b) * s * s} ⇒ x = ±{s}.",
+                      f"Atas − bawah = {terms([(-(a + b), 'x²')], (a + b) * s * s)} (konstanta {n(d)} saling menghapus)." if d else f"Atas − bawah = {terms([(-(a + b), 'x²')], (a + b) * s * s)}.",
+                      f"Luas = 2∫₀^{s} ({terms([(-(a + b), 'x²')], (a + b) * s * s)}) dx = 2({(a + b) * s ** 3} − {n(Fr((a + b) * s ** 3, 3))}) = <b>{n(val)}</b>."],
+            "graphs": [region("Daerah lensa antara dua parabola", f"{U}-{b}*x*x", f"{a}*x*x+({d})", -s, s, "Simetris terhadap sumbu-y: hitung separuh lalu kalikan 2.",
+                              yr=(min(d, 0) - 1, U + 2))],
             "explanation": "Cari titik potong dulu, lalu integralkan selisih atas − bawah."}
 
 
@@ -74,94 +121,211 @@ def luas_y(rng, tier):
 
 @register("al.kubik_garis", LS, (3, 4, 5))
 def kubik_garis(rng, tier):
-    m = rng.randint(1, 3)
-    val = Fr(m ** 4, 2)
-    return {"prompt": f"Hitung luas total daerah yang dibatasi y = x³ dan y = {m * m if m > 1 else ''}x.", "correct": n(val),
-            "distractors": ["0", n(val / 2), n(m ** 4), n(Fr(m ** 4, 4))],
-            "steps": [f"Titik potong: x³ = {m * m}x ⇒ x = 0, ±{m}.", "Daerah terdiri dari dua bagian simetris (fungsi ganjil); integral bertanda di [−m, m] = 0, jadi hitung satu bagian lalu ×2.",
-                      f"2∫₀^{m} ({m * m}x − x³) dx = 2({m ** 4}/2 − {m ** 4}/4) = <b>{n(val)}</b>."],
-            "graphs": [region("Dua daerah antara x³ dan m²x", f"{m * m}*x", "x**3", 0, m, "Bagian kiri adalah cerminan titik bagian kanan.", xr=[-m - 1, m + 1], yr=(-m ** 3 - 2, m ** 3 + 2))],
+    a, m, c = rng.randint(1, 3), rng.randint(1, 3), rng.randint(-3, 3)
+    val = Fr(a * m ** 4, 2)
+    cub, line = terms([(a, "x³"), (c, "x")]), terms([(a * m * m + c, "x")])
+    return {"prompt": f"Hitung luas total daerah yang dibatasi y = {cub} dan y = {line}.", "correct": n(val),
+            "distractors": ["0", n(val / 2), n(val * 2), n(Fr(a * m ** 4, 4))],
+            "steps": [f"Titik potong: {cub} = {line} ⇒ {a if a > 1 else ''}x³ = {a * m * m}x ⇒ x = 0, ±{m}.",
+                      "Selisih kedua kurva adalah fungsi ganjil, jadi integral bertanda di [−m, m] = 0: hitung satu bagian lalu ×2.",
+                      f"2∫₀^{m} ({a * m * m}x − {a if a > 1 else ''}x³) dx = 2({n(Fr(a * m ** 4, 2))} − {n(Fr(a * m ** 4, 4))}) = <b>{n(val)}</b>."],
+            "graphs": [region("Dua daerah antara kubik dan garis", f"{a * m * m + c}*x", f"{a}*x**3+({c})*x", 0, m, "Bagian kiri adalah cerminan titik bagian kanan.",
+                              xr=[-m - 1, m + 1], yr=(-abs(a * m ** 3 + c * m) - 2, abs(a * m ** 3 + c * m) + 2))],
             "explanation": "Pecah daerah di setiap titik potong; jangan sampai luas saling menghapus."}
 
 
 @register("al.luas_eksp", LS, (4, 5))
 def luas_eksp(rng, tier):
-    k = rng.randint(2, 6)
-    val = Fr(k) + Fr(1, k) - 2
-    return {"prompt": f"Hitung luas daerah yang dibatasi y = eˣ, y = e⁻ˣ, dan garis x = ln {k}.", "correct": n(val),
-            "distractors": [n(Fr(k) - Fr(1, k)), n(k - 1), n(val + 2), n(Fr(k - 1, k))],
-            "steps": ["Kedua kurva berpotongan di x = 0; untuk x &gt; 0, eˣ di atas.", f"∫₀^{{ln {k}}} (eˣ − e⁻ˣ) dx = [eˣ + e⁻ˣ]₀^{{ln {k}}} = ({k} + 1/{k}) − 2.", f"= <b>{n(val)}</b>."],
-            "graphs": [region("Antara eˣ dan e⁻ˣ", "exp(x)", "exp(-x)", 0, round(math.log(k), 3), "Luas = cosh-type: (k + 1/k) − 2.", yr=(0, k + 1))],
-            "explanation": "e^(ln k) = k, e^(−ln k) = 1/k."}
+    A, k = rng.randint(1, 4), rng.randint(2, 7)
+    Ae = (lambda s: f"{A}{s}" if A > 1 else s)
+    kind = rng.choice(["cosh", "dua", "datar"])
+    if kind == "cosh":
+        val = A * (Fr(k) + Fr(1, k) - 2)
+        prompt = f"Hitung luas daerah yang dibatasi y = {Ae('eˣ')}, y = {Ae('e⁻ˣ')}, dan garis x = ln {k}."
+        steps = ["Kedua kurva berpotongan di x = 0; untuk x &gt; 0, eˣ di atas.", f"∫₀^{{ln {k}}} {A if A > 1 else ''}(eˣ − e⁻ˣ) dx = {A if A > 1 else ''}[eˣ + e⁻ˣ]₀^{{ln {k}}} = {A if A > 1 else ''}(({k} + 1/{k}) − 2)."]
+        correct, wrong = n(val), [n(A * (Fr(k) - Fr(1, k))), n(A * (k - 1)), n(val + 2 * A), n(val * 2)]
+        g = region("Antara eˣ dan e⁻ˣ", f"{A}*exp(x)", f"{A}*exp(-x)", 0, round(math.log(k), 3), "e^(ln k) = k, e^(−ln k) = 1/k.", yr=(0, A * k + 1))
+    elif kind == "dua":
+        val = Fr(A * (k - 1) ** 2, 2)
+        prompt = f"Hitung luas daerah yang dibatasi y = {Ae('e<sup>2x</sup>')}, y = {Ae('eˣ')}, dan garis x = ln {k}."
+        steps = ["Kedua kurva berpotongan di x = 0; untuk x &gt; 0, e<sup>2x</sup> di atas.",
+                 f"∫₀^{{ln {k}}} {A if A > 1 else ''}(e<sup>2x</sup> − eˣ) dx = {A if A > 1 else ''}[e<sup>2x</sup>/2 − eˣ]₀^{{ln {k}}} = {A if A > 1 else ''}(({k * k} − 1)/2 − ({k} − 1))."]
+        correct, wrong = n(val), [n(Fr(A * (k * k - 1), 2)), n(A * (k - 1)), n(val * 2), n(Fr(A * (k * k - 1), 2) + A * (k - 1))]
+        g = region("Antara e^(2x) dan eˣ", f"{A}*exp(2*x)", f"{A}*exp(x)", 0, round(math.log(k), 3), "e^(2 ln k) = k².", yr=(0, A * k * k + 1))
+    else:
+        correct = f"{A * k} ln {k} − {A * (k - 1)}"
+        prompt = f"Hitung luas daerah yang dibatasi y = {Ae('eˣ')}, garis y = {A * k}, dan sumbu-y."
+        steps = [f"Titik potong {Ae('eˣ')} = {A * k} ⇒ x = ln {k}; garis di atas kurva pada [0, ln {k}].",
+                 f"∫₀^{{ln {k}}} ({A * k} − {Ae('eˣ')}) dx = {A * k} ln {k} − {A if A > 1 else ''}({k} − 1)."]
+        wrong = [f"{A * k} ln {k} + {A * (k - 1)}", f"{A * k} ln {k} − {A * k}", f"{A * (k - 1)} − ln {k}", f"{A * k} ln {k}"]
+        g = region("Antara garis datar dan eˣ", f"{A * k}+0*x", f"{A}*exp(x)", 0, round(math.log(k), 3), "Batas kanan: titik potong x = ln k.", yr=(0, A * k + 1))
+    return {"prompt": prompt, "correct": correct, "distractors": wrong, "steps": steps + [f"= <b>{correct}</b>."], "graphs": [g],
+            "explanation": "e^(ln k) = k: batas berbentuk ln k membuat hasil bersih."}
 
 
 # ════════════════════════ Topik 2: Volume benda putar ══════════════════════
 @register("vol.cakram", VL, (1, 2, 3))
 def cakram(rng, tier):
-    a = rng.randint(1, 4)
+    a, c = rng.randint(1, 6 if tier == 1 else 4), rng.randint(1, 3)
+    lo = 0
     if tier == 1:
-        val, f, js = Fr(a * a, 2), "√x", "sqrt(x)"
-        work = f"π∫₀^{a} x dx = π·{a * a}/2"
+        kind = rng.choice(["akar", "silinder"])
+        if kind == "akar":
+            val, f, js, work = Fr(c * c * a * a, 2), f"{c if c > 1 else ''}√x", f"{c}*sqrt(x)", f"π∫₀^{a} {c * c if c > 1 else ''}x dx = π·{c * c}·{a * a}/2"
+        else:
+            val, f, js, work = Fr(c * c * a), str(c), f"{c}+0*x", f"π∫₀^{a} {c * c} dx = π·{c * c}·{a} (volume tabung πr²h)"
     elif tier == 2:
-        val, f, js = Fr(a ** 5, 5), "x²", "x*x"
-        work = f"π∫₀^{a} x⁴ dx = π·{a ** 5}/5"
+        kind = rng.choice(["x2", "x32"])
+        if kind == "x2":
+            val, f, js, work = Fr(c * c * a ** 5, 5), f"{c if c > 1 else ''}x²", f"{c}*x*x", f"π∫₀^{a} {c * c if c > 1 else ''}x⁴ dx = π·{c * c}·{a ** 5}/5"
+        else:
+            val, f, js, work = Fr(c * c * a ** 4, 4), f"{c if c > 1 else ''}x<sup>3/2</sup>", f"{c}*pow(x,1.5)", f"π∫₀^{a} {c * c if c > 1 else ''}x³ dx = π·{c * c}·{a ** 4}/4"
     else:
-        m = rng.randint(1, 3)
-        val, f, js = Fr(m * m * a ** 3, 3), f"{m if m > 1 else ''}x", f"{m}*x"
-        work = f"π∫₀^{a} {m * m}x² dx = π·{m * m * a ** 3}/3 (volume kerucut ⅓πr²h)"
-    return {"prompt": f"Daerah di bawah y = {f}, 0 ≤ x ≤ {a}, diputar mengelilingi sumbu-x. Hitung volumenya.", "correct": pi_txt(val),
-            "distractors": [pi_txt(val * 2), n(val), pi_txt(val * Fr(3, 2)), pi_txt(val / 2)],
-            "steps": ["Metode cakram: V = π∫ₐᵇ [f(x)]² dx (setiap irisan berbentuk cakram berjari-jari f(x)).", f"{work}.", f"V = <b>{pi_txt(val)}</b>."],
-            "graphs": [solid_graph("Irisan cakram", js, 0, a, "Geser posisi: luas cakram πf(x)² dijumlahkan sepanjang sumbu-x.")],
+        kind = rng.choice(["kerucut", "bola", "hiperbola"])
+        m = rng.randint(1, 4)
+        if kind == "kerucut":
+            val, f, js, work = Fr(m * m * a ** 3, 3), f"{m if m > 1 else ''}x", f"{m}*x", f"π∫₀^{a} {m * m if m > 1 else ''}x² dx = π·{m * m * a ** 3}/3 (volume kerucut ⅓πr²h)"
+        elif kind == "bola":
+            r = rng.randint(1, 6)
+            val, f, js, lo, a = Fr(4 * r ** 3, 3), f"√({r * r} − x²)", f"sqrt(max(0,{r * r}-x*x))", -r, r
+            work = f"π∫₋{r}^{r} ({r * r} − x²) dx = π(2·{r ** 3} − 2·{r ** 3}/3) (volume bola 4πr³/3)"
+        else:
+            a = rng.randint(2, 5)
+            val, f, js, lo = Fr(c * c * (a - 1), a), f"{c}/x" if c > 1 else "1/x", f"{c}/x", 1
+            work = f"π∫₁^{a} {c * c}/x² dx = π·{c * c}(1 − 1/{a})"
+    rng_txt = f"{n(lo)} ≤ x ≤ {a}"
+    return {"prompt": f"Daerah di bawah y = {f}, {rng_txt}, diputar mengelilingi sumbu-x. Hitung volumenya.", "correct": times(val, "π"),
+            "distractors": [times(val * 2, "π"), n(val), times(val * Fr(3, 2), "π"), times(val / 2, "π")],
+            "steps": ["Metode cakram: V = π∫ₐᵇ [f(x)]² dx (setiap irisan berbentuk cakram berjari-jari f(x)).", f"{work}.", f"V = <b>{times(val, 'π')}</b>."],
+            "graphs": [solid_graph("Irisan cakram", js, lo, a, "Geser posisi: luas cakram πf(x)² dijumlahkan sepanjang sumbu-x.")],
             "explanation": "Volume = ∫ luas penampang dx."}
 
 
 @register("vol.cincin", VL, (1, 2, 3, 4))
 def cincin(rng, tier):
-    k = rng.randint(1, 3)
-    val = Fr(2 * k ** 5, 15)
-    return {"prompt": f"Daerah antara y = {k if k > 1 else ''}x dan y = x² diputar mengelilingi sumbu-x. Hitung volumenya.", "correct": pi_txt(val),
-            "distractors": [pi_txt(Fr(k ** 5, 15)), pi_txt(Fr(k ** 3, 6)), pi_txt(val * 2), pi_txt(Fr(k ** 5, 5))],
-            "steps": [f"Titik potong x = 0 dan x = {k}. Penampang berupa cincin: R = {k}x, r = x².",
-                      f"V = π∫₀^{k} ({k * k}x² − x⁴) dx = π({k ** 5}/3 − {k ** 5}/5).", f"= <b>{pi_txt(val)}</b>."],
-            "graphs": [region("Daerah yang diputar", f"{k}*x", "x*x", 0, k, "Jari-jari luar = garis, jari-jari dalam = parabola.", yr=(-0.5, k * k + 1))],
-            "explanation": "Metode cincin (washer): V = π∫ (R² − r²) dx."}
+    a, b = rng.randint(1, 4), rng.randint(1, 3)
+    h = rng.randint(0, 1) if tier <= 2 else rng.randint(0, 3)
+    s = Fr(a, b)
+    val = Fr(2 * a ** 5, 15 * b ** 3) + Fr(h * a ** 3, 3 * b * b)
+    axis = "sumbu-x" if h == 0 else f"garis y = {MINUS}{h}"
+    R, r = (f"{kx(a)}", f"{coef(b)}x²") if h == 0 else (f"{kx(a)} + {h}", f"{coef(b)}x² + {h}")
+    return {"prompt": f"Daerah antara y = {kx(a)} dan y = {coef(b)}x² diputar mengelilingi {axis}. Hitung volumenya.", "correct": times(val, "π"),
+            "distractors": [times(Fr(2 * a ** 5, 15 * b ** 3), "π") if h else times(val * 2, "π"), times(Fr(a ** 5, 15 * b ** 3) + Fr(h * a ** 3, 3 * b * b), "π"),
+                            times(val + Fr(h * h * a, b), "π"), n(val), times(val / 2, "π")],
+            "steps": [f"Titik potong: {kx(a)} = {coef(b)}x² ⇒ x = 0 dan x = {n(s)}. Penampang berupa cincin.",
+                      f"Jarak ke sumbu putar: R = {R} (garis), r = {r} (parabola)." + (" Sumbu digeser ⇒ tambahkan jarak sumbu ke kedua jari-jari!" if h else ""),
+                      f"V = π∫₀^{{{n(s)}}} (R² − r²) dx = <b>{times(val, 'π')}</b>."],
+            "graphs": [region("Daerah yang diputar", f"{a}*x", f"{b}*x*x", 0, float(s), "Jari-jari luar = garis, jari-jari dalam = parabola" + (" (ditambah jarak ke sumbu)." if h else "."),
+                              yr=(-h - 0.5, a * float(s) + 1))],
+            "explanation": "Metode cincin (washer): V = π∫ (R² − r²) dx; R dan r diukur dari SUMBU PUTAR."}
+
+
+@register("vol.sumbu_geser", VL, (3, 4, 5))
+def sumbu_geser(rng, tier):
+    a, b, c = rng.randint(1, 3), rng.randint(1, 2), rng.randint(1, 3)
+    bx = f"{b if b > 1 else ''}"
+    kind = rng.choice(["kulit_kiri", "kulit_kanan", "cincin_bawah", "cincin_atas"] if tier >= 4 else ["kulit_kiri", "cincin_bawah"])
+    shape = rng.choice(["parabola_tutup", "x2"]) if kind.startswith("kulit") else "x2"
+    if kind.startswith("kulit"):
+        if shape == "parabola_tutup":
+            f, js = f"{bx}x({a} − x)", f"{b}*x*({a}-x)"
+            val = Fr(b * a ** 3 * (a + 2 * c), 6)
+        else:
+            f, js = f"{bx}x²", f"{b}*x*x"
+            val = Fr(b * a ** 3 * (3 * a + 4 * c), 6) if kind == "kulit_kiri" else Fr(b * a ** 3 * (a + 4 * c), 6)
+        axis = f"x = {MINUS}{c}" if kind == "kulit_kiri" else f"x = {a + c}"
+        rad = f"x + {c}" if kind == "kulit_kiri" else f"{a + c} − x"
+        work = [f"Sumbu putar tegak ({axis}) ⇒ metode kulit tabung: V = 2π∫ (jari-jari)(tinggi) dx.",
+                f"Jari-jari kulit = jarak ke sumbu = {rad}; tinggi = {f}.", f"V = 2π∫₀^{a} ({rad})·{f} dx = <b>{times(val, 'π')}</b>."]
+        wrong = [times(Fr(b * a ** 4, 6) if shape == "parabola_tutup" else Fr(b * a ** 4, 2), "π"), times(val * 2, "π"), times(val / 2, "π"), n(val)]
+    else:
+        f, js = f"{bx}x²", f"{b}*x*x"
+        if kind == "cincin_bawah":
+            H = c
+            val = Fr(b * b * a ** 5, 5) + Fr(2 * H * b * a ** 3, 3)
+            axis = f"y = {MINUS}{H}"
+            work = [f"Sumbu mendatar y = −{H} di bawah daerah ⇒ metode cincin: R = {f} + {H}, r = {H}.",
+                    f"V = π∫₀^{a} [({f} + {H})² − {H * H}] dx = π∫₀^{a} ({b * b if b > 1 else ''}x⁴ + {2 * H * b}x²) dx.", f"= <b>{times(val, 'π')}</b>."]
+            wrong = [times(Fr(b * b * a ** 5, 5), "π"), times(Fr(b * b * a ** 5, 5) + Fr(H * H * a), "π"), times(val * 2, "π"), n(val)]
+        else:
+            H = b * a * a + rng.randint(0, 2)
+            val = Fr(2 * H * b * a ** 3, 3) - Fr(b * b * a ** 5, 5)
+            axis = f"y = {H}"
+            work = [f"Sumbu mendatar y = {H} di atas daerah ⇒ metode cincin: R = {H} (ke sumbu-x), r = {H} − {f} (ke parabola).",
+                    f"V = π∫₀^{a} [{H * H} − ({H} − {f})²] dx = π∫₀^{a} ({2 * H * b}x² − {b * b if b > 1 else ''}x⁴) dx.", f"= <b>{times(val, 'π')}</b>."]
+            wrong = [times(Fr(b * b * a ** 5, 5), "π"), times(Fr(H * H * a) - Fr(b * b * a ** 5, 5), "π"), times(val * 2, "π"), n(val)]
+    return {"prompt": f"Daerah di bawah y = {f}, 0 ≤ x ≤ {a}, di atas sumbu-x diputar mengelilingi garis {axis}. Hitung volumenya.", "correct": times(val, "π"),
+            "distractors": wrong, "steps": work,
+            "graphs": [g2d("Daerah dan sumbu putar (garis merah)", [-c - 1, a + c + 1], [-c - 1, b * a * a + 3], [],
+                           [{"type": "fill", "upper": js, "lower": "0", "from": 0, "to": a, "color": "amber"}, fn(js, "blue", "f(x)"),
+                            ({"type": "vline", "x": -c if kind == "kulit_kiri" else a + c, "color": "red", "dash": True} if kind.startswith("kulit") else
+                             {"type": "hline", "y": -c if kind == "cincin_bawah" else H, "color": "red", "dash": True})], None,
+                           "Jari-jari selalu diukur dari sumbu putar, bukan dari sumbu koordinat.")],
+            "explanation": "Sumbu putar digeser: ukur ulang jari-jari (kulit: jarak horizontal ke sumbu; cincin: jarak vertikal ke sumbu)."}
 
 
 @register("vol.kulit", VL, (3, 4, 5))
 def kulit(rng, tier):
-    a = rng.randint(1, 4)
+    a, b = rng.randint(1, 4), rng.randint(1, 3)
     if tier <= 4:
-        val = Fr(a ** 4, 6)
-        return {"prompt": f"Daerah di bawah y = x({a} − x), 0 ≤ x ≤ {a}, diputar mengelilingi sumbu-y. Hitung volumenya (metode kulit tabung).",
-                "correct": pi_txt(val), "distractors": [pi_txt(Fr(a ** 4, 12)), pi_txt(Fr(a ** 5, 30)), pi_txt(val * 2), pi_txt(Fr(a ** 3, 6))],
-                "steps": ["Kulit tabung: V = 2π∫ x·f(x) dx (keliling 2πx × tinggi f(x) × tebal dx).", f"2π∫₀^{a} ({a}x² − x³) dx = 2π({a ** 4}/3 − {a ** 4}/4).", f"= <b>{pi_txt(val)}</b>."],
-                "graphs": [region("Daerah dan satu kulit", f"x*({a}-x)", "0", 0, a, "Diputar terhadap sumbu-y: setiap pita tegak menjadi kulit tabung.", yr=(-0.5, a * a / 4 + 1))],
+        if rng.random() < 0.5:
+            val, f, js = Fr(b * a ** 4, 6), f"{b if b > 1 else ''}x({a} − x)", f"{b}*x*({a}-x)"
+            work = f"2π∫₀^{a} x·{f} dx = 2π·{b}({a ** 4}/3 − {a ** 4}/4)"
+            wrong = [times(val / 2, "π"), times(Fr(b * a ** 5, 30), "π"), times(val * 2, "π"), times(Fr(b * a ** 3, 6), "π")]
+        else:
+            m = rng.randint(1, 3)
+            val, f, js = Fr(2 * b * a ** (m + 2), m + 2), f"{b if b > 1 else ''}{xpow(m)}", f"{b}*x**{m}"
+            work = f"2π∫₀^{a} x·{f} dx = 2π·{b}·{a}{sup(m + 2)}/{m + 2}"
+            wrong = [times(Fr(b * a ** (m + 1), m + 1), "π"), times(Fr(b * b * a ** (2 * m + 1), 2 * m + 1), "π"), times(val * 2, "π"), times(val / 2, "π")]
+        return {"prompt": f"Daerah di bawah y = {f}, 0 ≤ x ≤ {a}, diputar mengelilingi sumbu-y. Hitung volumenya (metode kulit tabung).",
+                "correct": times(val, "π"), "distractors": wrong,
+                "steps": ["Kulit tabung: V = 2π∫ x·f(x) dx (keliling 2πx × tinggi f(x) × tebal dx).", f"{work}.", f"= <b>{times(val, 'π')}</b>."],
+                "graphs": [region("Daerah dan satu kulit", js, "0", 0, a, "Diputar terhadap sumbu-y: setiap pita tegak menjadi kulit tabung.", yr=(-0.5, b * a ** 3 + 1))],
                 "explanation": "Kulit tabung cocok bila diputar terhadap sumbu yang sejajar pita."}
-    R, r = rng.randint(3, 6), rng.randint(1, 2)
-    val = 2 * R * r * r
-    return {"prompt": f"Lingkaran (x − {R})² + y² = {r * r} diputar mengelilingi sumbu-y membentuk torus. Hitung volumenya.",
-            "correct": f"{val}π²", "distractors": [f"{2 * R * r}π²", f"{val}π", f"{R * r * r}π²", f"{4 * R * r * r}π²"],
-            "steps": [f"Teorema Pappus: V = (luas daerah)·(jarak lintasan pusat massa) = π·{r * r}·2π·{R}.", f"= <b>{val}π²</b>.",
-                      "(Dapat diverifikasi dengan kulit tabung: 2π∫ x·2√(r² − (x − R)²) dx.)"],
-            "explanation": "Teorema Pappus: V = A·2π·d."}
+    if rng.random() < 0.5:
+        r = rng.randint(1, 3)
+        R = rng.randint(r + 1, 8)
+        val = 2 * R * r * r
+        return {"prompt": f"Lingkaran (x − {R})² + y² = {r * r} diputar mengelilingi sumbu-y membentuk torus. Hitung volumenya.",
+                "correct": f"{val}π²", "distractors": [f"{2 * R * r}π²", f"{val}π", f"{R * r * r}π²", f"{4 * R * r * r}π²"],
+                "steps": [f"Teorema Pappus: V = (luas daerah)·(jarak lintasan pusat massa) = π·{r * r}·2π·{R}.", f"= <b>{val}π²</b>.",
+                          "(Dapat diverifikasi dengan kulit tabung: 2π∫ x·2√(r² − (x − R)²) dx.)"],
+                "explanation": "Teorema Pappus: V = A·2π·d."}
+    c, a = rng.randint(1, 4), rng.randint(1, 3)
+    ex = f"e{sup(-a * a)}"
+    correct = f"{c if c > 1 else ''}π(1 − {ex})"
+    return {"prompt": f"Daerah di bawah y = {c if c > 1 else ''}e<sup>−x²</sup>, 0 ≤ x ≤ {a}, diputar mengelilingi sumbu-y. Hitung volumenya.", "correct": correct,
+            "distractors": [f"{2 * c}π(1 − {ex})", f"{c if c > 1 else ''}π{ex}", f"{c if c > 1 else ''}π(1 − e{sup(-a)})", f"{c if c > 1 else ''}π/2·(1 − {ex})"],
+            "steps": ["Integral ∫ e<sup>−x²</sup> dx tidak elementer, tetapi kulit tabung memberi faktor x: V = 2π∫ x·f(x) dx.",
+                      f"2π∫₀^{a} {c if c > 1 else ''}x e<sup>−x²</sup> dx; substitusi u = x²: = {c if c > 1 else ''}π[−e<sup>−u</sup>]₀^{{{a * a}}}.", f"= <b>{correct}</b>."],
+            "explanation": "Pilihan metode bisa membuat integral mustahil menjadi mudah."}
 
 
 @register("vol.penampang", VL, (4, 5))
 def penampang(rng, tier):
-    r = rng.randint(1, 4)
-    if tier == 4:
-        val, shape = Fr(16 * r ** 3, 3), "persegi"
-        work = f"sisi = 2√({r * r} − x²) ⇒ A(x) = 4({r * r} − x²); V = ∫₋{r}^{r} 4({r * r} − x²) dx"
-        correct = n(val)
-        wrong = [n(val / 2), pi_txt(val), n(Fr(4 * r ** 3, 3)), n(val * 2)]
+    shapes = [("persegi", Fr(1), ""), ("segitiga siku-siku sama kaki dengan kaki di alas", Fr(1, 2), ""), ("segitiga siku-siku sama kaki dengan sisi miring di alas", Fr(1, 4), "")]
+    if tier == 5:
+        shapes += [("segitiga sama sisi", Fr(1, 4), "√3"), ("setengah lingkaran (diameter di alas)", Fr(1, 8), "π")]
+    shape, kappa, sym = rng.choice(shapes)
+    if rng.random() < 0.5:
+        r = rng.randint(1, 6)
+        base, I = f"cakram x² + y² ≤ {r * r}", Fr(16 * r ** 3, 3)
+        work = [f"Penampang di posisi x memotong alas sepanjang s = 2√({r * r} − x²) ⇒ s² = 4({r * r} − x²).",
+                f"∫₋{r}^{r} s² dx = 4(2·{r ** 3} − 2·{r ** 3}/3) = {n(I)}."]
+        axis = "sumbu-x"
     else:
-        val, shape = Fr(2 * r ** 3, 3), "setengah lingkaran (diameter di alas)"
-        work = f"jari-jari = √({r * r} − x²) ⇒ A(x) = (π/2)({r * r} − x²); V = (π/2)∫₋{r}^{r} ({r * r} − x²) dx"
-        correct = pi_txt(val)
-        wrong = [pi_txt(val * 2), n(val), pi_txt(Fr(4 * r ** 3, 3)), pi_txt(val / 2)]
-    return {"prompt": f"Alas benda adalah cakram x² + y² ≤ {r * r}. Setiap penampang tegak lurus sumbu-x berbentuk {shape}. Hitung volumenya.",
-            "correct": correct, "distractors": wrong, "steps": ["V = ∫ A(x) dx dengan A(x) luas penampang.", work + ".", f"= <b>{correct}</b>."],
+        h = rng.randint(1, 6)
+        base, I = f"daerah antara parabola y = x² dan garis y = {h}", Fr(2 * h * h)
+        work = [f"Penampang tegak lurus sumbu-y di ketinggian y memotong alas sepanjang s = 2√y ⇒ s² = 4y.",
+                f"∫₀^{h} 4y dy = {n(I)}."]
+        axis = "sumbu-y"
+    val = kappa * I
+    correct = times(val, sym) if sym else n(val)
+    alt = (lambda v: times(v, sym) if sym else n(v))
+    return {"prompt": f"Alas benda adalah {base}. Setiap penampang tegak lurus {axis} berbentuk {shape}. Hitung volumenya.",
+            "correct": correct, "distractors": [alt(val * 2), alt(I), alt(val / 2), times(val, "π") if sym != "π" else n(val)],
+            "steps": [f"Luas penampang {shape} bersisi s: A = {times(kappa, sym + 's²')}.", *work,
+                      f"V = ∫ A = {times(kappa, sym) + '·' if kappa != 1 or sym else ''}{n(I)} = <b>{correct}</b>."],
             "explanation": "Metode irisan: V = ∫ A(x) dx untuk penampang apa pun."}
 
 
@@ -199,49 +363,99 @@ def pb_parametrik(rng, tier):
 
 @register("pb.kurva32", PJ, (2, 3, 4))
 def kurva32(rng, tier):
-    s = rng.randint(2, 4)
-    a = s * s - 1
-    val = Fr(2, 3) * (s ** 3 - 1)
-    return {"prompt": f"Hitung panjang busur y = (2/3)x<sup>3/2</sup> dari x = 0 sampai x = {a}.", "correct": n(val),
-            "distractors": [n(Fr(2, 3) * s ** 3), n(val * 2), n(Fr(a ** 1.5 * 2 / 3).limit_denominator(10)) if a != s * s else n(a), n(val - 1)],
-            "steps": ["y′ = x<sup>1/2</sup> ⇒ √(1 + y′²) = √(1 + x).", f"L = ∫₀^{a} √(1 + x) dx = (2/3)[(1 + x)<sup>3/2</sup>]₀^{a}.", f"= (2/3)({s}³ − 1) = <b>{n(val)}</b>."],
-            "graphs": [g2d("Kurva y = (2/3)x^(3/2)", [-0.5, a + 1], [-0.5, a ** 1.5 * 0.7 + 1], [], [fn("2/3*pow(x,1.5)", "blue", "y", **{"from": 0})], None,
-                           "Panjang busur selalu ≥ jarak lurus antara kedua ujung.")],
-            "explanation": "Pilih kurva yang membuat 1 + y′² mudah diakarkan."}
+    c = rng.choice([Fr(2, 3), Fr(4, 3), Fr(2), Fr(1, 3)])
+    t = Fr(9, 4) * c * c
+    p = 1 if tier == 2 and rng.random() < 0.5 else rng.randint(1, 3)
+    q = rng.randint(p + 1, p + 4)
+    x0, x1 = (p * p - 1) / t, (q * q - 1) / t
+    val = Fr(2, 3) / t * (q ** 3 - p ** 3)
+    return {"prompt": f"Hitung panjang busur y = {coef(c)}x<sup>3/2</sup> dari x = {n(x0)} sampai x = {n(x1)}.", "correct": n(val),
+            "distractors": [n(Fr(2, 3) / t * q ** 3), n(val * 2), n(Fr(2, 3) * (q ** 3 - p ** 3)) if t != 1 else n(val + 1), n(x1 - x0)],
+            "steps": [f"y′ = {coef(c * Fr(3, 2)) or '1'}·x<sup>1/2</sup> ⇒ 1 + y′² = 1 + {coef(t)}x.".replace("1·", ""),
+                      f"L = ∫ √(1 + {coef(t)}x) dx = {coef(Fr(2, 3) / t)}[(1 + {coef(t)}x)<sup>3/2</sup>].",
+                      f"Di batas: 1 + {coef(t)}x = {p * p} dan {q * q} (kuadrat sempurna!) ⇒ L = {n(Fr(2, 3) / t)}({q}³ − {p}³) = <b>{n(val)}</b>."],
+            "graphs": [g2d("Kurva y = c·x^(3/2)", [-0.2, float(x1) + 1], [-0.5, float(c) * float(x1) ** 1.5 + 1], [],
+                           [fn(f"{float(c)}*pow(x,1.5)", "blue", "y", **{"from": 0})], None, "Panjang busur selalu ≥ jarak lurus antara kedua ujung.")],
+            "explanation": "Pilih batas yang membuat 1 + y′² kuadrat sempurna."}
 
 
 @register("pb.cosh", PJ, (3, 4, 5))
 def pb_cosh(rng, tier):
     if tier <= 4:
-        k = rng.randint(2, 7)
-        val = Fr(k * k - 1, 2 * k)
-        return {"prompt": f"Hitung panjang busur rantai y = cosh x dari x = 0 sampai x = ln {k}.", "correct": n(val),
-                "distractors": [n(Fr(k * k + 1, 2 * k)), n(k - 1), n(val * 2), "ln " + str(k)],
-                "steps": ["y′ = sinh x, 1 + sinh²x = cosh²x ⇒ √(1 + y′²) = cosh x.", f"L = sinh(ln {k}) = ({k} − 1/{k})/2.", f"= <b>{n(val)}</b>."],
-                "explanation": "Kurva rantai (catenary, kabel listrik FT) memiliki panjang busur sinh x."}
-    a = rng.randint(2, 4)
-    val = Fr(a * a - 1, 8)
-    correct = f"{n(val)} + ln {a}"
-    return {"prompt": f"Hitung panjang busur y = x²/8 − ln x dari x = 1 sampai x = {a}.", "correct": correct,
-            "distractors": [f"{n(val)} − ln {a}", f"{n(val)}", f"{n(val * 2)} + ln {a}", f"ln {a}"],
-            "steps": ["y′ = x/4 − 1/x ⇒ 1 + y′² = (x/4 + 1/x)² (kuadrat sempurna!).", f"L = ∫₁^{a} (x/4 + 1/x) dx = [x²/8 + ln x]₁^{a}.", f"= <b>{correct}</b>."],
+        a, k = rng.randint(1, 3), rng.randint(2, 7)
+        sym = rng.random() < 0.4
+        val = Fr(k * k - 1, 2 * k * a) * (2 if sym else 1)
+        f = "cosh x" if a == 1 else f"(1/{a})cosh({a}x)"
+        end = f"ln {k}" if a == 1 else f"(ln {k})/{a}"
+        rng_txt = f"x = {MINUS}{end} sampai x = {end}" if sym else f"x = 0 sampai x = {end}"
+        return {"prompt": f"Hitung panjang busur rantai y = {f} dari {rng_txt}.", "correct": n(val),
+                "distractors": [n(Fr(k * k + 1, 2 * k * a) * (2 if sym else 1)), n(val * a) if a > 1 else n(k - 1), n(val * 2) if not sym else n(val / 2), "ln " + str(k)],
+                "steps": [f"y′ = sinh({kx(a)}), 1 + sinh²u = cosh²u ⇒ √(1 + y′²) = cosh({kx(a)}).",
+                          f"L = ∫ cosh({kx(a)}) dx = sinh({kx(a)})/{a}" .replace("/1", "") + f"; sinh(ln {k}) = ({k} − 1/{k})/2." + (" Kurva simetris ⇒ kalikan 2." if sym else ""),
+                          f"= <b>{n(val)}</b>."],
+                "explanation": "Kurva rantai (catenary, kabel listrik FT) memiliki panjang busur sinh."}
+    c, b = rng.choice([Fr(1), Fr(2), Fr(3), Fr(1, 2)]), rng.randint(2, 6)
+    const = Fr(b * b - 1) / (8 * c)
+    f = frac_terms([(1 / (8 * c), "x²"), (-c, "ln x")])
+    lnb = frac_terms([(c, f"ln {b}")])
+    correct = f"{n(const)} + {lnb}"
+    return {"prompt": f"Hitung panjang busur y = {f} dari x = 1 sampai x = {b}.", "correct": correct,
+            "distractors": [f"{n(const)} − {lnb}", n(const), f"{n(const * 2)} + {lnb}", lnb],
+            "steps": [f"y′ = {frac_terms([(1 / (4 * c), 'x')])} − {_inv(c, 1)}; hasil kali kedua suku = 1/4 ⇒ 1 + y′² = ({frac_terms([(1 / (4 * c), 'x')])} + {_inv(c, 1)})² (kuadrat sempurna).",
+                      f"L = ∫₁^{b} ({frac_terms([(1 / (4 * c), 'x')])} + {_inv(c, 1)}) dx = [{frac_terms([(1 / (8 * c), 'x²'), (c, 'ln x')])}]₁^{b}.", f"= <b>{correct}</b>."],
             "explanation": "Soal panjang busur dirancang agar 1 + y′² menjadi kuadrat sempurna."}
+
+
+@register("pb.kuadrat_sempurna", PJ, (3, 4, 5))
+def kuadrat_sempurna(rng, tier):
+    # y′ = αx^{p−1} − βx^{1−p} dengan αβ = 1/4 ⇒ 1 + y′² = (αx^{p−1} + βx^{1−p})²
+    beta = rng.choice([Fr(1, 2), Fr(1, 4), Fr(1), Fr(2)])
+    alpha = 1 / (4 * beta)
+    p = rng.choice([3, 4] if tier < 5 else [3, 4, 5])
+    b = rng.randint(2, 3 if p > 3 else 4)
+    A, B = alpha / p, beta / (p - 2)
+    F = lambda x: A * Fr(x) ** p - B * Fr(x) ** (2 - p)
+    val = F(b) - F(1)
+    f = f"{frac_terms([(A, xpow(p))])} + {_inv(B, p - 2)}"
+    Fw = lambda x: A * Fr(x) ** p + B * Fr(x) ** (2 - p)
+    return {"prompt": f"Hitung panjang busur y = {f} dari x = 1 sampai x = {b}.", "correct": n(val),
+            "distractors": [n(Fw(b) - Fw(1)), n(A * (b ** p - 1)), n(val * 2), n(val + 1)],
+            "steps": [f"y′ = {frac_terms([(alpha, xpow(p - 1))])} − {_inv(beta, p - 1)}; hasil kali kedua suku = {n(alpha * beta)} = 1/4.",
+                      f"Maka 1 + y′² = ({frac_terms([(alpha, xpow(p - 1))])} + {_inv(beta, p - 1)})² — kuadrat sempurna, akarnya hilang!",
+                      f"L = ∫₁^{b} ({frac_terms([(alpha, xpow(p - 1))])} + {_inv(beta, p - 1)}) dx = [{frac_terms([(A, xpow(p))])} − {_inv(B, p - 2)}]₁^{b} = <b>{n(val)}</b>."],
+            "explanation": "Kunci soal panjang busur ‘bersih’: (u − v)² + 4uv = (u + v)² dengan uv = 1/4."}
 
 
 @register("pb.permukaan", PJ, (4, 5))
 def permukaan(rng, tier):
     if tier == 4:
-        r = rng.randint(1, 6)
-        return {"prompt": f"Hitung luas permukaan bola berjari-jari {r} dengan memutar y = √({r * r} − x²) mengelilingi sumbu-x.", "correct": pi_txt(4 * r * r),
-                "distractors": [pi_txt(2 * r * r), pi_txt(Fr(4 * r ** 3, 3)), pi_txt(r * r), pi_txt(8 * r * r)],
-                "steps": ["S = 2π∫ y√(1 + y′²) dx.", f"y√(1 + y′²) = √({r * r} − x²)·{r}/√({r * r} − x²) = {r}.", f"S = 2π∫₋{r}^{r} {r} dx = <b>{pi_txt(4 * r * r)}</b>."],
+        r = rng.randint(2, 6)
+        lo, hi = sorted(distinct(rng, -r, r, 2))
+        val = 2 * r * (hi - lo)
+        return {"prompt": f"Busur y = √({r * r} − x²), {n(lo)} ≤ x ≤ {n(hi)}, diputar mengelilingi sumbu-x. Hitung luas permukaan (zona bola) yang terbentuk.",
+                "correct": times(val, "π"), "distractors": [times(r * (hi - lo), "π"), times(4 * r * r, "π"), times(val * 2, "π"), times((hi - lo) ** 2, "π")],
+                "steps": ["S = 2π∫ y√(1 + y′²) dx.", f"y√(1 + y′²) = √({r * r} − x²)·{r}/√({r * r} − x²) = {r} (konstan!).",
+                          f"S = 2π∫<sub>{n(lo)}</sub><sup>{n(hi)}</sup> {r} dx = 2π·{r}·{hi - lo} = <b>{times(val, 'π')}</b> (teorema ‘kotak topi’ Archimedes)."],
                 "explanation": "Luas permukaan benda putar: S = 2π∫ f(x)√(1 + f′²) dx."}
-    a = rng.randint(2, 6) * 4
-    val = Fr(15 * a * a, 16)
-    return {"prompt": f"Garis y = (3/4)x, 0 ≤ x ≤ {a}, diputar mengelilingi sumbu-x. Hitung luas permukaan kerucut yang terbentuk.", "correct": pi_txt(val),
-            "distractors": [pi_txt(Fr(3 * a * a, 4)), pi_txt(val * 2), pi_txt(Fr(9 * a * a, 16)), pi_txt(Fr(5 * a * a, 4))],
-            "steps": ["S = 2π∫₀^{a} (3x/4)·√(1 + 9/16) dx = 2π·(3/4)(5/4)·a²/2.", f"= <b>{pi_txt(val)}</b> (cocok dengan πrℓ = π·{n(Fr(3 * a, 4))}·{n(Fr(5 * a, 4))})."],
-            "explanation": "Rumus selimut kerucut πrℓ muncul dari integral luas permukaan."}
+    if rng.random() < 0.6:
+        pp, qq, hh = rng.choice([(3, 4, 5), (4, 3, 5), (5, 12, 13), (12, 5, 13), (8, 15, 17), (15, 8, 17), (7, 24, 25)])
+        j = rng.randint(1, 4)
+        A = qq * j
+        val = pp * hh * j * j
+        return {"prompt": f"Garis y = ({pp}/{qq})x, 0 ≤ x ≤ {A}, diputar mengelilingi sumbu-x. Hitung luas permukaan kerucut yang terbentuk.", "correct": times(val, "π"),
+                "distractors": [times(pp * qq * j * j, "π"), times(val * 2, "π"), times(pp * pp * j * j, "π"), times(Fr(val, 2), "π")],
+                "steps": [f"√(1 + ({pp}/{qq})²) = {hh}/{qq}.", f"S = 2π∫₀^{A} ({pp}x/{qq})·({hh}/{qq}) dx = 2π·{pp * hh}/{qq * qq}·{A * A}/2.",
+                          f"= <b>{times(val, 'π')}</b> (cocok dengan πrℓ = π·{pp * j}·{hh * j})."],
+                "explanation": "Rumus selimut kerucut πrℓ muncul dari integral luas permukaan."}
+    d = rng.randint(1, 2)
+    q = rng.randint(d + 1, d + 4)
+    X = q * q - d * d
+    val = Fr(8 * d * (q ** 3 - d ** 3), 3)
+    return {"prompt": f"Kurva y = {2 * d}√x, 0 ≤ x ≤ {X}, diputar mengelilingi sumbu-x. Hitung luas permukaannya.", "correct": times(val, "π"),
+            "distractors": [times(Fr(8 * d * q ** 3, 3), "π"), times(val * 2, "π"), times(Fr(4 * d * (q ** 3 - d ** 3), 3), "π"), n(val)],
+            "steps": [f"y√(1 + y′²) = {2 * d}√x·√(1 + {d * d}/x) = {2 * d}√(x + {d * d}).",
+                      f"S = 2π∫₀^{X} {2 * d}√(x + {d * d}) dx = {4 * d}π·(2/3)[(x + {d * d})<sup>3/2</sup>]₀^{X} = {n(Fr(8 * d, 3))}π({q}³ − {d}³).", f"= <b>{times(val, 'π')}</b>."],
+            "explanation": "Paraboloid: x + d² membuat batas menjadi kuadrat sempurna."}
 
 
 # ════════════════════════ Topik 4: Terapan fisika & peluang ════════════════
@@ -281,12 +495,21 @@ def pusat_massa(rng, tier):
                 "steps": ["x̄ = ∫ xρ dx / ∫ ρ dx.", f"∫₀^{L} kx² dx / ∫₀^{L} kx dx = (k{L}³/3)/(k{L}²/2).", f"<b>{correct}</b> (bergeser ke ujung yang lebih berat)."],
                 "explanation": "Pusat massa = rata-rata posisi berbobot massa."}
     if tier == 4:
-        m = rng.randint(1, 5)
-        val = Fr(m + 1, m + 2)
-        return {"prompt": f"Tentukan x̄ (pusat massa/sentroid) daerah di bawah y = x{sup(m) if m > 1 else ''} pada 0 ≤ x ≤ 1.", "correct": n(val),
-                "distractors": [n(Fr(1, 2)), n(Fr(m, m + 1)), n(Fr(m + 2, m + 3)), n(Fr(1, m + 2))],
-                "steps": ["x̄ = ∫ x·f dx / ∫ f dx.", f"∫₀¹ x{sup(m + 1)} dx = 1/{m + 2}; ∫₀¹ x{sup(m)} dx = 1/{m + 1}.", f"x̄ = {m + 1}/{m + 2} = <b>{n(val)}</b>."],
-                "explanation": "Sentroid daerah: x̄ = (1/A)∫ x f(x) dx."}
+        m, a, c = rng.randint(1, 4), rng.randint(1, 3), rng.randint(1, 3)
+        f = f"{c if c > 1 else ''}{xpow(m)}"
+        if rng.random() < 0.5:
+            val = Fr(a * (m + 1), m + 2)
+            return {"prompt": f"Tentukan x̄ (sentroid) daerah di bawah y = {f} pada 0 ≤ x ≤ {a}.", "correct": n(val),
+                    "distractors": [n(Fr(a, 2)), n(Fr(a * m, m + 1)), n(Fr(a * (m + 2), m + 3)), n(Fr(a, m + 2))],
+                    "steps": ["x̄ = ∫ x·f dx / ∫ f dx (konstanta c saling menghapus).", f"∫₀^{a} x{sup(m + 1)} dx = {a}{sup(m + 2)}/{m + 2}; ∫₀^{a} {xpow(m)} dx = {a}{sup(m + 1)}/{m + 1}.",
+                              f"x̄ = {a}·{m + 1}/{m + 2} = <b>{n(val)}</b>."],
+                    "explanation": "Sentroid daerah: x̄ = (1/A)∫ x f(x) dx."}
+        val = Fr(c * a ** m * (m + 1), 2 * (2 * m + 1))
+        return {"prompt": f"Tentukan ȳ (sentroid) daerah di bawah y = {f} pada 0 ≤ x ≤ {a}.", "correct": n(val),
+                "distractors": [n(Fr(c * a ** m, 2)), n(val * 2), n(Fr(c * a ** m * (m + 1), m + 2)), n(val / 2)],
+                "steps": ["ȳ = (1/A)∫ ½[f(x)]² dx.", f"A = {n(Fr(c * a ** (m + 1), m + 1))}; ∫₀^{a} ½·{c * c if c > 1 else ''}x{sup(2 * m)} dx = {n(Fr(c * c * a ** (2 * m + 1), 2 * (2 * m + 1)))}.",
+                          f"ȳ = <b>{n(val)}</b>."],
+                "explanation": "Sentroid daerah: ȳ = (1/A)∫ ½f(x)² dx (rata-rata ketinggian pita)."}
     r = rng.randint(1, 6)
     correct = f"ȳ = {per_pi(Fr(4 * r, 3))}"
     return {"prompt": f"Tentukan ȳ (sentroid) daerah setengah lingkaran x² + y² ≤ {r * r}, y ≥ 0.", "correct": correct,
@@ -314,19 +537,22 @@ def pompa(rng, tier):
 
 @register("fis.peluang", FS, (1, 2))
 def peluang(rng, tier):
-    L = rng.randint(1, 4)
-    k = Fr(2, L * L)
+    L, m = rng.randint(1, 5), rng.randint(1, 4)
+    k = Fr(m + 1, L ** (m + 1))
+    f = f"k{xpow(m)}"
     if tier == 1:
-        return {"prompt": f"f(x) = kx untuk 0 ≤ x ≤ {L} (nol di luar) adalah fungsi kepadatan peluang. Tentukan k.", "correct": f"k = {n(k)}",
-                "distractors": [f"k = {n(Fr(1, L))}", f"k = {n(Fr(1, L * L))}", f"k = {n(k * 2)}", "k = 1"],
-                "steps": ["Syarat kepadatan: ∫ f(x) dx = 1.", f"∫₀^{L} kx dx = k·{L * L}/2 = 1 ⇒ <b>k = {n(k)}</b>."],
+        return {"prompt": f"f(x) = {f} untuk 0 ≤ x ≤ {L} (nol di luar) adalah fungsi kepadatan peluang. Tentukan k.", "correct": f"k = {n(k)}",
+                "distractors": [f"k = {n(Fr(1, L ** m))}", f"k = {n(Fr(1, L ** (m + 1)))}", f"k = {n(k * 2)}", f"k = {n(Fr(m + 1, L))}"],
+                "steps": ["Syarat kepadatan: ∫ f(x) dx = 1.", f"∫₀^{L} {f} dx = k·{L}{sup(m + 1)}/{m + 1} = 1 ⇒ <b>k = {n(k)}</b>."],
                 "explanation": "Total peluang = luas di bawah kepadatan = 1 (FMIPA statistika)."}
-    a = Fr(L, 2)
-    P = k * a * a / 2
-    return {"prompt": f"X berkepadatan f(x) = {n(k)}x pada [0, {L}]. Hitung P(X ≤ {n(a)}).", "correct": n(P),
-            "distractors": [n(Fr(1, 2)), n(P * 2), n(1 - P), n(k * a)],
-            "steps": [f"P(X ≤ {n(a)}) = ∫₀^{{{n(a)}}} {n(k)}x dx = {n(k)}·({n(a)})²/2.", f"= <b>{n(P)}</b>."],
-            "graphs": [g2d("Peluang = luas di bawah kepadatan", [-0.2, L + 0.2], [0, float(k * L) * 1.2], [param("t", "batas t", 0, L, 0.01, float(a), "t")],
-                           [{"type": "fill", "upper": f"{float(k)}*x", "from": 0, "to": "t", "color": "amber"}, fn(f"{float(k)}*x", "blue", "f(x)", **{"from": 0, "to": L})],
-                           [readout("P(X ≤ t)", f"{float(k)}*t*t/2", 4)], "Geser t: peluang kumulatif naik dari 0 ke 1.")],
+    j = rng.randint(1, 3)
+    a = Fr(j * L, 4)
+    P = (a / L) ** (m + 1)
+    kf = f"{n(k)}{xpow(m)}"
+    return {"prompt": f"X berkepadatan f(x) = {kf} pada [0, {L}]. Hitung P(X ≤ {n(a)}).", "correct": n(P),
+            "distractors": [n(Fr(j, 4)), n(1 - P), n(P * 2) if P * 2 < 1 else n(P / 2), n(k * a ** m)],
+            "steps": [f"P(X ≤ {n(a)}) = ∫₀^{{{n(a)}}} {kf} dx = {n(k)}·({n(a)}){sup(m + 1)}/{m + 1}.", f"= ({n(a)}/{L}){sup(m + 1)} = <b>{n(P)}</b>."],
+            "graphs": [g2d("Peluang = luas di bawah kepadatan", [-0.2, L + 0.2], [0, float(k * L ** m) * 1.2], [param("t", "batas t", 0, L, 0.01, float(a), "t")],
+                           [{"type": "fill", "upper": f"{float(k)}*x**{m}", "from": 0, "to": "t", "color": "amber"}, fn(f"{float(k)}*x**{m}", "blue", "f(x)", **{"from": 0, "to": L})],
+                           [readout("P(X ≤ t)", f"pow(t/{L},{m + 1})", 4)], "Geser t: peluang kumulatif naik dari 0 ke 1.")],
             "explanation": "P(a ≤ X ≤ b) = ∫ₐᵇ f(x) dx."}

@@ -169,3 +169,40 @@ def surd(coef, rad):
 
 def gcd(a, b):
     return math.gcd(int(a), int(b))
+
+
+def over(pairs, const=0):
+    """
+    Jumlah suku berkoefisien pecahan ditulis di atas SATU penyebut bersama.
+
+    over([(Fr(3, 4), 'e²')], Fr(1, 4)) → '(3e² + 1)/4'; over([(Fr(-1, 2), 'π')]) → '−π/2'.
+    """
+    D = math.lcm(*(Fr(c).denominator for c, _ in pairs), Fr(const).denominator)
+    top = terms([(Fr(c) * D, mono) for c, mono in pairs], Fr(const) * D)
+    if D == 1:
+        return top
+    single = sum(1 for c, _ in pairs if c) + (1 if const else 0) == 1
+    return f"{top}/{D}" if single else f"({top})/{D}"
+
+
+def frac_terms(pairs, const=0):
+    """
+    Jumlah suku dengan penyebut per suku: [(Fr(1, 3), 'x³ ln x'), (Fr(-1, 9), 'x³')] → 'x³ ln x/3 − x³/9'.
+    """
+    out = ""
+    for c, mono in list(pairs) + [(const, "")]:
+        c = Fr(c)
+        if c == 0:
+            continue
+        num, den = abs(c.numerator), c.denominator
+        body = (str(num) if num != 1 or not mono else "") + mono + (f"/{den}" if den != 1 else "")
+        if out == "":
+            out = (MINUS if c < 0 else "") + body
+        else:
+            out += f" {MINUS} {body}" if c < 0 else f" + {body}"
+    return out or "0"
+
+
+def times(c, sym):
+    """Koefisien pecahan × simbol: times(Fr(3, 16), 'π') → '3π/16', times(-1, '√π') → '−√π'."""
+    return over([(c, sym)])
