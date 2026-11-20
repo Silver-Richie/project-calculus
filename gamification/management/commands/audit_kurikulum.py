@@ -26,7 +26,9 @@ class Command(BaseCommand):
             have = [s for s in t["covers"] if s in topics]
             status = "ADA" if t["slug"] in topics and t["covers"] == [t["slug"]] else "UPGRADE" if have else "BARU"
             counts[status] += 1
-            slides = topics[t["slug"]].slides.count() if t["slug"] in topics else 0
+            # Level 4 berjalur fakultas: bila slug target tidak ada, hitung slide di salinan/topik yang digabung.
+            where = [t["slug"]] if t["slug"] in topics else [*t.get("slides_on", []), *have]
+            slides = max((topics[s].slides.count() for s in where if s in topics), default=0)
             raw = sum(1 for s in have for sec in topics[s].sections.all() if RAW_MATH.search(sec.body_html) and "$" not in sec.body_html)
             rows.append((group, t["track"], t["slug"], t["title"], status, slides, f"{t['slides'][0]}–{t['slides'][1]}", raw))
 

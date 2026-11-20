@@ -12,6 +12,8 @@ Setiap topik:
   covers   : slug topik lama yang isinya digabung/dipakai (boleh kosong untuk topik baru).
   slides   : target jumlah slide (min, max) — fondasi 4–6, topik berat 7–10+.
   track    : "inti" (semua fakultas) atau "fasilkom" / "fmipa" / "ft" (jalur spesialisasi).
+  slides_on: (opsional) slug tempat dek slide dipasang bila slug target tidak ada sebagai topik
+             (Level 4 berjalur fakultas: dek inti dipasang ke salinan kl-ft/fm/fk-*).
 
 Jenis slide (LessonSlide.kind): intuition, derivation, theorem, example, pitfall, checkpoint.
 Rumus: $inline$ dan $$blok$$ (KaTeX). Hindari "x^2", "r dr dθ", atau <sup> untuk rumus.
@@ -60,7 +62,7 @@ SYLLABUS = [
     ]},
     {"level": "kalkulus-lanjut", "title": "Kalkulus Tingkat Lanjut (Kalkulus 3 / Multivariabel)", "topics": [
         {"slug": "kl-geometri-ruang", "title": "Geometri Ruang & Permukaan Kuadrik", "covers": ["kl-fm-kuadrik", "kl-ft-pb-fungsi"], "slides": MID},
-        {"slug": "kl-fungsi-vektor", "title": "Fungsi Vektor & Kelengkungan", "covers": [], "slides": HEAVY},
+        {"slug": "kl-fungsi-vektor", "title": "Fungsi Vektor & Kelengkungan", "covers": [], "slides": HEAVY, "slides_on": ["kl-ft-fungsi-vektor"]},
         {"slug": "kl-turunan-parsial", "title": "Turunan Parsial & Bidang Singgung", "covers": ["kl-ft-tp-parsial", "kl-ft-pb-limit"], "slides": HEAVY},
         {"slug": "kl-gradien", "title": "Aturan Rantai Multivariabel & Gradien", "covers": ["kl-ft-tp-gradien"], "slides": HEAVY},
         {"slug": "kl-optimasi-lagrange", "title": "Optimasi & Pengali Lagrange", "covers": ["kl-ft-lagrange", "kl-fm-hessian"], "slides": HEAVY},
