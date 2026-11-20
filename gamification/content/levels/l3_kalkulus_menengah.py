@@ -246,7 +246,7 @@ _V2_SLIDES = {**_V2_A, **_V2_B, **_V2_C}
 for _new in _V2_NEW:
     _sub = next(s for s in SUBLEVELS if any(t["slug"] == _new["after"] for t in s["topics"]))
     _i = next(i for i, t in enumerate(_sub["topics"]) if t["slug"] == _new["after"]) + 1
-    _sub["topics"].insert(_i, {**{k: v for k, v in _new.items() if k != "after"}, "sections": [], "practice": False})
+    _sub["topics"].insert(_i, {**{k: v for k, v in _new.items() if k != "after"}, "sections": []})
 for _sub in SUBLEVELS:
     for _t in _sub["topics"]:
         _t["slides"] = _V2_SLIDES.get(_t["slug"], [])

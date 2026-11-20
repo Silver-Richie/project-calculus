@@ -7,7 +7,7 @@ from fractions import Fraction as Fr
 import math
 
 from .. import register
-from ..fmt import MINUS, fac, n, paren, sup
+from ..fmt import MINUS, fac, n, paren, sqrt_simplify, sup, surd, terms, times
 from ..graphs import fn, g2d, param, pt, readout
 from ..precalc.common import distinct, nz
 from ..precalc.trigonometri import exact, rad_text
@@ -104,48 +104,81 @@ def kp_singgung(rng, tier):
             "explanation": "Garis singgung irisan kerucut via turunan implisit."}
 
 
+def rootxt(v):
+    """√v disederhanakan sebagai teks (v bulat ≥ 0)."""
+    c, r = sqrt_simplify(v)
+    return surd(c, r)
+
+
+def ctr(var, h):
+    return f"{var}²" if h == 0 else f"({var} {MINUS} {h})²" if h > 0 else f"({var} + {-h})²"
+
+
 # ════════════════════════ Topik 2: Elips & hiperbola ═══════════════════════
 TRIPLES = [(5, 4, 3), (5, 3, 4), (13, 12, 5), (13, 5, 12), (10, 8, 6), (17, 15, 8)]
 
 
 @register("ke.elips", EH, (1, 2, 3))
 def elips(rng, tier):
-    a, b, c = rng.choice(TRIPLES)
+    a = rng.randint(2, 7)
+    b = rng.randint(1, a - 1)
+    c2 = a * a - b * b
+    h, k = (0, 0) if tier == 1 else (rng.randint(-3, 3), rng.randint(-3, 3))
+    vert = tier >= 2 and rng.random() < 0.4
     ask = "fokus" if tier == 1 else rng.choice(["fokus", "eksentrisitas"])
+    ct = rootxt(c2)
+    X, Y = ctr("x", h), ctr("y", k)
+    eq = (f"{X}/{b * b} + {Y}/{a * a} = 1" if vert else f"{X}/{a * a} + {Y}/{b * b} = 1").replace("²/1 ", "² ").replace("²/1 =", "² =")
     if ask == "fokus":
-        correct = f"(±{c}, 0)"
-        wrong = [f"(±{a}, 0)", f"(0, ±{c})", f"(±{b}, 0)", f"(±{a + b}, 0)"]
-        step = f"c² = a² − b² = {a * a} − {b * b} = {c * c} ⇒ c = {c}; fokus <b>{correct}</b>."
+        F = (lambda s: f"({n(h)}, {n(k)} ± {s})") if vert else (lambda s: f"({n(h)} ± {s}, {n(k)})")
+        G = (lambda s: f"({n(h)} ± {s}, {n(k)})") if vert else (lambda s: f"({n(h)}, {n(k)} ± {s})")
+        if (h, k) == (0, 0):
+            F = (lambda s: f"(0, ±{s})") if vert else (lambda s: f"(±{s}, 0)")
+            G = (lambda s: f"(±{s}, 0)") if vert else (lambda s: f"(0, ±{s})")
+        correct = F(ct)
+        wrong = [F(str(a)), G(ct), F(rootxt(a * a + b * b)), F(str(b))]
+        step = f"c² = a² − b² = {a * a} − {b * b} = {c2} ⇒ c = {ct}; fokus berjarak c dari pusat ({n(h)}, {n(k)}) sepanjang sumbu mayor: <b>{correct}</b>."
     else:
-        correct = n(Fr(c, a))
-        wrong = [n(Fr(b, a)), n(Fr(a, c)), n(Fr(c, b)), "1"]
-        step = f"c = {c}, e = c/a = <b>{correct}</b> (0 &lt; e &lt; 1 untuk elips)."
-    return {"prompt": f"Tentukan {ask} elips x²/{a * a} + y²/{b * b} = 1.", "correct": correct, "distractors": wrong,
-            "steps": [f"a = {a} (sumbu mayor di sumbu-x), b = {b}.", step],
-            "graphs": [conic_graph("Elips: jumlah jarak ke kedua fokus = 2a", f"{a}*cos(t)", f"{b}*sin(t)", "Ubah b untuk melihat elips makin pipih/bulat.",
-                                   extra=[pt(c, 0, "red", label="F₁"), pt(-c, 0, "red", label="F₂")], rng_=(-a - 3, a + 3))],
-            "explanation": "Elips: x²/a² + y²/b² = 1, c² = a² − b², e = c/a."}
+        cc, r = sqrt_simplify(c2)
+        g = math.gcd(cc, a)
+        correct = surd(cc // g, r) + (f"/{a // g}" if a // g > 1 else "")
+        wrong = [n(Fr(b, a)), n(Fr(c2, a * a)), surd(cc, r) + f"/{b}" if b > 1 else surd(cc, r), rootxt(a * a + b * b) + f"/{a}"]
+        step = f"c = √({a * a} − {b * b}) = {ct}; e = c/a = <b>{correct}</b> (0 &lt; e &lt; 1 untuk elips)."
+    return {"prompt": f"Tentukan {ask} elips {eq}.", "correct": correct, "distractors": wrong,
+            "steps": [f"Penyebut terbesar a² = {a * a} ada di bawah {'y' if vert else 'x'} ⇒ sumbu mayor {'tegak' if vert else 'mendatar'}; b² = {b * b}; pusat ({n(h)}, {n(k)}).", step],
+            "graphs": [conic_graph("Elips: jumlah jarak ke kedua fokus = 2a", f"{h}+{b if vert else a}*cos(t)", f"{k}+{a if vert else b}*sin(t)", "Ubah b untuk melihat elips makin pipih/bulat.",
+                                   extra=[pt(h, k + math.sqrt(c2), "red", label="F₁") if vert else pt(h + math.sqrt(c2), k, "red", label="F₁"),
+                                          pt(h, k - math.sqrt(c2), "red", label="F₂") if vert else pt(h - math.sqrt(c2), k, "red", label="F₂")], rng_=(-a - 6, a + 6))],
+            "explanation": "Elips: c² = a² − b² (a = setengah sumbu mayor), e = c/a."}
 
 
 @register("ke.hiperbola", EH, (1, 2, 3))
 def hiperbola(rng, tier):
-    c, a, b = rng.choice(TRIPLES)
+    a, b = rng.randint(1, 6), rng.randint(1, 6)
+    h, k = (0, 0) if tier == 1 else (rng.randint(-3, 3), rng.randint(-3, 3))
     ask = "asimtot" if tier == 1 else rng.choice(["asimtot", "fokus"])
+    X, Y = ctr("x", h), ctr("y", k)
+    m = Fr(b, a)
     if ask == "asimtot":
-        correct = f"y = ±{n(Fr(b, a))}x"
-        wrong = [f"y = ±{n(Fr(a, b))}x", f"y = ±{n(Fr(c, a))}x", f"x = ±{a}", f"y = ±{b}x"]
-        step = f"Asimtot y = ±(b/a)x = <b>±{n(Fr(b, a))}x</b>."
+        L = "y" if k == 0 else f"y {MINUS} {k}" if k > 0 else f"y + {-k}"
+        R = "x" if h == 0 else f"(x {MINUS} {h})" if h > 0 else f"(x + {-h})"
+        mt = lambda v: "" if v == 1 else n(v) if Fr(v).denominator == 1 else f"({n(v)})"
+        correct = f"{L} = ±{mt(m)}{R}"
+        wrong = [f"{L} = ±{mt(Fr(a, b))}{R}", f"{L} = ±{mt(m * 2)}{R}", f"{L} = ±{mt(m * 3)}{R}", f"x = ±{a}"]
+        step = f"Asimtot: {L} = ±(b/a){R} dengan b/a = {n(m)}: <b>{correct}</b>."
     else:
-        correct = f"(±{c}, 0)"
-        wrong = [f"(±{a}, 0)", f"(0, ±{c})", f"(±{n(Fr(c * c - 2 * b * b))}, 0)" if c * c - 2 * b * b > 0 else f"(±{b}, 0)", f"(±{a + b}, 0)"]
-        step = f"c² = a² + b² = {a * a} + {b * b} = {c * c} ⇒ fokus <b>{correct}</b>."
-    return {"prompt": f"Tentukan {ask} hiperbola x²/{a * a} − y²/{b * b} = 1.", "correct": correct, "distractors": wrong,
-            "steps": [f"a = {a}, b = {b}.", step],
-            "graphs": [g2d("Hiperbola dan asimtotnya", [-c - 6, c + 6], [-c - 6, c + 6], [],
-                           [{"type": "param", "t": [-2.2, 2.2], "x": f"{a}*cosh(t)", "y": f"{b}*sinh(t)", "color": "blue"},
-                            {"type": "param", "t": [-2.2, 2.2], "x": f"-{a}*cosh(t)", "y": f"{b}*sinh(t)", "color": "blue"},
-                            fn(f"{b / a}*x", "gray", dash=True), fn(f"-{b / a}*x", "gray", dash=True)], None, "Cabang hiperbola mendekati asimtot di kejauhan.")],
-            "explanation": "Hiperbola: c² = a² + b²; asimtot y = ±(b/a)x."}
+        ct = rootxt(a * a + b * b)
+        correct = f"(±{ct}, 0)" if (h, k) == (0, 0) else f"({n(h)} ± {ct}, {n(k)})"
+        G = (lambda s: f"(±{s}, 0)") if (h, k) == (0, 0) else (lambda s: f"({n(h)} ± {s}, {n(k)})")
+        wrong = [G(str(a)), G(rootxt(abs(a * a - b * b))) if a != b else G("0"), f"(0, ±{ct})" if (h, k) == (0, 0) else f"({n(h)}, {n(k)} ± {ct})", G(str(a + b))]
+        step = f"c² = a² + b² = {a * a} + {b * b} = {a * a + b * b} ⇒ c = {ct}; fokus <b>{correct}</b>."
+    return {"prompt": f"Tentukan {ask} hiperbola {X}/{a * a} − {Y}/{b * b} = 1.".replace("²/1 ", "² "), "correct": correct, "distractors": wrong,
+            "steps": [f"a = {a}, b = {b}, pusat ({n(h)}, {n(k)}).", step],
+            "graphs": [g2d("Hiperbola dan asimtotnya", [h - a - 8, h + a + 8], [k - 8, k + 8], [],
+                           [{"type": "param", "t": [-2.2, 2.2], "x": f"{h}+{a}*cosh(t)", "y": f"{k}+{b}*sinh(t)", "color": "blue"},
+                            {"type": "param", "t": [-2.2, 2.2], "x": f"{h}-{a}*cosh(t)", "y": f"{k}+{b}*sinh(t)", "color": "blue"},
+                            fn(f"{k}+{b / a}*(x-({h}))", "gray", dash=True), fn(f"{k}-{b / a}*(x-({h}))", "gray", dash=True)], None, "Cabang hiperbola mendekati asimtot di kejauhan.")],
+            "explanation": "Hiperbola: c² = a² + b²; asimtot y − k = ±(b/a)(x − h)."}
 
 
 @register("ke.jenis", EH, (3, 4, 5))
@@ -153,16 +186,19 @@ def jenis(rng, tier):
     if tier <= 4:
         A, C = nz(rng, -5, 5), nz(rng, -5, 5)
         D, E = rng.randint(-6, 6), rng.randint(-6, 6)
-        kind = "elips (atau lingkaran)" if A * C > 0 else "hiperbola"
-        if A == C:
-            kind = "lingkaran"
-        eq = f"{A}x² + {C}y² + {D}x + {E}y − 7 = 0".replace("+ −", "− ")
+        if tier == 4 and rng.random() < 0.3:
+            C = 0
+        kind = "lingkaran" if A == C else "elips (atau lingkaran)" if A * C > 0 else "hiperbola" if A * C < 0 else "parabola"
+        eq = terms([(A, "x²"), (C, "y²"), (D, "x"), (E, "y")], -7) + " = 0"
         why = "AC &gt; 0 ⇒ elips; A = C ⇒ lingkaran; AC &lt; 0 ⇒ hiperbola; AC = 0 ⇒ parabola."
     else:
-        A, B, C = rng.choice([(1, 1, 1), (1, 4, 1), (1, 2, 1), (2, 3, 1), (1, 3, 2), (3, 2, 1)])
+        A, C = rng.randint(1, 4), rng.randint(1, 4)
+        B = rng.randint(-6, 6)
+        if rng.random() < 0.25 and math.isqrt(4 * A * C) ** 2 == 4 * A * C:
+            B = math.isqrt(4 * A * C) * rng.choice([1, -1])
         disc = B * B - 4 * A * C
         kind = "elips (atau lingkaran)" if disc < 0 else "parabola" if disc == 0 else "hiperbola"
-        eq = f"{A}x² + {B}xy + {C}y² − 4 = 0".replace(" 1x", " x").replace(" 1y", " y")
+        eq = terms([(A, "x²"), (B, "xy"), (C, "y²")], -4) + " = 0"
         why = f"Diskriminan B² − 4AC = {B * B} − {4 * A * C} = {disc}: &lt; 0 elips, = 0 parabola, &gt; 0 hiperbola."
     options = ["elips (atau lingkaran)", "hiperbola", "parabola", "lingkaran"]
     return {"prompt": f"Persamaan {eq} menyatakan irisan kerucut jenis apa?", "correct": kind, "distractors": [o for o in options if o != kind] + ["garis lurus"],
@@ -171,15 +207,23 @@ def jenis(rng, tier):
 
 @register("ke.orbit", EH, (4, 5))
 def orbit(rng, tier):
-    a, b, c = rng.choice(TRIPLES)
     if tier == 4:
-        return {"prompt": f"Orbit satelit berbentuk elips dengan setengah sumbu mayor {a}·10³ km dan eksentrisitas {n(Fr(c, a))}; bumi di salah satu fokus. Berapa jarak terdekat (perigee) dan terjauh (apogee)?",
-                "correct": f"{a - c}·10³ km dan {a + c}·10³ km", "distractors": [f"{b}·10³ km dan {a}·10³ km", f"{a - b}·10³ km dan {a + b}·10³ km", f"{c}·10³ km dan {a}·10³ km", f"{a}·10³ km dan {a + c}·10³ km"],
-                "steps": [f"c = ae = {c}·10³ km.", f"Jarak fokus ke ujung sumbu mayor: a − c dan a + c.", f"<b>{a - c}·10³ km dan {a + c}·10³ km</b>."],
+        e = rng.choice([Fr(1, 10), Fr(1, 5), Fr(1, 4), Fr(1, 3), Fr(2, 5), Fr(1, 2), Fr(3, 5), Fr(3, 4)])
+        a = e.denominator * rng.randint(2, 9)
+        c = a * e
+        return {"prompt": f"Orbit satelit berbentuk elips dengan setengah sumbu mayor {a}·10³ km dan eksentrisitas {n(e)}; bumi di salah satu fokus. Berapa jarak terdekat (perigee) dan terjauh (apogee)?",
+                "correct": f"{n(a - c)}·10³ km dan {n(a + c)}·10³ km", "distractors": [f"{n(c)}·10³ km dan {a}·10³ km", f"{n(a - 2 * c)}·10³ km dan {n(a + 2 * c)}·10³ km",
+                                                                              f"{n(a * (1 - e * e))}·10³ km dan {a}·10³ km", f"{a}·10³ km dan {n(a + c)}·10³ km"],
+                "steps": [f"c = ae = {a}·{n(e)} = {n(c)}·10³ km.", "Jarak fokus ke ujung sumbu mayor: a − c dan a + c.", f"<b>{n(a - c)}·10³ km dan {n(a + c)}·10³ km</b>."],
                 "explanation": "Hukum Kepler I: orbit planet/satelit berupa elips dengan pusat massa di fokus."}
-    return {"prompt": f"Hitung luas elips x²/{a * a} + y²/{b * b} = 1 dengan integral.", "correct": pi_txt(a * b),
-            "distractors": [pi_txt(a * a), pi_txt(Fr(a * b, 2)), pi_txt(a + b), n(a * b)],
-            "steps": [f"Luas = 4∫₀^{a} {b}√(1 − x²/{a * a}) dx.", f"Substitusi x = {a} sin θ: 4·{a * b}·∫₀^{{π/2}} cos²θ dθ = 4·{a * b}·π/4.", f"= <b>{pi_txt(a * b)}</b>."],
+    a = rng.randint(2, 9)
+    b = rng.randint(1, a)
+    q = rng.choice([1, 1, 2, 4])
+    part = {1: "", 2: "bagian atas (y ≥ 0) ", 4: "bagian di kuadran I "}[q]
+    val = Fr(a * b, q)
+    return {"prompt": f"Hitung luas {part}elips x²/{a * a} + y²/{b * b} ≤ 1 dengan integral.".replace("²/1 ", "² "), "correct": times(val, "π"),
+            "distractors": [times(Fr(a * a, q), "π"), times(val / 2, "π"), times(val * 2, "π"), n(val)],
+            "steps": [f"Luas penuh = 4∫₀^{a} {b}√(1 − x²/{a * a}) dx.", f"Substitusi x = {a} sin θ: 4·{a * b}·∫₀^{{π/2}} cos²θ dθ = {a * b}π.", f"Bagian yang diminta: <b>{times(val, 'π')}</b>."],
             "explanation": "Luas elips πab (lingkaran: a = b = r)."}
 
 
@@ -218,19 +262,23 @@ def ke_kartesius(rng, tier):
 
 @register("kk.ke_kutub", KK, (1, 2, 3))
 def ke_kutub(rng, tier):
-    choices = [(3, 4, 5), (4, 3, 5), (5, 12, 13)] if tier == 1 else [(1, 1, None), (1, 0, None), (0, 2, None), (-2, 0, None), (-1, -1, None), (3, 4, 5)]
-    x, y, r = rng.choice(choices)
-    if r is None:
-        r2 = x * x + y * y
-        rt = f"√{r2}" if int(r2 ** 0.5) ** 2 != r2 else str(int(r2 ** 0.5))
-        th = {(1, 1): "π/4", (1, 0): "0", (0, 2): "π/2", (-2, 0): "π", (-1, -1): "5π/4"}[(x, y)]
-        correct = f"({rt}, {th})"
-        wrong = [f"({rt}, {'π/4' if th != 'π/4' else '3π/4'})", f"({r2}, {th})", f"({rt}, {'π' if th != 'π' else '0'})", f"({abs(x) + abs(y)}, {th})"]
-        steps = ["r = √(x² + y²), tan θ = y/x (perhatikan kuadran).", f"r = {rt}, θ = {th}.", f"<b>{correct}</b>."]
-    else:
+    s = rng.randint(1, 6)
+    if tier == 1 and rng.random() < 0.5:
+        x, y, r = rng.choice([(3, 4, 5), (4, 3, 5), (5, 12, 13), (12, 5, 13), (8, 15, 17)])
+        x, y, r = x * s, y * s, r * s
         correct = f"({r}, arctan({n(Fr(y, x))}))"
         wrong = [f"({r}, arctan({n(Fr(x, y))}))", f"({x + y}, arctan({n(Fr(y, x))}))", f"({r * r}, arctan({n(Fr(y, x))}))", f"({r}, {n(Fr(y, x))})"]
         steps = [f"r = √({x * x} + {y * y}) = {r}.", f"Titik di kuadran I: θ = arctan({y}/{x}).", f"<b>{correct}</b>."]
+    else:
+        k = rng.randint(0, 7)
+        dx, dy = [(1, 0), (1, 1), (0, 1), (-1, 1), (-1, 0), (-1, -1), (0, -1), (1, -1)][k]
+        x, y = dx * s, dy * s
+        rt = str(s) if dx * dy == 0 else (f"{s}√2" if s > 1 else "√2")
+        th = ["0", "π/4", "π/2", "3π/4", "π", "5π/4", "3π/2", "7π/4"][k]
+        th_bad = ["0", "π/4", "π/2", "3π/4", "π", "5π/4", "3π/2", "7π/4"][(k + 4) % 8]
+        correct = f"({rt}, {th})"
+        wrong = [f"({rt}, {th_bad})", f"({2 * s * s if dx * dy else s * s}, {th})", f"({rt}, {['π/4', '0', 'π', 'π/4', '0', 'π/4', 'π/2', '−π/4'][k]})", f"({abs(x) + abs(y)}, {th})"]
+        steps = ["r = √(x² + y²), tan θ = y/x (perhatikan kuadran!).", f"r = {rt}; titik ({n(x)}, {n(y)}) memberi θ = {th}.", f"<b>{correct}</b>."]
     return {"prompt": f"Ubah titik Kartesius ({n(x)}, {n(y)}) ke koordinat kutub (r ≥ 0, 0 ≤ θ &lt; 2π).", "correct": correct, "distractors": wrong, "steps": steps,
             "explanation": "Representasi kutub tidak tunggal: (r, θ) = (r, θ + 2π) = (−r, θ + π)."}
 
@@ -253,19 +301,31 @@ def kk_persamaan(rng, tier):
 
 @register("kk.kurva", KK, (3, 4, 5))
 def kk_kurva(rng, tier):
+    a, b = rng.randint(1, 4), rng.randint(1, 4)
+    f = rng.choice(["cos", "sin"])
+    s = rng.choice(["+", MINUS])
     if tier == 3:
-        a = rng.randint(1, 3)
-        pol, kind, js = f"r = {a}(1 + cos θ)", "kardioid", f"{a}*(1+cos(t))"
-        wrong = ["mawar 4 kelopak", "spiral Archimedes", "lemniskat", "lingkaran"]
-        why = "r = a(1 ± cos θ) atau a(1 ± sin θ) berbentuk hati (kardioid)."
+        kind = rng.choice(["kardioid", "limason", "lingkaran", "spiral"])
+        if kind == "kardioid":
+            pol, ans, js, why = f"r = {a}(1 {s} {f} θ)", "kardioid", f"{a}*(1{'+' if s == '+' else '-'}{f}(t))", "r = a(1 ± cos θ) atau a(1 ± sin θ) berbentuk hati (kardioid)."
+        elif kind == "limason":
+            c, d = (a + b + 1, b) if rng.random() < 0.5 else (b, a + b)
+            loop = c < d
+            ans = "limason dengan simpul dalam" if loop else "limason tanpa simpul (berlekuk)"
+            pol, js, why = f"r = {c} {s} {d} {f} θ", f"{c}{'+' if s == '+' else '-'}{d}*{f}(t)", f"r = a ± b {f} θ: |a| &lt; |b| ⇒ ada simpul dalam; |a| &gt; |b| ⇒ tanpa simpul; a = b ⇒ kardioid."
+        elif kind == "lingkaran":
+            pol, ans, js, why = f"r = {2 * a} {f} θ", "lingkaran", f"{2 * a}*{f}(t)", f"Kalikan r: r² = {2 * a}r {f} θ ⇒ lingkaran berjari-jari {a}."
+        else:
+            pol, ans, js, why = f"r = {a}θ", "spiral Archimedes", f"{a}*t", "r tumbuh linear terhadap θ ⇒ spiral Archimedes."
+        wrong = [w for w in ["kardioid", "mawar 4 kelopak", "spiral Archimedes", "lemniskat", "lingkaran", "limason dengan simpul dalam"] if w != ans]
     else:
-        m = rng.randint(2, 6)
+        m = rng.randint(2, 7)
         petals = m if m % 2 else 2 * m
-        pol, kind, js = f"r = 3 cos({m}θ)", f"mawar {petals} kelopak", f"3*cos({m}*t)"
-        wrong = [f"mawar {m if m % 2 == 0 else 2 * m} kelopak", f"mawar {m + 1} kelopak", "kardioid", "lingkaran"]
-        why = f"r = a cos(nθ): n ganjil ⇒ n kelopak, n genap ⇒ 2n kelopak. n = {m}."
-    return {"prompt": f"Kurva kutub {pol} berbentuk …", "correct": kind, "distractors": wrong, "steps": [why, f"<b>{kind}</b>."],
-            "graphs": [polar_graph(pol, js, "Kurva digambar dengan x = r cos θ, y = r sin θ untuk 0 ≤ θ ≤ 2π.", params=None, lim=4)],
+        pol, ans, js = f"r = {a + 1} {f}({m}θ)", f"mawar {petals} kelopak", f"{a + 1}*{f}({m}*t)"
+        wrong = [f"mawar {m if m % 2 == 0 else 2 * m} kelopak", f"mawar {petals + 1} kelopak", "kardioid", "lingkaran"]
+        why = f"r = a {f}(nθ): n ganjil ⇒ n kelopak, n genap ⇒ 2n kelopak. n = {m}."
+    return {"prompt": f"Kurva kutub {pol} berbentuk …", "correct": ans, "distractors": wrong, "steps": [why, f"<b>{ans}</b>."],
+            "graphs": [polar_graph(pol, js, "Kurva digambar dengan x = r cos θ, y = r sin θ untuk 0 ≤ θ ≤ 2π.", params=None, lim=max(4, 2 * a + 2 * b + 2))],
             "explanation": "Mengenali bentuk kurva kutub baku (Stewart §10.3)."}
 
 
@@ -307,26 +367,48 @@ def luas_kutub(rng, tier):
 
 @register("kc.slope_kutub", KC, (4, 5))
 def slope_kutub(rng, tier):
-    a = rng.randint(1, 4)
+    a = rng.randint(1, 6)
     if tier == 4:
-        return {"prompt": f"Tentukan dy/dx pada lingkaran r = {a} di θ = π/4.", "correct": "−1", "distractors": ["1", "0", "tidak terdefinisi", f"{MINUS}{a}"],
-                "steps": ["x = r cos θ, y = r sin θ dengan r konstan.", "dy/dx = (r cos θ)/(−r sin θ) = −cot θ.", "Di π/4: <b>−1</b>."],
-                "explanation": "dy/dx = (r′ sin θ + r cos θ)/(r′ cos θ − r sin θ)."}
-    return {"prompt": f"Tentukan dy/dx pada kardioid r = {a}(1 + cos θ) di θ = π/2.", "correct": "1", "distractors": ["−1", "0", "tidak terdefinisi", f"{a}"],
-            "steps": [f"r = {a}, r′ = −{a} sin θ = −{a} di θ = π/2.", "dy/dx = (r′ sin θ + r cos θ)/(r′ cos θ − r sin θ) = (−a + 0)/(0 − a).", "= <b>1</b>."],
-            "explanation": "Turunan kurva kutub lewat parametrisasi x(θ), y(θ)."}
+        if rng.random() < 0.7:
+            th, val = rng.choice([("π/6", "−√3"), ("π/4", "−1"), ("π/3", "−√3/3"), ("2π/3", "√3/3"), ("3π/4", "1"), ("5π/6", "√3")])
+            pol, form = f"r = {a}", "dy/dx = (r cos θ)/(−r sin θ) = −cot θ (r konstan, r′ = 0)."
+        else:
+            th, val = rng.choice([("π/6", "−√3/3"), ("π/3", "√3/3"), ("π/8", "−1"), ("3π/8", "1")])
+            pol, form = f"r = {2 * a} cos θ", f"x = {a}(1 + cos 2θ), y = {a} sin 2θ ⇒ dy/dx = −cot 2θ."
+        steps = ["x = r cos θ, y = r sin θ ⇒ dy/dx = (r′ sin θ + r cos θ)/(r′ cos θ − r sin θ).", form, f"Di θ = {th}: <b>{val}</b>."]
+    else:
+        th, val = rng.choice([("π/6", "−1"), ("π/4", "1 − √2"), ("π/3", "0"), ("π/2", "1"), ("2π/3", "tidak terdefinisi (garis singgung tegak)"),
+                              ("5π/6", "−1"), ("3π/2", "−1")])
+        pol = f"r = {a}(1 + cos θ)"
+        steps = [f"r′ = −{a} sin θ; pembilang a(cos θ + cos 2θ), penyebut −a(sin θ + sin 2θ).", "dy/dx = −(cos θ + cos 2θ)/(sin θ + sin 2θ).", f"Di θ = {th}: <b>{val}</b>."]
+    pool = ["−1", "1", "0", "√3", "−√3", "√3/3", "−√3/3", "1 − √2", "tidak terdefinisi (garis singgung tegak)"]
+    return {"prompt": f"Tentukan dy/dx pada kurva {pol} di θ = {th}.", "correct": val, "distractors": [p for p in pool if p != val],
+            "steps": steps, "explanation": "Turunan kurva kutub lewat parametrisasi x(θ), y(θ); skala a tidak memengaruhi kemiringan."}
 
 
 @register("kc.parametrik_luas", KC, (3, 4, 5))
 def parametrik_luas(rng, tier):
-    r = rng.randint(1, 4)
     if tier <= 4:
-        a, b = rng.randint(1, 5), rng.randint(1, 5)
-        return {"prompt": f"Hitung luas daerah di dalam kurva x = {a} cos t, y = {b} sin t (0 ≤ t ≤ 2π).", "correct": pi_txt(a * b),
-                "distractors": [pi_txt(a * a), pi_txt(Fr(a * b, 2)), pi_txt(2 * a * b), n(a * b)],
-                "steps": ["Luas = ∫ y dx = |∫₀^{2π} y(t)x′(t) dt|.", f"∫ {b} sin t·(−{a} sin t) dt = −{a * b}π.", f"Luas = <b>{pi_txt(a * b)}</b> (elips)."],
+        a, b = rng.randint(1, 6), rng.randint(1, 6)
+        return {"prompt": f"Hitung luas daerah di dalam kurva x = {a} cos t, y = {b} sin t (0 ≤ t ≤ 2π).", "correct": times(a * b, "π"),
+                "distractors": [times(a * a, "π") if a != b else times(2 * a * b, "π"), times(Fr(a * b, 2), "π"), times(4 * a * b, "π"), n(a * b)],
+                "steps": ["Luas = |∫ y dx| = |∫₀^{2π} y(t)x′(t) dt|.", f"∫ {b} sin t·(−{a} sin t) dt = −{a * b}π.", f"Luas = <b>{times(a * b, 'π')}</b> (elips)."],
                 "explanation": "Luas daerah kurva parametrik tertutup: ∫ y dx."}
-    return {"prompt": f"Hitung luas di bawah satu lengkung sikloida x = {r}(t − sin t), y = {r}(1 − cos t).", "correct": pi_txt(3 * r * r),
-            "distractors": [pi_txt(2 * r * r), pi_txt(4 * r * r), n(8 * r), pi_txt(r * r)],
-            "steps": [f"Luas = ∫₀^{{2π}} y·x′ dt = {r * r}∫ (1 − cos t)² dt.", "∫₀^{2π} (1 − 2cos t + cos²t) dt = 2π + π = 3π.", f"= <b>{pi_txt(3 * r * r)}</b> (3 kali luas roda)."],
-            "explanation": "Hasil Roberval: luas sikloida = 3πr²."}
+    r = rng.randint(1, 6)
+    kind = rng.choice(["sikloida", "astroid", "polinom"])
+    if kind == "sikloida":
+        val, prompt = times(3 * r * r, "π"), f"Hitung luas di bawah satu lengkung sikloida x = {r}(t − sin t), y = {r}(1 − cos t)."
+        steps = [f"Luas = ∫₀^{{2π}} y·x′ dt = {r * r}∫ (1 − cos t)² dt.", "∫₀^{2π} (1 − 2cos t + cos²t) dt = 2π + π = 3π.", f"= <b>{val}</b> (3 kali luas roda)."]
+        wrong = [times(2 * r * r, "π"), times(4 * r * r, "π"), n(8 * r), times(r * r, "π")]
+    elif kind == "astroid":
+        val, prompt = times(Fr(3 * r * r, 8), "π"), f"Hitung luas daerah di dalam astroid x = {r} cos³t, y = {r} sin³t."
+        steps = [f"Luas = 4∫ (kuadran I) = 4∫<sub>π/2</sub><sup>0</sup> {r} sin³t·(−{3 * r} cos²t sin t) dt = {12 * r * r}∫₀^{{π/2}} sin⁴t cos²t dt.",
+                 "Wallis: ∫₀^{π/2} sin⁴t cos²t dt = π/32.", f"= <b>{val}</b>."]
+        wrong = [times(Fr(3 * r * r, 4), "π"), times(r * r, "π"), times(Fr(3 * r * r, 16), "π"), times(Fr(r * r, 8), "π")]
+    else:
+        c, B = rng.randint(1, 4), rng.randint(1, 3)
+        v = Fr(2 * c * B ** 5, 5)
+        val, prompt = n(v), f"Hitung luas di bawah kurva parametrik x = t², y = {c if c > 1 else ''}t³ untuk 0 ≤ t ≤ {B}."
+        steps = ["Luas = ∫ y dx = ∫ y(t)·x′(t) dt.", f"∫₀^{B} {c if c > 1 else ''}t³·2t dt = {2 * c}·{B}⁵/5.", f"= <b>{val}</b>."]
+        wrong = [n(Fr(c * B ** 4, 4)), n(v * 2), n(Fr(c * B ** 5, 5)), n(Fr(2 * c * B ** 4, 4))]
+    return {"prompt": prompt, "correct": val, "distractors": wrong, "steps": steps, "explanation": "Luas kurva parametrik: ∫ y dx = ∫ y(t)x′(t) dt."}

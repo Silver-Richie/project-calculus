@@ -59,7 +59,8 @@ const Practice = (() => {
   }
 
   function topicDone(t) {
-    if (!t.sessions.length) return true;          // topik materi saja: tidak menghalangi progres
+    // Topik tanpa sesi soal: dianggap lewat begitu urutannya tercapai (tidak melompati topik sebelumnya).
+    if (!t.sessions.length) return topicUnlocked(t);
     const req = t.sessions.find((s) => s.number === Curriculum.requiredSessions);
     return !!(req && Curriculum.sessionProgress(req.id)?.passed);
   }

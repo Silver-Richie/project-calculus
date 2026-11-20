@@ -7,7 +7,7 @@ from fractions import Fraction as Fr
 import math
 
 from .. import register
-from ..fmt import MINUS, interval, lin, n, paren, poly, sup
+from ..fmt import MINUS, interval, lin, n, paren, poly, sqrt_simplify, sup, surd
 from ..graphs import fn, g2d, hline, param, pt, readout, vline
 from ..precalc.common import distinct, nz
 from .limit import ev, js_poly
@@ -450,41 +450,86 @@ def opt_bilangan(rng, tier):
             "explanation": "Optimasi: buat fungsi satu variabel, turunkan, cari f′ = 0."}
 
 
+def _kotak_params(rng):
+    """Karton A × B dengan potongan optimal x rasional: V′ = 12x² − 4(A + B)x + AB = 0 ⇒ B = 4x(A − 3x)/(A − 4x)."""
+    while True:
+        x = rng.randint(1, 5)
+        A = rng.randint(4 * x + 1, 4 * x + 16)
+        num, den = 4 * x * (A - 3 * x), A - 4 * x
+        if num % den:
+            continue
+        B = num // den
+        if B < A or B > 60:
+            continue
+        roots = sorted(r for r in ((4 * (A + B) + s * math.sqrt(16 * (A + B) ** 2 - 48 * A * B)) / 24 for s in (1, -1)))
+        if abs(roots[0] - x) < 1e-9:
+            return x, A, B
+
+
 @register("apl.opt_kotak", OP, (2, 3, 4))
 def opt_kotak(rng, tier):
-    k = rng.randint(1, 5)
-    s = 6 * k
-    V = 16 * k ** 3
-    return {"prompt": f"Dari karton persegi bersisi {s} cm, keempat sudutnya dipotong persegi bersisi x lalu dilipat menjadi kotak tanpa tutup. "
-                      "Tentukan volume maksimum kotak.",
-            "correct": f"{V} cm³", "distractors": [f"{(s - 2 * (k + 1)) ** 2 * (k + 1)} cm³", f"{s ** 3 // 27} cm³", f"{4 * k ** 3} cm³", f"{V + s} cm³"],
-            "steps": [f"V(x) = x({s} − 2x)², 0 &lt; x &lt; {s // 2}.", f"V′ = ({s} − 2x)({s} − 6x) = 0 ⇒ x = {k} (x = {s // 2} membuat V = 0).",
-                      f"V({k}) = {k}·{s - 2 * k}² = <b>{V} cm³</b>."],
-            "graphs": [g2d("Volume kotak V(x)", [0, s / 2], [0, V * 1.3], [param("X", "Potongan x", 0, s / 2, 0.05, k / 2, "x")],
-                           [fn(f"x*({s}-2*x)**2", "blue", "V(x)"), pt("X", f"X*({s}-2*X)**2")], [readout("V", f"X*({s}-2*X)**2", 2)],
-                           f"Maksimum di x = s/6 = {k}.")],
+    if tier == 2 or rng.random() < 0.4:
+        k = rng.randint(1, 8)
+        s = 6 * k
+        V = 16 * k ** 3
+        return {"prompt": f"Dari karton persegi bersisi {s} cm, keempat sudutnya dipotong persegi bersisi x lalu dilipat menjadi kotak tanpa tutup. "
+                          "Tentukan volume maksimum kotak.",
+                "correct": f"{V} cm³", "distractors": [f"{(s - 2 * (k + 1)) ** 2 * (k + 1)} cm³", f"{s ** 3 // 27} cm³", f"{4 * k ** 3} cm³", f"{V + s} cm³"],
+                "steps": [f"V(x) = x({s} − 2x)², 0 &lt; x &lt; {s // 2}.", f"V′ = ({s} − 2x)({s} − 6x) = 0 ⇒ x = {k} (x = {s // 2} membuat V = 0).",
+                          f"V({k}) = {k}·{s - 2 * k}² = <b>{V} cm³</b>."],
+                "graphs": [g2d("Volume kotak V(x)", [0, s / 2], [0, V * 1.3], [param("X", "Potongan x", 0, s / 2, 0.05, k / 2, "x")],
+                               [fn(f"x*({s}-2*x)**2", "blue", "V(x)"), pt("X", f"X*({s}-2*X)**2")], [readout("V", f"X*({s}-2*X)**2", 2)],
+                               f"Maksimum di x = s/6 = {k}.")],
+                "explanation": "Soal optimasi klasik Stewart §4.7."}
+    x, A, B = _kotak_params(rng)
+    V = x * (A - 2 * x) * (B - 2 * x)
+    return {"prompt": f"Dari karton {A} cm × {B} cm, keempat sudutnya dipotong persegi bersisi x lalu dilipat menjadi kotak tanpa tutup. Tentukan volume maksimum kotak.",
+            "correct": f"{V} cm³", "distractors": [f"{(x + 1) * (A - 2 * x - 2) * (B - 2 * x - 2)} cm³", f"{A * B * x} cm³", f"{V // 2} cm³", f"{V + A} cm³"],
+            "steps": [f"V(x) = x({A} − 2x)({B} − 2x), 0 &lt; x &lt; {n(Fr(A, 2))}.", f"V′ = 12x² − {4 * (A + B)}x + {A * B} = 0; akar yang lebih kecil x = {x} memberi maksimum (akar lain di luar domain atau minimum).",
+                      f"V({x}) = {x}·{A - 2 * x}·{B - 2 * x} = <b>{V} cm³</b>."],
+            "graphs": [g2d("Volume kotak V(x)", [0, A / 2], [0, V * 1.3], [param("X", "Potongan x", 0, A / 2, 0.05, x / 2, "x")],
+                           [fn(f"x*({A}-2*x)*({B}-2*x)", "blue", "V(x)"), pt("X", f"X*({A}-2*X)*({B}-2*X)")], [readout("V", f"X*({A}-2*X)*({B}-2*X)", 2)],
+                           f"Maksimum di x = {x}.")],
             "explanation": "Soal optimasi klasik Stewart §4.7."}
 
 
 @register("apl.lhopital", OP, (1, 2, 3, 4, 5))
 def lhopital(rng, tier):
-    a = nz(rng, -4, 4)
+    a = nz(rng, -6, 6) if tier >= 4 else nz(rng, -4, 4)
+    A = n(a)
+    mAx = f" {MINUS} {A}x" if a > 0 else f" + {n(-a)}x"      # "− ax" dengan tanda rapi
     if tier == 1:
-        val, prompt = Fr(a), f"Hitung lim<sub>x→0</sub> (e<sup>{n(a)}x</sup> − 1)/x dengan aturan L'Hôpital."
-        steps = ["Bentuk 0/0 ⇒ turunkan pembilang dan penyebut.", f"lim {n(a)}e<sup>{n(a)}x</sup>/1 = <b>{n(a)}</b>."]
+        val, prompt = Fr(a), f"Hitung lim<sub>x→0</sub> (e<sup>{A}x</sup> − 1)/x dengan aturan L'Hôpital."
+        steps = ["Bentuk 0/0 ⇒ turunkan pembilang dan penyebut.", f"lim {A}e<sup>{A}x</sup>/1 = <b>{A}</b>."]
     elif tier == 2:
-        val, prompt = Fr(a), f"Hitung lim<sub>x→0</sub> ln(1 + {n(a)}x)/x."
-        steps = ["0/0 ⇒ L'Hôpital.", f"lim [{n(a)}/(1 + {n(a)}x)]/1 = <b>{n(a)}</b>."]
+        val, prompt = Fr(a), f"Hitung lim<sub>x→0</sub> ln(1 + {A}x)/x."
+        steps = ["0/0 ⇒ L'Hôpital.", f"lim [{A}/(1 + {A}x)]/1 = <b>{A}</b>."]
     elif tier == 3:
         m = rng.randint(2, 4)
         val, prompt = Fr(0), f"Hitung lim<sub>x→∞</sub> x{sup(m)}/e<sup>x</sup>."
         steps = [f"∞/∞ ⇒ L'Hôpital {m} kali: {m}!/eˣ.", "eˣ tumbuh lebih cepat dari polinom ⇒ <b>0</b>."]
     elif tier == 4:
-        val, prompt = Fr(a * a, 2), f"Hitung lim<sub>x→0</sub> (e<sup>{n(a)}x</sup> − 1 − {n(a)}x)/x²."
-        steps = ["0/0 ⇒ L'Hôpital: ({n}e^{{ax}} − {n})/(2x), masih 0/0.".format(n=n(a)), f"L'Hôpital lagi: {n(a * a)}e<sup>{n(a)}x</sup>/2 → <b>{n(val)}</b>."]
+        kind = rng.choice(["exp", "cos", "ln"])
+        if kind == "exp":
+            val, prompt = Fr(a * a, 2), f"Hitung lim<sub>x→0</sub> (e<sup>{A}x</sup> − 1{mAx})/x²."
+            steps = [f"0/0 ⇒ L'Hôpital: ({A}e<sup>{A}x</sup> − {A})/(2x), masih 0/0.", f"L'Hôpital lagi: {n(a * a)}e<sup>{A}x</sup>/2 → <b>{n(val)}</b>."]
+        elif kind == "cos":
+            val, prompt = Fr(a * a, 2), f"Hitung lim<sub>x→0</sub> (1 − cos({A}x))/x²."
+            steps = [f"0/0 ⇒ L'Hôpital: {A}sin({A}x)/(2x), masih 0/0.", f"L'Hôpital lagi: {n(a * a)}cos({A}x)/2 → <b>{n(val)}</b>."]
+        else:
+            val, prompt = Fr(-a * a, 2), f"Hitung lim<sub>x→0</sub> (ln(1 + {A}x){mAx})/x²."
+            steps = [f"0/0 ⇒ L'Hôpital: ({A}/(1 + {A}x) − {A})/(2x) = −{n(a * a)}/(2(1 + {A}x)).", f"→ <b>{n(val)}</b>."]
     else:
-        val, prompt = Fr(-a ** 3, 6), f"Hitung lim<sub>x→0</sub> (sin({n(a)}x) − {n(a)}x)/x³."
-        steps = ["0/0 ⇒ L'Hôpital tiga kali.", f"−{n(a ** 3)}cos({n(a)}x)/6 → <b>{n(val)}</b>."]
+        kind = rng.choice(["sin", "tan", "atan"])
+        if kind == "sin":
+            val, prompt = Fr(-a ** 3, 6), f"Hitung lim<sub>x→0</sub> (sin({A}x){mAx})/x³."
+            steps = ["0/0 ⇒ L'Hôpital tiga kali.", f"−{paren(a)}³cos({A}x)/6 → <b>{n(val)}</b>."]
+        elif kind == "tan":
+            val, prompt = Fr(a ** 3, 3), f"Hitung lim<sub>x→0</sub> (tan({A}x){mAx})/x³."
+            steps = [f"0/0 ⇒ L'Hôpital: {A}(sec²({A}x) − 1)/(3x²) = {A}tan²({A}x)/(3x²).", f"tan u ≈ u ⇒ {A}·{paren(a)}²/3 = <b>{n(val)}</b>."]
+        else:
+            val, prompt = Fr(-a ** 3, 3), f"Hitung lim<sub>x→0</sub> (arctan({A}x){mAx})/x³."
+            steps = [f"0/0 ⇒ L'Hôpital: ({A}/(1 + {n(a * a)}x²) − {A})/(3x²) = −{paren(a)}³x²/(3x²(1 + {n(a * a)}x²)).", f"→ <b>{n(val)}</b>."]
     return {"prompt": prompt, "correct": n(val), "distractors": [n(-val) if val else "1", n(val + 1), "∞", n(val * 2) if val else "−1"], "steps": steps,
             "explanation": "L'Hôpital: untuk 0/0 atau ∞/∞, lim f/g = lim f′/g′ (bila ada)."}
 
@@ -500,26 +545,49 @@ def tnr(rng, tier):
                  f"c = <b>{n(c)}</b> (titik tengah — sifat khusus parabola)."]
         correct, wrong = f"c = {n(c)}", [f"c = {n(Fr(b - a, 2))}", f"c = {n(a)}", f"c = {n(b)}", f"c = {n(c + 1)}"]
     else:
-        k = rng.choice([1, 2])
-        b = 3 * k
-        correct = f"c = {'' if k == 1 else k}√3"
-        prompt = f"Tentukan c ∈ (0, {b}) yang memenuhi Teorema Nilai Rata-rata untuk f(x) = x³ pada [0, {b}]."
-        steps = [f"[f({b}) − f(0)]/{b} = {b ** 3}/{b} = {b * b}.", f"f′(c) = 3c² = {b * b} ⇒ c² = {3 * k * k}.", f"<b>{correct}</b>."]
-        wrong = [f"c = {b // 2 if b % 2 == 0 else n(Fr(b, 2))}", f"c = {'' if k == 1 else k}√2", f"c = {3 * k * k}", f"c = {b}"]
+        a = rng.randint(0, 3)
+        b = a + rng.randint(1, 4)
+        if rng.random() < 0.5:
+            c2 = Fr(a * a + a * b + b * b, 3)
+            f = "x³"
+            steps = [f"[f({b}) − f({a})]/({b} − {a}) = ({b ** 3} − {a ** 3})/{b - a} = {a * a + a * b + b * b}.", f"f′(c) = 3c² = {a * a + a * b + b * b} ⇒ c² = {n(c2)}."]
+        else:
+            a = max(a, 1)
+            b = a + rng.randint(1, 5)
+            c2 = Fr(a * b)
+            f = "1/x"
+            steps = [f"[f({b}) − f({a})]/({b} − {a}) = (1/{b} − 1/{a})/{b - a} = −1/{a * b}.", f"f′(c) = −1/c² = −1/{a * b} ⇒ c² = {a * b} (rata-rata geometrik)."]
+        co, r = sqrt_simplify(c2.numerator * c2.denominator)
+        den = c2.denominator
+        correct = "c = " + (n(Fr(co, den)) if r == 1 else surd(co, r) + (f"/{den}" if den > 1 else ""))
+        prompt = f"Tentukan c ∈ ({a}, {b}) yang memenuhi Teorema Nilai Rata-rata untuk f(x) = {f} pada [{a}, {b}]."
+        steps.append(f"Ambil akar positif di dalam interval: <b>{correct}</b>.")
+        wrong = [f"c = {n(Fr(a + b, 2))}", f"c = {n(c2)}", f"c = {b}", f"c = {n(Fr(a + 2 * b, 3))}"]
     return {"prompt": prompt, "correct": correct, "distractors": wrong, "steps": steps,
             "explanation": "TNR: ada c di (a, b) dengan f′(c) = [f(b) − f(a)]/(b − a) (Whitman §6.5)."}
 
 
 @register("apl.opt_jarak", OP, (4, 5))
 def opt_jarak(rng, tier):
-    s = rng.randint(1, 4)
-    a = Fr(4 * s * s + 1, 4)   # a − 1/4 = s²
-    return {"prompt": f"Tentukan jarak terpendek dari titik (0, {n(a)}) ke parabola y = x².", "correct": n(s),
-            "distractors": [n(a), n(Fr(s * s)), n(s + 1), n(Fr(1, 2))],
-            "steps": [f"D² = x² + (x² − {n(a)})². Misal u = x² ≥ 0: D² = u + (u − {n(a)})².",
-                      f"d(D²)/du = 1 + 2(u − {n(a)}) = 0 ⇒ u = {n(a - Fr(1, 2))}.",
-                      f"D² = {n(a - Fr(1, 2))} + 1/4 = {s * s} ⇒ D = <b>{s}</b>."],
-            "graphs": [g2d("Jarak titik ke parabola", [-5, 5], [-1, float(a) + 3], [param("X", "x", -4, 4, 0.01, 1, "x")],
-                           [fn("x*x", "blue", "y = x²"), pt(0, float(a), "orange"), {"type": "segment", "x1": 0, "y1": float(a), "x2": "X", "y2": "X*X", "color": "red", "dash": True}],
-                           [readout("Jarak", f"sqrt(X*X+(X*X-{float(a)})**2)", 4)], "Geser x untuk mencari jarak terkecil.")],
+    s = rng.randint(1, 6)
+    if rng.random() < 0.6:
+        c = rng.randint(1, 3)
+        a = Fr(4 * c * c * s * s + 1, 4 * c)     # D² = (4ac − 1)/(4c²) = s²
+        C = "" if c == 1 else str(c)
+        v = (2 * a * c - 1) / (2 * c * c)
+        return {"prompt": f"Tentukan jarak terpendek dari titik (0, {n(a)}) ke parabola y = {C}x².", "correct": n(s),
+                "distractors": [n(a), n(Fr(s * s)) if s > 1 else "1/2", n(s + 1), n(v)],
+                "steps": [f"D² = x² + ({C}x² − {n(a)})². Misal u = x² ≥ 0: D² = u + ({C}u − {n(a)})².",
+                          f"d(D²)/du = 1 + {2 * c}({C}u − {n(a)}) = 0 ⇒ u = {n(v)}.",
+                          f"D² = {n(v)} + ({n(c * v - a)})² = {s * s} ⇒ D = <b>{s}</b>."],
+                "graphs": [g2d("Jarak titik ke parabola", [-5, 5], [-1, float(a) + 3], [param("X", "x", -4, 4, 0.01, 1, "x")],
+                               [fn(f"{c}*x*x", "blue", f"y = {C}x²"), pt(0, float(a), "orange"),
+                                {"type": "segment", "x1": 0, "y1": float(a), "x2": "X", "y2": f"{c}*X*X", "color": "red", "dash": True}],
+                               [readout("Jarak", f"sqrt(X*X+({c}*X*X-{float(a)})**2)", 4)], "Geser x untuk mencari jarak terkecil.")],
+                "explanation": "Minimalkan kuadrat jarak (lebih mudah dari jaraknya)."}
+    a = Fr(4 * s * s + 1, 4)                      # titik (a, 0) ke y = √x: D² = a − 1/4
+    return {"prompt": f"Tentukan jarak terpendek dari titik ({n(a)}, 0) ke kurva y = √x.", "correct": n(s),
+            "distractors": [n(a), n(a - Fr(1, 2)), n(s + 1), n(Fr(s * s))  if s > 1 else "1/2"],
+            "steps": [f"D² = (x − {n(a)})² + (√x)² = (x − {n(a)})² + x.", f"d(D²)/dx = 2(x − {n(a)}) + 1 = 0 ⇒ x = {n(a - Fr(1, 2))}.",
+                      f"D² = 1/4 + {n(a - Fr(1, 2))} = {s * s} ⇒ D = <b>{s}</b>."],
             "explanation": "Minimalkan kuadrat jarak (lebih mudah dari jaraknya)."}

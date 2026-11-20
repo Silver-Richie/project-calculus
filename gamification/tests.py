@@ -392,10 +392,10 @@ class GeneratorTests(TestCase):
             self.assertEqual(generators.generate(key, 123, gen.tiers[0]), generators.generate(key, 123, gen.tiers[0]))
 
     def test_each_topic_has_generators_for_all_five_sessions(self):
-        # topik materi saja (practice=False, kurikulum v2) belum punya generator; latihan menyusul
-        topics = [t["slug"] for m in levels.LEVEL_MODULES for sub in m.SUBLEVELS for t in sub["topics"]
-                  if t.get("practice") is not False]
-        self.assertEqual(len(topics), 9 + 20 + 20 + 45)
+        # semua topik (termasuk topik baru kurikulum v2) wajib punya latihan
+        topics = [t["slug"] for m in levels.LEVEL_MODULES for sub in m.SUBLEVELS for t in sub["topics"]]
+        self.assertTrue(all(t.get("practice") is not False for m in levels.LEVEL_MODULES for sub in m.SUBLEVELS for t in sub["topics"]))
+        self.assertEqual(len(topics), 13 + 20 + 21 + 55)
         for slug in topics:
             for tier in range(1, 6):
                 with self.subTest(topic=slug, tier=tier):
@@ -411,11 +411,11 @@ class CurriculumLevelTests(TestCase):
         self.assertEqual(MainLevel.objects.count(), 4)
         node = SkillNode.objects.get(slug="pre-sistem-bilangan-fungsi")
         self.assertEqual(node.main_level.slug, "precalculus")
-        self.assertEqual(node.topics.count(), 13)                       # 9 topik berlatihan + 4 topik v2 materi saja
+        self.assertEqual(node.topics.count(), 13)                       # 9 topik awal + 4 topik v2, semuanya berlatihan
         practice = [t for t in node.topics.all() if t.sessions.exists()]
-        self.assertEqual(len(practice), 9)
+        self.assertEqual(len(practice), 13)
         for topic in practice:
-            self.assertTrue(topic.sections.exists(), topic.slug)
+            self.assertTrue(topic.sections.exists() or topic.slides.exists(), topic.slug)
             self.assertEqual(list(topic.sessions.values_list("number", flat=True)), [1, 2, 3, 4, 5])
             for session in topic.sessions.all():
                 self.assertTrue(session.templates.exists())
@@ -440,8 +440,9 @@ class CurriculumLevelTests(TestCase):
             nodes = SkillNode.objects.filter(main_level__slug="kalkulus-lanjut", faculty__slug=fac)
             self.assertEqual(nodes.count(), 5, fac)
             for node in nodes:
-                # 2 topik inti + 1 terapan berlatihan; topik baru v2 (materi saja) boleh menambah jumlah topik
-                self.assertEqual(node.topics.filter(sessions__isnull=False).distinct().count(), 3, node.slug)
+                # 2 topik inti + 1 terapan, ditambah topik baru v2 — semuanya berlatihan
+                self.assertGreaterEqual(node.topics.count(), 3, node.slug)
+                self.assertEqual(node.topics.filter(sessions__isnull=False).distinct().count(), node.topics.count(), node.slug)
         # materi lama fakultas pindah ke topik terapan fakultasnya; materi dua variabel disalin ke 3 jalur
         self.assertTrue(LessonSection.objects.filter(topic__slug="kl-fk-gd", heading="Sigmoid dan turunannya").exists())
         for fac in ("ft", "fm", "fk"):
@@ -1671,12 +1672,12 @@ class Level1V2Tests(TestCase):
             self.assertIn("pitfall", kinds, t.slug)
             self.assertTrue(all(s.tip for s in t.slides.all()), t.slug)
 
-    def test_materi_only_topic_has_no_sessions_and_counts_as_done(self):
+    def test_v2_topics_have_practice_and_must_be_passed(self):
         user = User.objects.create_user("lv1", password="rahasia-123")
-        topic = Topic.objects.get(slug="pre-fungsi-invers")
-        self.assertFalse(topic.sessions.exists())
-        self.assertTrue(sessions.topic_done(user, topic))
-        self.assertFalse(sessions.topic_done(user, Topic.objects.get(slug="pre-bilangan-real")))
+        for slug in ("pre-fungsi-invers", "pre-polinomial-rasional", "pre-barisan-sigma", "pre-vektor-matriks"):
+            topic = Topic.objects.get(slug=slug)
+            self.assertEqual(list(topic.sessions.values_list("number", flat=True)), [1, 2, 3, 4, 5], slug)
+            self.assertFalse(sessions.topic_done(user, topic), slug)   # tidak lagi otomatis ‘selesai’
 
 
 class Level2BatchATests(TestCase):
@@ -1747,10 +1748,10 @@ class Level3V2Tests(TestCase):
                             or topic.slides.filter(body_html__contains="<b>Cek 1.</b>").exists(), slug)
         self.assertIn("LIATE", "".join(Topic.objects.get(slug="km-tek-parsial").slides.values_list("title", flat=True)))
 
-    def test_lhopital_is_materi_only_topic(self):
+    def test_lhopital_topic_has_practice(self):
         topic = Topic.objects.get(slug="km-lhopital")
-        self.assertFalse(topic.sessions.exists())
-        self.assertTrue(sessions.topic_done(User.objects.create(username="lh"), topic))
+        self.assertEqual(topic.sessions.count(), 5)
+        self.assertFalse(sessions.topic_done(User.objects.create(username="lh"), topic))
 
 
 class Level4V2Tests(TestCase):
@@ -1779,10 +1780,10 @@ class Level4V2Tests(TestCase):
         for slug in ("kl-fk-asimtotik", "kl-fk-numerik", "kl-fk-gd", "kl-fm-epsilon-delta", "kl-fm-fk-gamma",
                      "kl-fm-fk-analisis", "kl-ft-pd-orde2", "kl-ft-fourier", "kl-ft-laplace"):
             self._check_deck(slug, 7)
-        # topik baru hanya muncul di jalur fakultasnya dan belum punya sesi latihan
+        # topik baru hanya muncul di jalur fakultasnya dan kini punya 5 sesi latihan
         topic = Topic.objects.get(slug="kl-ft-fourier")
         self.assertEqual(topic.node.faculty.slug, "ft")
-        self.assertFalse(topic.sessions.exists())
+        self.assertEqual(topic.sessions.count(), 5)
 
     def test_geometric_intuition_before_heavy_computation(self):
         titles = list(Topic.objects.get(slug="kl-ft-il-ganda").slides.values_list("title", flat=True))
@@ -1790,3 +1791,32 @@ class Level4V2Tests(TestCase):
         body = "".join(Topic.objects.get(slug="kl-fm-kv-medan").slides.values_list("body_html", flat=True))
         self.assertIn("fluks", body)
         self.assertIn("sirkulasi", body)
+
+
+class GeneratorVarietyTests(TestCase):
+    """Setiap sesi (Level 1–4) harus punya > 30 soal inti berbeda (60 seed), agar mengulang sesi tidak mengulang soal."""
+
+    SAMPLES = 60
+    MIN_CORE = 31
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_gamification", stdout=io.StringIO())
+
+    def test_every_session_has_enough_core_variety(self):
+        cache = {}
+
+        def unique(key, tier):
+            if (key, tier) not in cache:
+                qs = (generators.generate(key, s * 7919 + 13, tier) for s in range(self.SAMPLES))
+                cache[(key, tier)] = len({(q["prompt"], q["answer"]) for q in qs})
+            return cache[(key, tier)]
+
+        sessions_qs = PracticeSession.objects.select_related("topic__node")
+        self.assertGreater(sessions_qs.count(), 450)
+        for ses in sessions_qs:
+            pool = sessions._pool(ses, ses.topic.node.faculty_id)
+            core = sum(unique(k, sessions._gen_tier(k, ses.number)) for kind, k, _ in pool if kind == "g")
+            core += sum(1 for kind, *_ in pool if kind == "q")
+            with self.subTest(topic=ses.topic.slug, session=ses.number):
+                self.assertGreaterEqual(core, self.MIN_CORE)

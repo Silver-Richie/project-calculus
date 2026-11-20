@@ -67,6 +67,15 @@ def register(key, topic, tiers, weight=1):
     return deco
 
 
+def attach(topic, *keys):
+    """Pakai ulang generator yang sudah ada untuk topik lain (materi sama, mis. Stokes–Gauss FT ↔ FMIPA/Fasilkom)."""
+    from dataclasses import replace
+    for key in keys:
+        gen = REGISTRY[key]
+        if topic not in gen.topics:
+            REGISTRY[key] = replace(gen, topics=gen.topics + (topic,))
+
+
 def for_topic(topic, tier):
     """Generator yang tersedia untuk satu topik pada satu tingkat sesi."""
     return [g for g in REGISTRY.values() if topic in g.topics and tier in g.tiers]

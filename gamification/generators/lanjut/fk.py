@@ -11,6 +11,7 @@ from .. import register
 from ..fmt import MINUS, fac, n, paren, sup, terms
 from ..graphs import fn, g2d, param, pt, readout
 from ..precalc.common import distinct, nz
+from ..dasar.aplikasi import pi_txt
 
 NR, GD, PL, SM, AS = "kl-fk-norma", "kl-fk-gd", "kl-fk-peluang", "kl-fk-simulasi", "kl-fk-asimtotik"
 
@@ -104,33 +105,61 @@ def fkg_gd2(rng, tier):
 
 @register("fkg.sigmoid", GD, (3, 4, 5))
 def fkg_sigmoid(rng, tier):
+    m = rng.randint(2, 10)
+    p = Fr(rng.randint(1, m - 1), m)
     if tier == 3:
-        p = rng.choice([Fr(1, 2), Fr(1, 4), Fr(3, 4), Fr(1, 5), Fr(9, 10)])
         val = p * (1 - p)
         return {"prompt": f"Pada neuron sigmoid σ(z) = 1/(1 + e<sup>−z</sup>), keluaran σ(z) = {n(p)}. Berapa σ′(z)?", "correct": n(val),
-                "distractors": [n(p), n(1 - p), n(p * p), n(Fr(1, 4))],
+                "distractors": [n(p), n(1 - p), n(p * p), n(Fr(1, 4)) if val != Fr(1, 4) else "1/2"],
                 "steps": ["σ′(z) = σ(z)(1 − σ(z)) (FK-S1).", f"= {n(p)}·{n(1 - p)} = <b>{n(val)}</b>."], "explanation": "Turunan sigmoid dihitung dari keluarannya sendiri — efisien untuk backpropagation."}
-    x, y = rng.randint(1, 3), rng.choice([0, 1])
-    # L = (σ(wx) − y)², w = 0 ⇒ σ = 1/2, σ′ = 1/4 ⇒ dL/dw = 2(1/2 − y)(1/4)x
-    val = 2 * (Fr(1, 2) - y) * Fr(1, 4) * x
-    return {"prompt": f"Neuron ŷ = σ(wx) dengan kerugian L = (ŷ − y)². Untuk x = {x}, y = {y}, w = 0, hitung ∂L/∂w (backpropagation).", "correct": n(val),
-            "distractors": [n(-val), n(2 * (Fr(1, 2) - y) * x), n(Fr(x, 4)), "0"],
-            "steps": ["Rantai: ∂L/∂w = 2(ŷ − y)·σ′(wx)·x.", f"w = 0 ⇒ ŷ = 1/2, σ′ = 1/4.", f"= 2({n(Fr(1, 2) - y)})(1/4)({x}) = <b>{n(val)}</b>."],
-            "explanation": "Backpropagation = aturan rantai lapis demi lapis."}
+    x, y = rng.randint(1, 5), rng.choice([0, 1])
+    if tier == 4 or rng.random() < 0.5:
+        val = 2 * (p - y) * p * (1 - p) * x
+        return {"prompt": f"Neuron ŷ = σ(wx) dengan kerugian kuadrat L = (ŷ − y)². Untuk x = {x}, target y = {y}, keluaran saat ini ŷ = {n(p)}. Hitung ∂L/∂w.",
+                "correct": n(val), "distractors": [n(-val), n(2 * (p - y) * x), n((p - y) * x), n(val / 2)],
+                "steps": ["Rantai: ∂L/∂w = 2(ŷ − y)·σ′(wx)·x dengan σ′ = ŷ(1 − ŷ).", f"= 2({n(p - y)})·{n(p * (1 - p))}·{x}.", f"= <b>{n(val)}</b>."],
+                "explanation": "Backpropagation = aturan rantai lapis demi lapis."}
+    val = (p - y) * x
+    return {"prompt": f"Neuron logistik ŷ = σ(wx) dengan kerugian entropi silang L = −[y ln ŷ + (1 − y) ln(1 − ŷ)]. Untuk x = {x}, y = {y}, ŷ = {n(p)}, hitung ∂L/∂w.",
+            "correct": n(val), "distractors": [n(-val), n(2 * (p - y) * p * (1 - p) * x), n(p * (1 - p) * x), n((p - y))],
+            "steps": ["∂L/∂ŷ = −y/ŷ + (1 − y)/(1 − ŷ); dikali σ′ = ŷ(1 − ŷ) menjadi ŷ − y.", f"∂L/∂w = (ŷ − y)·x = ({n(p - y)})·{x} = <b>{n(val)}</b>.",
+                      "Faktor σ′ hilang — alasan entropi silang dipakai bersama sigmoid (gradien tidak ‘mati’)."],
+            "explanation": "Entropi silang + sigmoid memberi gradien sederhana (ŷ − y)x."}
 
 
 @register("fkg.konvergensi", GD, (4, 5))
 def fkg_konv(rng, tier):
-    a = rng.randint(1, 10)
+    a, b = rng.randint(1, 10), rng.randint(1, 10)
     if tier == 4:
-        return {"prompt": f"Gradient descent pada f(x) = {a}x²/2 konvergen untuk laju belajar η pada interval …", "correct": f"0 &lt; η &lt; {n(Fr(2, a))}",
-                "distractors": [f"0 &lt; η &lt; {n(Fr(1, a))}", f"0 &lt; η &lt; {2 * a}", "semua η &gt; 0", f"η &gt; {n(Fr(2, a))}"],
-                "steps": [f"x ← x − η{a}x = (1 − {a}η)x.", f"Konvergen ⇔ |1 − {a}η| &lt; 1 ⇔ 0 &lt; η &lt; 2/{a}.", f"<b>0 &lt; η &lt; {n(Fr(2, a))}</b>."],
-                "explanation": "Laju belajar terlalu besar ⇒ divergen (osilasi membesar)."}
-    return {"prompt": f"Untuk f(x) = {a}x²/2, laju belajar η berapa yang membuat gradient descent mencapai minimum dalam SATU langkah dari titik mana pun?",
-            "correct": f"η = {n(Fr(1, a))}", "distractors": [f"η = {n(Fr(2, a))}", f"η = {a}", "η = 1", "tidak ada"],
-            "steps": [f"x₁ = (1 − {a}η)x₀ = 0 untuk semua x₀ ⇔ {a}η = 1.", f"<b>η = {n(Fr(1, a))}</b> = 1/f″ — inilah ide metode Newton."],
-            "explanation": "η optimal = 1/kelengkungan; Hessian berperan pada kasus banyak variabel."}
+        if rng.random() < 0.5:
+            c = rng.randint(-5, 5)
+            f = f"{a}x²/2 {'+' if c >= 0 else MINUS} {abs(c)}x".replace(" + 0x", "")
+            return {"prompt": f"Gradient descent pada f(x) = {f} konvergen untuk laju belajar η pada interval …", "correct": f"0 &lt; η &lt; {n(Fr(2, a))}",
+                    "distractors": [f"0 &lt; η &lt; {n(Fr(1, a))}", f"0 &lt; η &lt; {2 * a}", "semua η &gt; 0", f"η &gt; {n(Fr(2, a))}"],
+                    "steps": [f"Galat e = x − x* memenuhi e ← (1 − {a}η)e (suku linear hanya menggeser minimum).", f"Konvergen ⇔ |1 − {a}η| &lt; 1 ⇔ 0 &lt; η &lt; 2/{a}.", f"<b>0 &lt; η &lt; {n(Fr(2, a))}</b>."],
+                    "explanation": "Laju belajar terlalu besar ⇒ divergen (osilasi membesar)."}
+        M = max(a, b)
+        return {"prompt": f"Gradient descent pada f(x, y) = ({a}x² + {b}y²)/2 konvergen untuk η pada interval …", "correct": f"0 &lt; η &lt; {n(Fr(2, M))}",
+                "distractors": [f"0 &lt; η &lt; {n(Fr(2, min(a, b)))}" if a != b else f"0 &lt; η &lt; {n(Fr(1, M))}", f"0 &lt; η &lt; {n(Fr(4, a + b))}" if Fr(4, a + b) != Fr(2, M) else f"0 &lt; η &lt; {2 * M}",
+                                "semua η &gt; 0", f"0 &lt; η &lt; {n(Fr(2, a * b))}"],
+                "steps": [f"Setiap koordinat: x ← (1 − {a}η)x, y ← (1 − {b}η)y.", f"Keduanya harus |1 − kη| &lt; 1 ⇒ η &lt; 2/{a} dan η &lt; 2/{b}.", f"Kelengkungan terbesar menentukan: <b>0 &lt; η &lt; {n(Fr(2, M))}</b>."],
+                "explanation": "Arah paling curam (nilai eigen Hessian terbesar) membatasi laju belajar."}
+    if rng.random() < 0.5:
+        return {"prompt": f"Untuk f(x) = {a}x²/2, laju belajar η berapa yang membuat gradient descent mencapai minimum dalam SATU langkah dari titik mana pun?",
+                "correct": f"η = {n(Fr(1, a))}", "distractors": [f"η = {n(Fr(2, a))}", f"η = {a}", "η = 1" if a != 1 else "η = 1/2", "tidak ada"],
+                "steps": [f"x₁ = (1 − {a}η)x₀ = 0 untuk semua x₀ ⇔ {a}η = 1.", f"<b>η = {n(Fr(1, a))}</b> = 1/f″ — inilah ide metode Newton."],
+                "explanation": "η optimal = 1/kelengkungan; Hessian berperan pada kasus banyak variabel."}
+    if a == b:
+        b = a + 1
+    lo, hi = min(a, b), max(a, b)
+    eta = Fr(2, lo + hi)
+    rate = Fr(hi - lo, hi + lo)
+    return {"prompt": f"Untuk f(x, y) = ({a}x² + {b}y²)/2, η tetap berapa yang meminimumkan faktor kontraksi terburuk max|1 − kη| (k = {lo}, {hi}), dan berapa faktornya?",
+            "correct": f"η = {n(eta)}, faktor {n(rate)}", "distractors": [f"η = {n(Fr(1, hi))}, faktor {n(1 - Fr(lo, hi))}", f"η = {n(Fr(1, lo))}, faktor 0", f"η = {n(eta)}, faktor 0",
+                                                                     f"η = {n(Fr(2, hi))}, faktor {n(rate)}"],
+            "steps": [f"Seimbangkan kedua arah: 1 − {lo}η = −(1 − {hi}η) ⇒ η = 2/({lo} + {hi}).", f"Faktor = ({hi} − {lo})/({hi} + {lo}) = {n(rate)} = (κ − 1)/(κ + 1), κ = {n(Fr(hi, lo))}.",
+                      f"<b>η = {n(eta)}, faktor {n(rate)}</b>."],
+            "explanation": "Bilangan kondisi κ = λmax/λmin menentukan kecepatan GD — motivasi normalisasi fitur."}
 
 
 @register("fkg.softmax", GD, (1, 2))
@@ -160,21 +189,44 @@ def fkp_eksp(rng, tier):
             "steps": [f"E[X²] = (a² + ab + b²)/3, E[X] = (a + b)/2.", f"Var = (b − a)²/12 = <b>{n(val)}</b>."], "explanation": "Variansi distribusi seragam."}
 
 
+def rpow(m):
+    """(x² + y²)^{m/2} sebagai teks."""
+    return {1: "√(x² + y²)", 2: "(x² + y²)", 3: "(x² + y²)<sup>3/2</sup>", 4: "(x² + y²)²"}[m]
+
+
 @register("fkp.gabungan", PL, (1, 2, 3))
 def fkp_gab(rng, tier):
     if tier <= 2:
-        k = 4
-        p = Fr(1, 16)
-        return {"prompt": "f(x, y) = kxy pada [0, 1]² adalah kepadatan gabungan. Tentukan k dan P(X ≤ 1/2, Y ≤ 1/2).", "correct": f"k = {k}, P = {n(p)}",
-                "distractors": [f"k = 1, P = 1/4", f"k = 4, P = 1/4", f"k = 2, P = 1/16", f"k = 4, P = 1/8"],
-                "steps": ["∬ kxy dA = k·(1/2)(1/2) = 1 ⇒ k = 4.", "P = ∫₀^{1/2}∫₀^{1/2} 4xy dy dx = 4·(1/8)(1/8).", f"<b>k = 4, P = 1/16</b>."],
-                "explanation": "Peluang gabungan = integral ganda kepadatan."}
-    a = rng.randint(1, 4)
-    val = Fr(1, 2)
-    return {"prompt": f"X, Y saling bebas dan masing-masing seragam pada [0, {a}]. Hitung P(X &lt; Y).", "correct": n(val),
-            "distractors": ["1/4", "1/3", n(Fr(1, a)), "1"],
-            "steps": [f"Kepadatan gabungan 1/{a * a} pada persegi [0, {a}]².", "Daerah X &lt; Y adalah setengah persegi (simetri).", "<b>1/2</b>."],
-            "explanation": "Peluang = luas daerah × kepadatan (kasus seragam)."}
+        p, q = rng.randint(0, 2), rng.randint(1, 2)
+        a, b = (1, 1) if tier == 1 else (rng.randint(1, 2), rng.randint(1, 3))
+        u, v = rng.choice([Fr(1, 2), Fr(1, 3), Fr(2, 3)]), rng.choice([Fr(1, 2), Fr(1, 3), Fr(2, 3)])
+        k = Fr((p + 1) * (q + 1), a ** (p + 1) * b ** (q + 1))
+        P = u ** (p + 1) * v ** (q + 1)
+        s, t = u * a, v * b
+        dens = f"k{'x' if p == 1 else f'x{sup(p)}' if p else ''}{'y' if q == 1 else f'y{sup(q)}'}"
+        correct = f"k = {n(k)}, P = {n(P)}"
+        return {"prompt": f"f(x, y) = {dens} pada [0, {a}] × [0, {b}] adalah kepadatan gabungan. Tentukan k dan P(X ≤ {n(s)}, Y ≤ {n(t)}).", "correct": correct,
+                "distractors": [f"k = {n(k)}, P = {n(u * v)}", f"k = {n(1 / k)}, P = {n(P)}", f"k = {n(k)}, P = {n(P * 2)}", f"k = {n(k * 2)}, P = {n(P)}"],
+                "steps": [f"∬ f dA = k·({a}{sup(p + 1)}/{p + 1})({b}{sup(q + 1)}/{q + 1}) = 1 ⇒ k = {n(k)}.".replace("/1)", ")"),
+                          f"Karena f terpisah (x dan y), P = ({n(s)}/{a}){sup(p + 1)}·({n(t)}/{b}){sup(q + 1)} = {n(P)}.".replace("/1)", ")"), f"<b>{correct}</b>."],
+                "explanation": "Peluang gabungan = integral ganda kepadatan pada daerah kejadian."}
+    if rng.random() < 0.5:
+        a, b = rng.randint(1, 5), rng.randint(1, 5)
+        val = 1 - Fr(a, 2 * b) if a <= b else Fr(b, 2 * a)
+        return {"prompt": f"X ~ seragam[0, {a}] dan Y ~ seragam[0, {b}] saling bebas. Hitung P(X &lt; Y).", "correct": n(val),
+                "distractors": [n(Fr(1, 2)) if val != Fr(1, 2) else "1/4", n(1 - val) if 1 - val != val else "1/3", n(Fr(min(a, b), max(a, b))), n(Fr(a, a + b))],
+                "steps": [f"Kepadatan gabungan 1/({a}·{b}) pada persegi panjang [0, {a}] × [0, {b}].",
+                          "P(X &lt; Y) = (luas daerah x &lt; y di dalam persegi panjang)/(luas persegi panjang).",
+                          f"Luas daerah = {n(val * a * b)} dari {a * b} ⇒ <b>{n(val)}</b>."],
+                "explanation": "Peluang seragam = rasio luas."}
+    c = rng.choice([Fr(1, 2), Fr(1, 3), Fr(2, 3), Fr(3, 4), Fr(1, 4), Fr(3, 2), Fr(4, 3), Fr(5, 4), Fr(5, 3)])
+    val = c * c / 2 if c <= 1 else 1 - (2 - c) ** 2 / 2
+    return {"prompt": f"X dan Y saling bebas, masing-masing seragam pada [0, 1]. Hitung P(X + Y ≤ {n(c)}).", "correct": n(val),
+            "distractors": [n(c / 2), n(c * c), n(1 - val), n(c * c / 4)],
+            "steps": ["Daerah kejadian: bagian persegi [0, 1]² di bawah garis x + y = c.",
+                      f"c = {n(c)} {'≤ 1: segitiga siku-siku dengan kaki c ⇒ c²/2' if c <= 1 else '&gt; 1: persegi dikurangi segitiga pojok berkaki 2 − c ⇒ 1 − (2 − c)²/2'}.",
+                      f"<b>{n(val)}</b>."],
+            "explanation": "Peluang gabungan seragam = luas daerah."}
 
 
 @register("fkp.eksponensial", PL, (2, 3, 4, 5))
@@ -196,8 +248,8 @@ def fkp_expo(rng, tier):
 @register("fkp.monte_carlo", PL, (3, 4, 5))
 def fkp_mc(rng, tier):
     if tier <= 4:
-        N = rng.choice([1000, 2000, 4000, 10000])
-        k = round(N * math.pi / 4) + rng.randint(-20, 20)
+        N = rng.choice([1000, 2000, 4000, 5000, 10000, 20000])
+        k = round(N * math.pi / 4) + rng.randint(-40, 40)
         est = Fr(4 * k, N)
         return {"prompt": f"Dari {N} titik acak seragam di persegi [0, 1]², sebanyak {k} jatuh di dalam seperempat lingkaran x² + y² ≤ 1. Taksiran π?", "correct": n(float(est)),
                 "distractors": [n(float(Fr(k, N))), n(float(Fr(2 * k, N))), n(float(Fr(4 * N, k))), "3,14159"],
@@ -206,10 +258,18 @@ def fkp_mc(rng, tier):
                                                                                                     {"type": "fill", "upper": "sqrt(1-x*x)", "from": 0, "to": 1, "color": "amber"}], None,
                                "Rasio luas berwarna terhadap persegi = π/4.")],
                 "explanation": "Integrasi Monte Carlo: integral ≈ rata-rata sampel acak."}
-    m = rng.choice([2, 3, 10])
-    return {"prompt": f"Galat integrasi Monte Carlo sebanding dengan 1/√N. Agar galat menjadi 1/{m} kali semula, banyak sampel harus dikali …", "correct": str(m * m),
-            "distractors": [str(m), str(2 * m), str(m ** 3), f"√{m}"],
-            "steps": [f"1/√(kN) = (1/{m})·1/√N ⇒ √k = {m}.", f"k = <b>{m * m}</b>."], "explanation": "Konvergensi Monte Carlo lambat tetapi tak bergantung dimensi."}
+    if rng.random() < 0.5:
+        m = rng.randint(2, 12)
+        return {"prompt": f"Galat integrasi Monte Carlo sebanding dengan 1/√N. Agar galat menjadi 1/{m} kali semula, banyak sampel harus dikali …", "correct": str(m * m),
+                "distractors": [str(m), str(2 * m), str(m ** 3), f"√{m}"],
+                "steps": [f"1/√(kN) = (1/{m})·1/√N ⇒ √k = {m}.", f"k = <b>{m * m}</b>."], "explanation": "Konvergensi Monte Carlo lambat tetapi tak bergantung dimensi."}
+    s, q = rng.randint(1, 9), rng.choice([10, 20, 25, 50, 100])
+    N = q * q
+    val = Fr(s, q)
+    return {"prompt": f"Integrand acak memiliki simpangan baku σ = {s}. Dengan N = {N} sampel, galat baku taksiran Monte Carlo (σ/√N) adalah …", "correct": n(float(val)),
+            "distractors": [n(float(Fr(s, N))), n(float(Fr(s * s, q))), n(float(val * 2)), n(float(Fr(1, q)))],
+            "steps": ["Galat baku rata-rata sampel = σ/√N (teorema limit pusat).", f"{s}/√{N} = {s}/{q} = <b>{n(float(val))}</b>."],
+            "explanation": "Galat Monte Carlo turun seperti 1/√N, berapa pun dimensinya."}
 
 
 # ════════════════════════ Medan vektor dalam simulasi ═════════════════════
@@ -255,17 +315,36 @@ def fks_kerja(rng, tier):
 
 @register("fks.rotasi", SM, (3, 4, 5))
 def fks_rotasi(rng, tier):
-    k, R = rng.randint(1, 4), rng.randint(1, 4)
     if tier <= 4:
-        return {"prompt": f"Pusaran fluida dalam simulasi: F = ⟨−{k if k > 1 else ''}y, {k if k > 1 else ''}x⟩. Hitung curl (skalar) dan sirkulasi mengelilingi lingkaran berjari-jari {R}.",
-                "correct": f"curl = {2 * k}, sirkulasi = {2 * k * R * R}π", "distractors": [f"curl = {k}, sirkulasi = {k * R * R}π", f"curl = 0, sirkulasi = 0", f"curl = {2 * k}, sirkulasi = {2 * k * R}π",
-                                                                                     f"curl = {2 * k}, sirkulasi = {4 * k * R * R}π"],
-                "steps": [f"curl = Q<sub>x</sub> − P<sub>y</sub> = {k} + {k} = {2 * k} (dua kali kecepatan sudut {k}).", f"Green: sirkulasi = {2 * k} × π{R * R}.", f"<b>curl = {2 * k}, sirkulasi = {2 * k * R * R}π</b>."],
-                "explanation": "Curl mendeteksi pusaran — dipakai pada simulasi fluida (Navier–Stokes) di grafika."}
-    return {"prompt": "Medan F = ⟨x, y⟩/(x² + y²)<sup>1/2</sup> (arah radial satuan). Berapa divergensinya di (x, y) ≠ (0, 0)?", "correct": "1/√(x² + y²)",
-            "distractors": ["0", "2", "2/√(x² + y²)", "1"],
-            "steps": ["Tulis r = √(x² + y²); F = ⟨x/r, y/r⟩.", "∂(x/r)/∂x = y²/r³, ∂(y/r)/∂y = x²/r³.", "Jumlah = (x² + y²)/r³ = <b>1/r</b>."],
-            "explanation": "Divergensi medan radial."}
+        a, b, R = rng.randint(1, 4), rng.randint(1, 4), rng.randint(1, 4)
+        p, q = rng.randint(-2, 2), rng.randint(-2, 2)
+        P, Q = terms([(p, "x"), (-a, "y")]), terms([(b, "x"), (q, "y")])
+        curl, circ, div = a + b, (a + b) * R * R, p + q
+        if tier == 3:
+            correct = f"curl = {curl}, sirkulasi = {circ}π"
+            wrong = [f"curl = {n(b - a)}, sirkulasi = {pi_txt(b - a) if b != a else '0'}", f"curl = {curl}, sirkulasi = {curl * R}π", f"curl = {curl}, sirkulasi = {2 * circ}π", f"curl = {n(div)}, sirkulasi = {pi_txt(div * R * R) if div else '0'}"]
+            ask = f"Hitung curl (skalar) dan sirkulasi mengelilingi lingkaran berjari-jari {R} (berlawanan jarum jam)."
+        else:
+            correct = f"div = {n(div)}, curl = {curl}"
+            wrong = [f"div = {curl}, curl = {n(div)}", f"div = {n(div)}, curl = {n(b - a)}", f"div = {n(p - q)}, curl = {curl}", f"div = {n(div + 1)}, curl = {curl}"]
+            ask = "Hitung divergensi dan curl (skalar) medan ini: apakah fluida memancar dan/atau berputar?"
+        return {"prompt": f"Medan kecepatan fluida dalam simulasi: F = ⟨{P}, {Q}⟩. {ask}", "correct": correct, "distractors": wrong,
+                "steps": [f"div F = ∂P/∂x + ∂Q/∂y = {n(p)} + {paren(q)} = {n(div)}.", f"curl F = ∂Q/∂x − ∂P/∂y = {b} − ({n(-a)}) = {curl}.",
+                          f"Green: sirkulasi = ∬ curl dA = {curl}·π{R * R} = {circ}π." if tier == 3 else "div &gt; 0: sumber; curl ≠ 0: pusaran.", f"<b>{correct}</b>."],
+                "explanation": "Curl mendeteksi pusaran, divergensi mendeteksi sumber — dipakai pada simulasi fluida di grafika."}
+    m, c = rng.randint(1, 4), rng.randint(1, 3)
+    dim3 = rng.random() < 0.4
+    d = 3 if dim3 else 2
+    r = "√(x² + y² + z²)" if dim3 else rpow(1)
+    rm = ({1: r, 2: "(x² + y² + z²)", 3: "(x² + y² + z²)<sup>3/2</sup>", 4: "(x² + y² + z²)²"} if dim3 else {k: rpow(k) for k in (1, 2, 3, 4)})[m]
+    coef = c * (d - m)
+    correct = "0" if coef == 0 else f"{n(coef)}/{rm}"
+    vec = "⟨x, y, z⟩" if dim3 else "⟨x, y⟩"
+    return {"prompt": f"Medan radial F = {c if c > 1 else ''}{vec}/{rm} di titik selain asal. Hitung div F.", "correct": correct,
+            "distractors": [f"{n(c * d)}/{rm}", f"{n(c * (d - m + 1))}/{rm}" if d - m + 1 else "1", "0" if coef else f"{c}/{rm}", f"{n(-coef) if coef else c * d}/{rm}"],
+            "steps": [f"Tulis r = {r}; F = {c if c > 1 else ''}r⃗/r{sup(m) if m > 1 else ''} dengan ∂r/∂x = x/r.",
+                      f"div(r⃗/rᵐ) = {d}/rᵐ − m·r²/r<sup>m+2</sup> = ({d} − m)/rᵐ.", f"m = {m}: <b>{correct}</b>" + (" — inilah hukum kuadrat terbalik: medan gravitasi/listrik bebas sumber di luar asal." if coef == 0 and dim3 else ".")],
+            "explanation": "Divergensi medan radial r⃗/rᵐ di ℝᵈ adalah (d − m)/rᵐ."}
 
 
 # ════════════════════════ Analisis asimtotik ═══════════════════════════════
@@ -309,27 +388,78 @@ def fka_limit(rng, tier):
 
 @register("fka.stirling", AS, (3, 4, 5))
 def fka_stirling(rng, tier):
-    if tier <= 4:
-        return {"prompt": "Dengan aproksimasi Stirling ln n! ≈ n ln n − n, batas bawah banyak perbandingan pengurutan berbasis perbandingan log₂(n!) termasuk kelas …",
-                "correct": "Θ(n log n)", "distractors": ["Θ(n)", "Θ(n²)", "Θ(log n)", "Θ(n!)"],
-                "steps": ["Pohon keputusan pengurutan punya ≥ n! daun ⇒ tinggi ≥ log₂(n!).", "log₂(n!) = (n ln n − n + O(ln n))/ln 2.", "<b>Θ(n log n)</b> — mergesort optimal."],
-                "explanation": "Stirling: n! ≈ √(2πn)(n/e)ⁿ."}
-    nn = rng.choice([5, 10, 20])
-    return {"prompt": f"Berapa lim<sub>n→∞</sub> n! / (√(2πn)(n/e)ⁿ)?", "correct": "1", "distractors": ["0", "e", "√(2π)", "∞"],
-            "steps": ["Rumus Stirling menyatakan rasio ini → 1 (galat relatif ≈ 1/(12n)).", f"Untuk n = {nn} galat relatifnya sekitar {100 / (12 * nn):.2f}%.".replace(".", ","), "<b>1</b>."],
-            "explanation": "Stirling diturunkan dari fungsi Gamma dan metode Laplace."}
+    k, c = rng.randint(2, 9), rng.randint(2, 9 if tier == 3 else 19)
+    if tier == 3:
+        cases = [(f"log₂(n!)", "Θ(n log n)", "Stirling: ln n! = n ln n − n + O(ln n)."),
+                 (f"log(n{sup(k)}·n!)", "Θ(n log n)", f"= {k} log n + log n! — suku log n! dominan."),
+                 (f"log((n!){sup(k)})", "Θ(n log n)", f"= {k}·log n! = Θ(n log n)."),
+                 (f"log({k}ⁿ)", "Θ(n)", f"= n log {k}."),
+                 (f"log(n{sup(k)})", "Θ(log n)", f"= {k} log n."),
+                 (f"log(C(2n, n))", "Θ(n)", "C(2n, n) ≈ 4ⁿ/√(πn) (Stirling) ⇒ log ≈ n log 4 − ½ log(πn)."),
+                 (f"log((n!)/({c}ⁿ))", "Θ(n log n)", f"= log n! − n log {c}; n log n mengalahkan n.")]
+        f, ans, why = rng.choice(cases)
+        return {"prompt": f"Dengan aproksimasi Stirling, {f} termasuk kelas …", "correct": ans,
+                "distractors": [v for v in ["Θ(n log n)", "Θ(n)", "Θ(log n)", "Θ(n²)", "Θ(n!)"] if v != ans],
+                "steps": ["Stirling: n! ≈ √(2πn)(n/e)ⁿ, sehingga log n! = n log n − n log e + O(log n).", why, f"<b>{ans}</b>."],
+                "explanation": "log₂(n!) = Θ(n log n) adalah batas bawah pengurutan berbasis perbandingan."}
+    if tier == 4:
+        kind = rng.choice(["akar", "akar", "binom"])
+        if kind == "binom":
+            kk = rng.choice([2, 3])
+            correct = "4ⁿ/√(πn)" if kk == 2 else "27ⁿ·√3/(2πn)"
+            return {"prompt": f"Dengan rumus Stirling, ({kk}n)!/(n!){sup(kk)} untuk n besar kira-kira …", "correct": correct,
+                    "distractors": ["4ⁿ", "2ⁿ/√n", "4ⁿ·√(πn)", "27ⁿ/(2πn)"] if kk == 2 else ["27ⁿ", "9ⁿ/√n", "27ⁿ/√(2πn)", "4ⁿ/√(πn)"],
+                    "steps": ["Ganti setiap faktorial dengan √(2πm)(m/e)ᵐ.", f"Pangkat: ({kk}n/e)<sup>{kk}n</sup>/(n/e)<sup>{kk}n</sup> = {kk ** kk}ⁿ; akar: √(2π·{kk}n)/(2πn)<sup>{kk}/2</sup>.",
+                              f"<b>{correct}</b>."],
+                    "explanation": "Stirling mengubah rasio faktorial menjadi eksponensial × koreksi akar."}
+        val = Fr(c)
+        return {"prompt": f"Hitung lim<sub>n→∞</sub> {c}n/(n!)<sup>1/n</sup>.", "correct": f"{c}e",
+                "distractors": [str(c), f"{c}/e", "∞", "e"],
+                "steps": ["Stirling: (n!)<sup>1/n</sup> ≈ (2πn)<sup>1/(2n)</sup>·n/e.", "(2πn)<sup>1/(2n)</sup> → 1, jadi (n!)<sup>1/n</sup>/n → 1/e.", f"{c}n/(n!)<sup>1/n</sup> → <b>{c}e</b>."],
+                "explanation": "(n!)^{1/n} tumbuh seperti n/e."}
+    kk = rng.randint(1, 5)
+    if rng.random() < 0.5:
+        correct = f"{kk ** kk}/e{sup(kk)}" if kk > 1 else "1/e"
+        return {"prompt": f"Hitung lim<sub>n→∞</sub> (({kk if kk > 1 else ''}n)!)<sup>1/n</sup>/n{sup(kk) if kk > 1 else ''}.", "correct": correct,
+                "distractors": [f"{kk ** kk}" if kk > 1 else "1", f"{kk}/e" if kk > 1 else "e", "0", "∞"],
+                "steps": [f"Stirling: ({kk}n)! ≈ √(2π·{kk}n)·({kk}n/e)<sup>{kk}n</sup>.".replace("·1n", "·n").replace("(1n", "(n"),
+                          f"Akar pangkat n: ({kk}n/e){sup(kk)}·(faktor → 1) = {kk ** kk}n{sup(kk)}/e{sup(kk)}.".replace("{sup(1)}", ""), f"Bagi n{sup(kk)}: <b>{correct}</b>."],
+                "explanation": "((kn)!)^{1/n} ≈ (kn/e)^k."}
+    correct = f"{c}/e"
+    return {"prompt": f"Hitung lim<sub>n→∞</sub> ({c}ⁿ·n!)<sup>1/n</sup>/n.", "correct": correct, "distractors": [str(c), f"{c}e", "1/e", "∞"],
+            "steps": [f"({c}ⁿ·n!)<sup>1/n</sup> = {c}·(n!)<sup>1/n</sup>.", "Stirling: (n!)<sup>1/n</sup>/n → 1/e.", f"<b>{correct}</b>."],
+            "explanation": "(n!)^{1/n} tumbuh seperti n/e."}
 
 
 @register("fka.newton", AS, (4, 5))
 def fka_newton(rng, tier):
-    c = rng.choice([2, 3, 5, 10])
-    x0 = rng.randint(1, 3)
-    x1 = Fr(x0 * x0 + c, 2 * x0)
     if tier == 4:
-        return {"prompt": f"Metode Newton untuk f(x) = x² − {c} dengan x₀ = {x0}. Hitung x₁.", "correct": n(x1),
-                "distractors": [n(Fr(x0 + c, 2)), n(x0 - Fr(x0 * x0 - c, x0)), n(Fr(c, x0)), n(x1 + 1)],
-                "steps": ["xₙ₊₁ = xₙ − f(xₙ)/f′(xₙ) = (xₙ + c/xₙ)/2.", f"x₁ = ({x0} + {c}/{x0})/2 = <b>{n(x1)}</b>."], "explanation": "Newton–Raphson (berkas Fasilkom)."}
-    return {"prompt": "Jika galat Newton eₙ ≈ 10⁻³, berapa kira-kira galat langkah berikutnya (konvergensi kuadratik)?", "correct": "≈ 10⁻⁶",
-            "distractors": ["≈ 10⁻⁴", "≈ 10⁻³", "≈ 5·10⁻⁴", "≈ 10⁻⁹"],
-            "steps": ["Konvergensi kuadratik: eₙ₊₁ ≈ C·eₙ².", "(10⁻³)² = 10⁻⁶: jumlah digit benar kira-kira berlipat dua setiap langkah.", "<b>≈ 10⁻⁶</b>."],
-            "explanation": "Newton jauh lebih cepat dari bisection (linear)."}
+        cube = rng.random() < 0.4
+        x0 = rng.randint(1, 4)
+        if cube:
+            c = rng.choice([v for v in range(2, 40) if round(v ** (1 / 3)) ** 3 != v])
+            x1 = Fr(2 * x0 ** 3 + c, 3 * x0 * x0)
+            f, it = f"x³ − {c}", f"xₙ₊₁ = xₙ − (xₙ³ − {c})/(3xₙ²) = (2xₙ³ + {c})/(3xₙ²)"
+            wrong = [n(Fr(x0 + c, 2)), n(Fr(x0 ** 3 + c, 3 * x0 * x0)), n(Fr(c, x0 * x0)), n(x1 + 1)]
+        else:
+            c = rng.choice([v for v in range(2, 40) if math.isqrt(v) ** 2 != v])
+            x1 = Fr(x0 * x0 + c, 2 * x0)
+            f, it = f"x² − {c}", f"xₙ₊₁ = xₙ − (xₙ² − {c})/(2xₙ) = (xₙ + {c}/xₙ)/2"
+            wrong = [n(Fr(x0 + c, 2)), n(x0 - Fr(x0 * x0 - c, x0)), n(Fr(c, x0)), n(x1 + 1)]
+        return {"prompt": f"Metode Newton untuk f(x) = {f} dengan x₀ = {x0}. Hitung x₁.", "correct": n(x1), "distractors": wrong,
+                "steps": ["xₙ₊₁ = xₙ − f(xₙ)/f′(xₙ).", f"{it}.", f"x₁ = <b>{n(x1)}</b>."], "explanation": "Newton–Raphson (berkas Fasilkom)."}
+    if rng.random() < 0.5:
+        k, C = rng.randint(1, 6), rng.choice([1, 2, 3, 5])
+        correct = f"≈ {'' if C == 1 else f'{C}·'}10{sup(-2 * k)}"
+        return {"prompt": f"Galat Newton memenuhi eₙ₊₁ ≈ {'' if C == 1 else C}eₙ². Jika eₙ ≈ 10{sup(-k)}, berapa kira-kira eₙ₊₁?", "correct": correct,
+                "distractors": [f"≈ {'' if C == 1 else f'{C}·'}10{sup(-k - 1)}", f"≈ 10{sup(-k)}", f"≈ {'' if C == 1 else f'{C}·'}10{sup(-3 * k)}", f"≈ {2 * C}·10{sup(-k)}"],
+                "steps": ["Konvergensi kuadratik: eₙ₊₁ ≈ C·eₙ².", f"{'' if C == 1 else f'{C}·'}(10{sup(-k)})² = {correct[2:]}: banyak digit benar kira-kira berlipat dua.", f"<b>{correct}</b>."],
+                "explanation": "Newton jauh lebih cepat dari bisection (linear)."}
+    d = rng.choice([4, 6, 8, 10, 12, 16, 20, 24, 32])
+    steps_n = math.ceil(math.log2(d))
+    bis = math.ceil((d - 1) * math.log2(10))   # bisection: 2ᵐ ≥ 10^(d−1)
+    return {"prompt": f"Galat awal 10⁻¹. Dengan konvergensi kuadratik (eₙ₊₁ ≈ eₙ²), berapa langkah Newton minimum agar galat ≤ 10{sup(-d)}?", "correct": str(steps_n),
+            "distractors": [str(d - 1), str(steps_n + 1), str(d), str(bis)],
+            "steps": ["Setiap langkah menggandakan eksponen: 10⁻¹ → 10⁻² → 10⁻⁴ → 10⁻⁸ → …", f"Setelah m langkah: 10<sup>−2ᵐ</sup> ≤ 10{sup(-d)} ⇔ 2ᵐ ≥ {d}.",
+                      f"m = <b>{steps_n}</b> (bandingkan bisection yang butuh ±{bis} langkah)."],
+            "explanation": "Kuadratik vs linear: inilah alasan Newton dipakai di pustaka numerik."}

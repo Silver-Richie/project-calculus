@@ -520,7 +520,7 @@ for _t in TOPICS:
 for _new in NEW_TOPICS:
     _i = next(i for i, t in enumerate(TOPICS) if t["slug"] == _new["after"]) + 1
     TOPICS.insert(_i, {**{k: v for k, v in _new.items() if k != "after"},
-                       "sections": [], "slides": SLIDES[_new["slug"]], "practice": False})
+                       "sections": [], "slides": SLIDES[_new["slug"]]})
 
 SUBLEVELS = [
     {
