@@ -440,7 +440,8 @@ class CurriculumLevelTests(TestCase):
             nodes = SkillNode.objects.filter(main_level__slug="kalkulus-lanjut", faculty__slug=fac)
             self.assertEqual(nodes.count(), 5, fac)
             for node in nodes:
-                self.assertEqual(node.topics.count(), 3)
+                # 2 topik inti + 1 terapan berlatihan; topik baru v2 (materi saja) boleh menambah jumlah topik
+                self.assertEqual(node.topics.filter(sessions__isnull=False).distinct().count(), 3, node.slug)
         # materi lama fakultas pindah ke topik terapan fakultasnya; materi dua variabel disalin ke 3 jalur
         self.assertTrue(LessonSection.objects.filter(topic__slug="kl-fk-gd", heading="Sigmoid dan turunannya").exists())
         for fac in ("ft", "fm", "fk"):
@@ -458,7 +459,8 @@ class CurriculumLevelTests(TestCase):
         nodes = SkillNode.objects.filter(main_level__slug="kalkulus-menengah", kind="lesson")
         self.assertEqual(nodes.count(), 5)
         for node in nodes:
-            self.assertEqual(node.topics.count(), 4)
+            # Teknik Pengintegralan mendapat topik baru v2 (Aturan L'Hôpital, materi saja)
+            self.assertEqual(node.topics.count(), 5 if node.slug == "km-teknik-integral" else 4, node.slug)
         self.assertTrue(LessonSection.objects.filter(topic__slug="km-der-uji", source_document__slug="materi-umum").exists())
 
     def test_level_two_structure(self):
@@ -1717,3 +1719,74 @@ class Level2BatchBTests(TestCase):
             body = "".join(Topic.objects.get(slug=slug).slides.values_list("body_html", flat=True))
             pos = [body.find(f"<th>{k}</th>") for k in ("Diketahui", "Ditanya", "Model matematis", "Turunkan", "Evaluasi")]
             self.assertTrue(all(p >= 0 for p in pos) and pos == sorted(pos), slug)
+
+
+class Level3V2Tests(TestCase):
+    """Batch 3: semua topik Level 3 punya slide v2; topik padat 8–10 slide dengan pohon keputusan."""
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_gamification", stdout=io.StringIO())
+
+    def test_all_level3_topics_have_slides(self):
+        from .content.syllabus_v2 import SYLLABUS
+        level3 = next(lvl for lvl in SYLLABUS if lvl["level"] == "kalkulus-menengah")
+        for t in level3["topics"]:
+            slides = list(Topic.objects.get(slug=t["slug"]).slides.all())
+            kinds = [s.kind for s in slides]
+            self.assertGreaterEqual(len(kinds), t["slides"][0], t["slug"])
+            self.assertEqual((kinds[0], kinds[-1]), ("intuition", "checkpoint"), t["slug"])
+            self.assertTrue({"theorem", "example", "pitfall"} <= set(kinds), t["slug"])
+            self.assertTrue(all(s.tip for s in slides), t["slug"])
+
+    def test_dense_topics_have_decision_trees(self):
+        for slug in ("km-tek-parsial", "km-tek-trig", "km-tek-pecahan", "km-der-uji", "km-der-pangkat"):
+            topic = Topic.objects.get(slug=slug)
+            self.assertTrue(8 <= topic.slides.count() <= 10, slug)
+            self.assertTrue(topic.slides.filter(title__startswith="Pohon keputusan").exists()
+                            or topic.slides.filter(body_html__contains="<b>Cek 1.</b>").exists(), slug)
+        self.assertIn("LIATE", "".join(Topic.objects.get(slug="km-tek-parsial").slides.values_list("title", flat=True)))
+
+    def test_lhopital_is_materi_only_topic(self):
+        topic = Topic.objects.get(slug="km-lhopital")
+        self.assertFalse(topic.sessions.exists())
+        self.assertTrue(sessions.topic_done(User.objects.create(username="lh"), topic))
+
+
+class Level4V2Tests(TestCase):
+    """Batch 4: Level 4 multivariabel + jalur fakultas punya slide v2 untuk setiap topik silabus."""
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_gamification", stdout=io.StringIO())
+
+    def _check_deck(self, slug, minimum):
+        slides = list(Topic.objects.get(slug=slug).slides.all())
+        kinds = [s.kind for s in slides]
+        self.assertGreaterEqual(len(kinds), minimum, slug)
+        self.assertEqual((kinds[0], kinds[-1]), ("intuition", "checkpoint"), slug)
+        self.assertTrue({"theorem", "example", "pitfall"} <= set(kinds), slug)
+        self.assertTrue(all(s.tip for s in slides), slug)
+
+    def test_core_decks_on_every_faculty_copy(self):
+        for fac in ("ft", "fm", "fk"):
+            for key in ("pb-fungsi", "fungsi-vektor", "tp-parsial", "tp-gradien", "il-ganda", "il-koordinat", "kv-medan", "kv-garis"):
+                self._check_deck(f"kl-{fac}-{key}", 7)
+        for slug in ("kl-ft-lagrange", "kl-fm-hessian", "kl-fk-lagrange", "kl-ft-fluks", "kl-fm-stokes-gauss", "kl-fk-stokes-gauss"):
+            self._check_deck(slug, 8)
+
+    def test_faculty_track_decks(self):
+        for slug in ("kl-fk-asimtotik", "kl-fk-numerik", "kl-fk-gd", "kl-fm-epsilon-delta", "kl-fm-fk-gamma",
+                     "kl-fm-fk-analisis", "kl-ft-pd-orde2", "kl-ft-fourier", "kl-ft-laplace"):
+            self._check_deck(slug, 7)
+        # topik baru hanya muncul di jalur fakultasnya dan belum punya sesi latihan
+        topic = Topic.objects.get(slug="kl-ft-fourier")
+        self.assertEqual(topic.node.faculty.slug, "ft")
+        self.assertFalse(topic.sessions.exists())
+
+    def test_geometric_intuition_before_heavy_computation(self):
+        titles = list(Topic.objects.get(slug="kl-ft-il-ganda").slides.values_list("title", flat=True))
+        self.assertLess(titles.index("Mengapa ada faktor Jacobian?"), titles.index("Integral lipat tiga"))
+        body = "".join(Topic.objects.get(slug="kl-fm-kv-medan").slides.values_list("body_html", flat=True))
+        self.assertIn("fluks", body)
+        self.assertIn("sirkulasi", body)

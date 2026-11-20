@@ -219,3 +219,7 @@
   .lp-slide, .lp-in, .lp-archie { animation: none; }
   .lp-step { transition: none; transform: none; }
 }
+
+/* Potongan kode di slide kurikulum v2 (jalur Fasilkom) */
+.lesson-code { margin: .6rem 0; padding: .7rem .9rem; overflow-x: auto; border-radius: 10px;
+  background: rgba(30, 58, 95, .06); font: 13px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; }
