@@ -102,6 +102,9 @@ def set_campus_api(request):
     return JsonResponse({"status": "success", "campus": name})
 
 
+TOP_LIMIT = 100          # leaderboard hanya menampilkan 100 besar
+
+
 @login_required
 @require_GET
 def leaderboard_api(request):
@@ -114,9 +117,11 @@ def leaderboard_api(request):
                     scope=apex → Top 100 pemain Apex se-Indonesia.
     * board=wins  : urut jumlah kemenangan duel (bukan posisi rank).
 
-    Mengembalikan 50 (Top Apex: 100) teratas (`rows`), pemain di sekitar posisi pengguna (`around`,
-    dua di atas & dua di bawah), dan baris pengguna (`me`). Posisi sama untuk nilai sama; `index` =
-    urutan pasti di daftar (untuk menggabungkan `rows` & `around` di layar).
+    Mengembalikan Top 100 (`rows`), pemain di sekitar posisi pengguna (`around`, dua di atas & dua di bawah —
+    hanya bila pengguna masih di dalam Top 100, supaya daftar tidak pernah memuat pemain di luar 100 besar),
+    dan baris pengguna (`me`, selalu dengan posisinya). Posisi sama untuk nilai sama; `index` = urutan pasti
+    di daftar (untuk menggabungkan `rows` & `around` di layar).
+    Sebaran tier (`tiers`) tetap menghitung SEMUA pemain di cakupan, bukan hanya Top 100.
     Papan rank/wins juga memuat 5 hasil duel terakhir tiap baris (`recent`) dan `played` (sudah ada
     duel di cakupan ini); papan rank memuat jumlah pemain per tier (`tiers`, kolom Ketinggian).
     "kampus" butuh kampus terisi dan bukan "Umum"; "fakultas" memakai fakultas akun.
@@ -176,7 +181,7 @@ def leaderboard_api(request):
         return qs.filter(ahead).count()
 
     ordered = qs.order_by(*order)
-    top = list(ordered[:100 if scope == "apex" else 50])
+    top = list(ordered[:TOP_LIMIT])
     rows, pos, prev = [], 0, None
     for i, p in enumerate(top):
         value = getattr(p, key)
@@ -188,8 +193,9 @@ def leaderboard_api(request):
     around = []
     if me_row:
         my_index = index_of(me_row)
-        start = max(0, my_index - 2)
-        around = [row(p, position(p), start + j) for j, p in enumerate(ordered[start:my_index + 3])]
+        if my_index < TOP_LIMIT:
+            start = max(0, my_index - 2)
+            around = [row(p, position(p), start + j) for j, p in enumerate(ordered[start:min(my_index + 3, TOP_LIMIT)])]
         mine = row(me_row, position(me_row), my_index)
     else:
         mine = row(me, qs.filter(**{f"{key}__gt": getattr(me, key, 0) if board == "level" else 0}).count() + 1)
