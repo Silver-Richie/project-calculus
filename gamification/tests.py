@@ -1949,6 +1949,7 @@ class RankedDuelTests(TestCase):
         self.set_opponent(m, correct=False)
         res = self.play(m, correct=True)["result"]
         self.assertEqual((res["verdict"], res["delta"]), ("win", 1))
+        self.assertEqual((res["rank_before"]["stars"], res["rank"]["stars"]), (1, 2))       # untuk animasi bintang
         self.assertEqual(rank_of(user).stars, 2)
         self.assertGreater(res["gems_awarded"], 0)
         ghost = GhostRecord.objects.get(user=user)
@@ -2007,6 +2008,10 @@ class RankedDuelTests(TestCase):
         self.assertEqual((intro["status"], intro["total"], len(intro["difficulties"])), ("success", 10, 10))
         q = c.post(f"/api/ranked/{intro['match_id']}/soal/").json()["question"]
         self.assertNotIn("is_correct", q["options"][0])                                       # kunci tidak dikirim
+        m = RankedMatch.objects.get(pk=intro["match_id"])
+        opp = m.opponent["answers"][0]
+        self.assertEqual(q["opponent_ms"], opp["ms"] if opp["ms"] < q["time_limit"] * 1000 else None)  # hanya waktu lawan
+        self.assertNotIn("correct", {k for k in q if "opponent" in k})
         out = c.post(f"/api/ranked/{intro['match_id']}/jawab/", {"index": 0, "option": None}, content_type="application/json").json()
         self.assertEqual((out["status"], out["you"]["points"]), ("success", 0))
         low = self.player("baru")

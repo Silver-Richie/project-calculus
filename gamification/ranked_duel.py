@@ -196,14 +196,20 @@ def _question(spec):
 
 
 def _payload(match, index):
+    """
+    Soal untuk browser (tanpa kunci). `opponent_ms` = kapan lawan menjawab soal ini (hanya waktunya, bukan
+    benar/salahnya) agar layar bisa menampilkan tekanan "lawan sudah menjawab"; None bila lawan kehabisan waktu.
+    """
     spec = match.questions[index]
     q = _question(spec)
     deadline = match.q_started_at + timedelta(seconds=spec["time_limit"])
+    opp_ms = match.opponent["answers"][index]["ms"]
     return {"index": index, "total": len(match.questions), "topic": spec["topic"],
             "difficulty": spec["difficulty"], "difficulty_label": DIFFICULTY[spec["difficulty"]]["label"],
             "time_limit": spec["time_limit"], "base": spec["base"],
             "prompt": q["prompt"], "options": [{"id": o["id"], "text": o["text"]} for o in q["options"]],
-            "deadline": int(deadline.timestamp() * 1000)}
+            "deadline": int(deadline.timestamp() * 1000),
+            "opponent_ms": opp_ms if opp_ms < spec["time_limit"] * 1000 else None, "opponent_done": index}
 
 
 def _get_active(match_id, user):
@@ -339,6 +345,7 @@ def resolve_duel(match, forfeit=False):
             "verdict": verdict, "forfeit": forfeit, "delta": delta, "apex": state_before.tier == "apex",
             "shield_used": shield_used, "gems_awarded": gems, "terra_safe": verdict == "lose" and delta == 0 and not shield_used,
             "you": totals["you"], "opponent": totals["opponent"],
+            "rank_before": describe(state_before),                       # untuk animasi bintang/Apex Points
             "rank": {**describe(rank.state), "wins": rank.wins, "losses": rank.losses},
         }
         match.save(update_fields=["answers", "result"])
