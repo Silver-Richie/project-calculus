@@ -5,16 +5,18 @@ Views dibuat tipis: pengambilan dan pengolahan data ada di services.py.
 """
 
 import json
+import uuid
 
 from django.contrib.auth.decorators import login_required
 from django.db.models import Count, Q, Value
 from django.db.models.functions import Coalesce
-from django.http import JsonResponse
+from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.templatetags.static import static
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_POST
 
-from . import avatar, campus, free_practice, generators, ranked_duel, ranking, services, sessions, shop
+from . import avatar, campus, free_practice, generators, ranked_duel, ranking, reminders, services, sessions, shop
 from .leveling import level_for, level_info
 from .models import Faculty, MainLevel, PracticeSession, SkillNode, Topic, UserProfile
 
@@ -473,3 +475,69 @@ def ranked_forfeit_api(request, match_id):
             raise ranked_duel.RankedError("Duel-nya gak ketemu.")
         return {"result": ranked_duel.resolve_duel(match, forfeit=True)}
     return _ranked_call(run)
+
+
+# ── PWA & pengingat harian (Tahap 1 notifikasi) — logika kalender di reminders.py ─────────
+SW_VERSION = "v1"        # naikkan bila daftar berkas cache service worker berubah
+
+
+@require_GET
+def manifest_view(request):
+    """GET /manifest.webmanifest — membuat aplikasi bisa dipasang (Add to Home Screen)."""
+    icon = lambda name, size, purpose="any": {"src": static(f"img/pwa/{name}"), "sizes": size, "type": "image/png", "purpose": purpose}  # noqa: E731
+    data = {
+        "name": "Calculus Bridge", "short_name": "Calculus Bridge", "lang": "id",
+        "description": "Belajar kalkulus interaktif: skill tree, latihan berjenjang, dan Ranked Duel.",
+        "start_url": "/?source=pwa", "scope": "/", "display": "standalone",
+        "background_color": "#F7F5F2", "theme_color": "#2563EB",
+        "icons": [icon("icon-192.png", "192x192"), icon("icon-512.png", "512x512"), icon("maskable-512.png", "512x512", "maskable")],
+    }
+    return JsonResponse(data, content_type="application/manifest+json", json_dumps_params={"ensure_ascii": False})
+
+
+@require_GET
+def service_worker_view(request):
+    """
+    GET /sw.js — service worker dilayani dari akar situs (bukan /static/) agar cakupannya seluruh situs.
+    Tidak di-cache browser lama-lama supaya pembaruan cepat terpasang.
+    """
+    response = render(request, "pwa/sw.js", {"version": SW_VERSION, "offline_url": "/offline/",
+                                             "icon": static("img/pwa/icon-192.png")},
+                      content_type="application/javascript")
+    response["Cache-Control"] = "no-cache"
+    response["Service-Worker-Allowed"] = "/"
+    return response
+
+
+@require_GET
+def offline_view(request):
+    """GET /offline/ — halaman cadangan saat tidak ada koneksi (disimpan service worker)."""
+    return render(request, "pwa/offline.html")
+
+
+def _reminder_start(request):
+    hour, minute, offset = reminders.parse(request.GET.get("jam"), request.GET.get("tz", "-420"))
+    return reminders.first_start(hour, minute, offset), request.build_absolute_uri("/")
+
+
+@require_GET
+def reminder_google_view(request):
+    """GET /pengingat/google/?jam=19:00&tz=-420 — alihkan ke Google Calendar (acara harian, tanpa OAuth)."""
+    try:
+        start, app_url = _reminder_start(request)
+    except ValueError as err:
+        return JsonResponse({"status": "error", "message": str(err)}, status=400)
+    return redirect(reminders.google_url(start, app_url))
+
+
+@require_GET
+def reminder_ics_view(request):
+    """GET /pengingat.ics?jam=19:00&tz=-420 — unduh pengingat harian untuk Apple Calendar / Outlook."""
+    try:
+        start, app_url = _reminder_start(request)
+    except ValueError as err:
+        return JsonResponse({"status": "error", "message": str(err)}, status=400)
+    body = reminders.ics(start, app_url, f"{uuid.uuid4()}@{request.get_host()}")
+    response = HttpResponse(body, content_type="text/calendar; charset=utf-8")
+    response["Content-Disposition"] = 'attachment; filename="pengingat-calculus-bridge.ics"'
+    return response

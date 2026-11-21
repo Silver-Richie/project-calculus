@@ -2066,3 +2066,105 @@ class LeaderboardTop100Tests(TestCase):
         self.client.force_login(users[3])
         near = self.client.get("/api/peringkat/?board=level").json()
         self.assertEqual([r["index"] for r in near["around"]], [1, 2, 3, 4, 5])               # dalam 100 besar: tetangga tetap
+
+
+from datetime import datetime, timezone as dt_tz  # noqa: E402
+from django.contrib.staticfiles import finders  # noqa: E402
+from . import reminders, streak  # noqa: E402
+
+
+class NotificationPhase1Tests(TestCase):
+    """Tahap 1 notifikasi: streak sungguhan, PWA (manifest + service worker di akar), pengingat kalender tanpa OAuth."""
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_gamification", stdout=io.StringIO())
+
+    def setUp(self):
+        self.user = User.objects.create_user("streaker", password="rahasia-123")
+        self.profile = UserProfile.objects.create(user=self.user, faculty=Faculty.objects.get(slug="ft"))
+        self.client.force_login(self.user)
+
+    def at(self, y, m, d, hour=12):
+        return datetime(y, m, d, hour, tzinfo=dt_tz.utc)
+
+    # ── streak ──
+    def test_streak_same_day_next_day_and_gap(self):
+        p = self.profile
+        self.assertEqual(streak.status(p, self.at(2026, 11, 20))["state"], "baru")
+        self.assertEqual(streak.record_activity(p, self.at(2026, 11, 20)), 1)
+        self.assertEqual(streak.record_activity(p, self.at(2026, 11, 20, 15)), 1)          # hari yang sama
+        self.assertEqual(streak.record_activity(p, self.at(2026, 11, 21)), 2)              # hari berikutnya
+        self.assertEqual(streak.status(p, self.at(2026, 11, 22)), {"days": 2, "played_today": False, "state": "nunggu"})
+        self.assertEqual(streak.status(p, self.at(2026, 11, 21))["state"], "aman")
+        self.assertEqual(streak.status(p, self.at(2026, 11, 23))["days"], 0)               # bolong sehari: putus
+        self.assertEqual(streak.record_activity(p, self.at(2026, 11, 23)), 1)
+
+    def test_streak_day_follows_wib(self):
+        # 20:00 UTC tgl 20 = 03:00 WIB tgl 21 → dihitung hari berikutnya
+        streak.record_activity(self.profile, self.at(2026, 11, 20, 1))
+        self.assertEqual(streak.record_activity(self.profile, self.at(2026, 11, 20, 20)), 2)
+
+    def test_session_submit_records_streak_and_bootstrap_has_it(self):
+        s1 = PracticeSession.objects.get(topic__slug="pre-bilangan-real", number=1)
+        data = self.client.get(f"/api/session/{s1.id}/").json()
+        answers = [{"id": q["id"], "option": q["options"][0]["id"]} for q in data["questions"]]
+        r = self.client.post(f"/api/session/{s1.id}/submit/", data=json.dumps({"attempt": data["attempt"], "answers": answers}),
+                             content_type="application/json").json()
+        self.assertEqual((r["streak"]["state"], r["streak"]["days"]), ("aman", 1))
+        self.assertEqual(services.profile_bootstrap(self.user)["streak"]["state"], "aman")
+        page = self.client.get("/")
+        self.assertContains(page, 'id="streak-banner"')
+        self.assertContains(page, 'id="reminder-card"')
+
+    # ── PWA ──
+    def test_manifest_and_icons(self):
+        r = self.client.get("/manifest.webmanifest")
+        self.assertEqual(r["Content-Type"], "application/manifest+json")
+        m = r.json()
+        self.assertEqual((m["start_url"].split("?")[0], m["scope"], m["display"]), ("/", "/", "standalone"))
+        sizes = {i["sizes"] for i in m["icons"]}
+        self.assertTrue({"192x192", "512x512"} <= sizes)
+        self.assertIn("maskable", {i["purpose"] for i in m["icons"]})
+        for name in ("icon-192.png", "icon-512.png", "maskable-512.png", "apple-touch-icon.png", "icon.svg"):
+            self.assertTrue(finders.find(f"img/pwa/{name}"), name)
+        self.assertContains(self.client.get("/"), 'rel="manifest" href="/manifest.webmanifest"')
+
+    def test_service_worker_served_from_root(self):
+        r = self.client.get("/sw.js")
+        self.assertEqual(r.status_code, 200)
+        self.assertIn("javascript", r["Content-Type"])
+        self.assertEqual((r["Service-Worker-Allowed"], r["Cache-Control"]), ("/", "no-cache"))
+        body = r.content.decode()
+        self.assertIn("'/offline/'", body)
+        self.assertIn("addEventListener('fetch'", body)
+        self.client.logout()
+        self.assertEqual(self.client.get("/offline/").status_code, 200)                     # tanpa login pun bisa
+
+    # ── pengingat kalender ──
+    def test_first_start_is_next_occurrence_in_utc(self):
+        before = datetime(2026, 11, 21, 10, 0, tzinfo=dt_tz.utc)      # 17:00 WIB
+        after = datetime(2026, 11, 21, 13, 0, tzinfo=dt_tz.utc)       # 20:00 WIB
+        self.assertEqual(reminders.first_start(19, 0, -420, before), datetime(2026, 11, 21, 12, 0, tzinfo=dt_tz.utc))
+        self.assertEqual(reminders.first_start(19, 0, -420, after), datetime(2026, 11, 22, 12, 0, tzinfo=dt_tz.utc))
+        self.assertEqual(reminders.first_start(7, 30, -480, before).strftime("%H:%M"), "23:30")   # 07:30 WITA
+
+    def test_google_calendar_redirect(self):
+        r = self.client.get("/pengingat/google/?jam=19:00&tz=-420")
+        self.assertEqual(r.status_code, 302)
+        url = r["Location"]
+        self.assertTrue(url.startswith("https://calendar.google.com/calendar/render?"))
+        for part in ("action=TEMPLATE", "recur=RRULE%3AFREQ%3DDAILY", "T120000Z%2F", "T121500Z", "text=Latihan%20Calculus%20Bridge"):
+            self.assertIn(part, url)
+        self.assertEqual(self.client.get("/pengingat/google/?jam=25:00&tz=-420").status_code, 400)
+        self.assertEqual(self.client.get("/pengingat/google/?jam=19:00&tz=abc").status_code, 400)
+
+    def test_ics_download(self):
+        r = self.client.get("/pengingat.ics?jam=06:45&tz=-420")
+        self.assertEqual(r["Content-Type"], "text/calendar; charset=utf-8")
+        self.assertIn("attachment", r["Content-Disposition"])
+        body = r.content.decode()
+        self.assertTrue(body.startswith("BEGIN:VCALENDAR\r\n") and body.endswith("END:VCALENDAR\r\n"))
+        for part in ("RRULE:FREQ=DAILY", "BEGIN:VALARM", "TRIGGER:-PT0M", "T234500Z", "SUMMARY:Latihan Calculus Bridge"):
+            self.assertIn(part, body)
+        self.assertTrue(all(len(line.encode()) <= 75 for line in body.split("\r\n")))      # dilipat sesuai RFC 5545

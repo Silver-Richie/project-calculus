@@ -11,12 +11,20 @@ from .views import (
     free_practice_catalog_api, free_practice_start_api, trial_quiz_api,
     set_campus_api, set_avatar_api, leaderboard_api, shop_api, shop_buy_api, shop_equip_api,
     ranked_start_api, ranked_question_api, ranked_answer_api, ranked_leave_api, ranked_forfeit_api,
+    manifest_view, service_worker_view, offline_view, reminder_google_view, reminder_ics_view,
 )
 
 app_name = 'gamification'
 
 urlpatterns = [
     path('', landing_page, name='home'),
+
+    # PWA (dilayani dari akar situs agar cakupan service worker = seluruh situs) & pengingat kalender
+    path('manifest.webmanifest', manifest_view, name='pwa_manifest'),
+    path('sw.js', service_worker_view, name='pwa_sw'),
+    path('offline/', offline_view, name='pwa_offline'),
+    path('pengingat/google/', reminder_google_view, name='reminder_google'),
+    path('pengingat.ics', reminder_ics_view, name='reminder_ics'),
 
     # Autentikasi & onboarding (templates/auth/)
     path('auth/', auth_views.splash, name='auth_splash'),
