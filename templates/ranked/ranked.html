@@ -7,11 +7,11 @@
      ========================================================================= -->
 
 {% load icons %}
-<section class="ranked-hero" id="ranked-hero" aria-label="Rank duel kamu"{% if not duel_enabled %} data-duel-off{% endif %}>
+<section class="ranked-hero" id="ranked-hero" aria-label="Rank duel kamu">
   <header class="ranked-top">
     <div>
       <h2 class="ranked-title">{% icon "swords" %} Ranked Duel</h2>
-      <small>Duel kalkulus 1 lawan 1 · 5 soal yang sama · adu cepat &amp; tepat</small>
+      <small>Duel kalkulus 1 lawan 1 · 10 soal yang sama · Mudah 30 dtk, Sedang 60 dtk, Sulit 120 dtk</small>
     </div>
     <button type="button" class="ranked-help" data-ranked="info" aria-label="Cara naik rank">?</button>
   </header>
@@ -41,10 +41,7 @@
 
   <div class="ranked-actions">
     <button type="button" class="ranked-link" data-ranked="info">{% icon "doc" %}<span>Info Rank</span></button>
-    {% if not duel_enabled %}
-      <button type="button" class="ranked-play locked" disabled title="Duel real-time sedang disiapkan untuk server online">
-        <span>{% icon "clock" %} Segera hadir</span><small>duel online menyusul</small></button>
-    {% elif server_profile.level.level >= 3 %}
+    {% if server_profile.level.level >= 3 %}
       <button type="button" class="ranked-play" id="duel-start-btn">Mulai Duel</button>
     {% else %}
       <button type="button" class="ranked-play locked" disabled title="Kumpulin XP dari sesi latihan topik">
@@ -61,16 +58,19 @@
 
 <details class="ranked-info tier-help" id="ranked-info">
   <summary>Cara naik rank</summary>
-  <p>Kamu dan lawan dapat soal yang sama persis, yang lebih cepat dan tepat menang. Menang = +1 bintang;
-    kalau bintang udah penuh, menang sekali lagi buat naik sub-rank. Kalah = −1 bintang, kecuali di Terra
-    atau kalau kalahnya tipis. Win streak 3× di Terra–Solar dapat bonus bintang. Streak Shield dari Item Shop
-    otomatis jagain bintangmu waktu kalah.</p>
+  <p>Kamu dan lawan dapat 10 soal yang sama persis dengan urutan sama. Kesulitannya acak total (bisa 10 Sulit!) dan
+    lintas fakultas. Jawaban benar = skor dasar (Mudah 100, Sedang 200, Sulit 300) + sisa detik; salah atau waktu habis = 0.
+    Skor tertinggi menang.</p>
+  <p>Lawanmu dipilih sesuai rank dan kemampuanmu, lalu kalian dinilai dari 10 soal yang sama.</p>
+  <p>Menang = +1 bintang; kalau bintang udah penuh, menang sekali lagi buat naik sub-rank. Kalah = −1 bintang, kecuali di
+    Terra III & II. Win streak 3× di Terra–Solar dapat bonus bintang. Streak Shield dari Item Shop otomatis jagain bintangmu
+    waktu kalah. Di Apex, bintang diganti <b>Apex Points</b>: menang +10 s.d. +20, kalah −10 s.d. −20 tergantung kuatnya lawan.</p>
   <p>{% icon "warning" %} Selama duel jangan pindah tab: sekali = soal itu dihitung salah, dua kali = kalah.</p>
   <ol class="tier-list">
     <li class="tier-terra"><b><span class="tier-emb" data-tier="terra"></span>Terra</b><span>Bumi · III → I · 3★ per sub-rank</span></li>
     <li class="tier-luna"><b><span class="tier-emb" data-tier="luna"></span>Luna</b><span>Bulan · III → I · 4★ per sub-rank</span></li>
     <li class="tier-solar"><b><span class="tier-emb" data-tier="solar"></span>Solar</b><span>Matahari · III → I · 4★ per sub-rank</span></li>
     <li class="tier-nova"><b><span class="tier-emb" data-tier="nova"></span>Nova</b><span>Bintang Baru · III → I · 5★ per sub-rank</span></li>
-    <li class="tier-apex"><b><span class="tier-emb" data-tier="apex"></span>Apex</b><span>Bintang tanpa batas · Orbit 25★ · Galaksi 50★ · Kosmos 100★</span></li>
+    <li class="tier-apex"><b><span class="tier-emb" data-tier="apex"></span>Apex</b><span>Apex Points tanpa batas · Orbit 250 · Galaksi 500 · Kosmos 1000</span></li>
   </ol>
 </details>

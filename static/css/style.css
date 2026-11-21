@@ -2766,6 +2766,12 @@ form:not(.stepper-on) .dq-nav [data-step=next] { display: none; }
 .duel-dots i.now { border-color: var(--clr-primary); }
 .duel-dots i.ok { background: var(--clr-growth); border-color: var(--clr-growth); }
 .duel-dots i.bad { background: var(--clr-danger); border-color: var(--clr-danger); }
+/* Ranked Duel: chip kesulitan soal (Mudah 30 dtk / Sedang 60 dtk / Sulit 120 dtk) */
+.duel-chips { display: flex; flex-wrap: wrap; justify-content: center; gap: .35rem; margin: .75rem 0; }
+.duel-chip { display: inline-block; padding: .1rem .55rem; border-radius: 999px; font-size: .78rem; font-weight: 700; border: 1.5px solid; }
+.duel-chip.easy { color: var(--clr-growth-d); background: var(--clr-growth-l); border-color: var(--clr-growth); }
+.duel-chip.medium { color: var(--clr-accent-d); background: var(--clr-accent-l); border-color: var(--clr-accent); }
+.duel-chip.hard { color: var(--clr-danger); background: var(--clr-danger-l); border-color: var(--clr-danger); }
 .duel-timer { height: 8px; margin: .9rem 0 1.1rem; border-radius: var(--radius-full); background: var(--clr-cream); overflow: hidden; }
 .duel-timer-fill { height: 100%; width: 100%; border-radius: inherit; background: var(--clr-growth); transition: background .3s; }
 .duel-timer-fill.low { background: var(--clr-danger); }
