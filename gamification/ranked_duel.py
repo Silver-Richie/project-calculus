@@ -29,7 +29,7 @@ from django.db import transaction
 from django.db.models import F
 from django.utils import timezone
 
-from . import avatar, campus, generators, ranking, shop
+from . import avatar, bot_names, campus, generators, ranking, shop
 from .leveling import level_for
 from .models import GhostRecord, RankedMatch, Topic, UserProfile, rank_of
 from .ranking import describe
@@ -54,13 +54,6 @@ GHOST_REPEAT_COOLDOWN = timedelta(hours=6)
 # Bot: peluang benar dasar per tier, disesuaikan kesulitan soal.
 BOT_ACCURACY = {"terra": 0.55, "luna": 0.62, "solar": 0.68, "nova": 0.74, "apex": 0.8}
 BOT_DIFF_ADJ = {"easy": 0.15, "medium": 0.0, "hard": -0.18}
-# Nama bot ala pemain sungguhan. {fac} = Teknik/MIPA/Fasilkom (sesuai fakultas di kartu), {n} = angka acak.
-BOT_NAME_PATTERNS = ["Anonim_{fac}", "Maba_{fac}", "Ambis_{fac}", "Guest{n4}", "PejuangKalkulus", "PejuangKalkulus{n2}",
-                     "{nama}{n2}", "{nama}_{fac}", "{nama}.{n3}", "Calon_Sarjana{n2}", "KalkulusLover{n2}", "Anak{fac}{n2}",
-                     "Integral_{nama}", "si{nama}", "Turunan{n2}", "LimitTakHingga", "dy_dx_{n2}"]
-BOT_FIRST_NAMES = ["rafi", "nadia", "bima", "salsa", "dimas", "ayu", "fajar", "citra", "gilang", "intan",
-                   "raka", "tiara", "yoga", "laras", "arief", "nisa", "bagas", "putri", "hanif", "kirana"]
-BOT_FACULTIES = [("Teknik", "FT"), ("MIPA", "FMIPA"), ("Fasilkom", "Fasilkom")]
 
 
 class RankedError(Exception):
@@ -192,12 +185,10 @@ def simulate_bot(questions, state, mmr, seed):
 
 
 def bot_identity(rng):
-    """Nama & fakultas bot yang terlihat seperti pemain sungguhan (mis. Maba_MIPA, Guest9821, PejuangKalkulus)."""
-    fac, short = rng.choice(BOT_FACULTIES)
-    nama = rng.choice(BOT_FIRST_NAMES)
-    name = rng.choice(BOT_NAME_PATTERNS).format(fac=fac, nama=nama.title() if rng.random() < 0.5 else nama,
-                                                n2=rng.randint(10, 99), n3=rng.randint(100, 999), n4=rng.randint(1000, 9999))
-    return {"name": name, "username": name.lower(), "faculty": short}
+    """Nama & fakultas bot ala pemain sungguhan (bot_names.py); tidak pernah sama dengan username pengguna asli."""
+    from django.contrib.auth import get_user_model
+    users = get_user_model().objects
+    return bot_names.generate(rng, taken=lambda name: users.filter(username__iexact=name).exists())
 
 
 def _question(spec):
