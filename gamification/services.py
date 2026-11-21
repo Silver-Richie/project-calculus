@@ -456,7 +456,7 @@ def profile_bootstrap(user):
     from .models import UserProfile, rank_of
     from .ranking import describe
     from .shop import MAX_SHIELDS, appearance
-    from . import avatar
+    from . import avatar, streak
 
     profile, _ = UserProfile.objects.get_or_create(user=user)
     duel = rank_of(user)
@@ -478,6 +478,7 @@ def profile_bootstrap(user):
         "look": appearance(profile),
         "avatar": avatar.describe(profile), "avatar_presets": avatar.all_presets(),
         "diagnostic_level": profile.diagnostic_level,
+        "streak": streak.status(profile),
         "completed": [r.node.slug for r in records if r.status == "completed"],
         "active": next((r.node.slug for r in records if r.status == "active"), None),
     }

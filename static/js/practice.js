@@ -345,6 +345,7 @@ const Practice = (() => {
     const s = running.session;
     Curriculum.setSessionProgress(s.id, { attempts: r.attempts, best: r.best, last: r.score, passed: r.passed || !!Curriculum.sessionProgress(s.id)?.passed });
     State.setLevel(r.level, r.xp_awarded);
+    State.setStreak(r.streak);
     if (r.leveled_up) LevelUp.show(r.level, r.gems_awarded);
     if (r.gems != null) State.setGems(r.gems);
     if (r.hearts) State.setHearts(r.hearts);

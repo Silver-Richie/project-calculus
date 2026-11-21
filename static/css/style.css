@@ -2935,3 +2935,55 @@ form:not(.stepper-on) .dq-nav [data-step=next] { display: none; }
 .tabwarn-overlay .levelup-card { border: 2px solid var(--clr-danger); }
 .tabwarn-icon { font-size: 3rem; line-height: 1; margin-bottom: .6rem; }
 .lesson-note.tabwarn-note { background: var(--clr-danger-l); color: var(--clr-danger); font-weight: 600; }
+
+/* ── Banner streak harian (Level Up) & kartu Pengingat Harian (Profil) — static/js/reminder.js ── */
+.streak-banner { position: relative; display: flex; align-items: center; gap: 1rem; margin: 0 0 1.5rem; padding: 1rem 2.6rem 1rem 1rem;
+  border-radius: var(--radius-lg); border: 1.5px solid var(--clr-border); background: var(--clr-surface);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, .05); animation: staggerRise .5s cubic-bezier(.2, 1.2, .4, 1) both; }
+.streak-banner[hidden] { display: none; }
+.streak-banner.state-nunggu { border-color: var(--clr-accent); background: linear-gradient(120deg, var(--clr-accent-l), var(--clr-surface) 70%); }
+.streak-banner.state-aman { border-color: var(--clr-growth); background: linear-gradient(120deg, var(--clr-growth-l), var(--clr-surface) 70%); }
+.streak-banner.state-baru { border-color: var(--clr-primary); background: linear-gradient(120deg, var(--clr-primary-l), var(--clr-surface) 70%); }
+.streak-banner-flame { position: relative; flex: none; width: 56px; height: 56px; border-radius: 50%; display: grid; place-items: center;
+  font-size: 1.9rem; color: #fff; background: var(--clr-accent); }
+.state-aman .streak-banner-flame { background: var(--clr-growth); }
+.state-baru .streak-banner-flame { background: var(--clr-primary); }
+.state-nunggu .streak-banner-flame { animation: flameFlicker 1.6s ease-in-out infinite; }
+.streak-banner-flame b { position: absolute; right: -6px; bottom: -4px; min-width: 24px; padding: 0 .3rem; border-radius: 999px;
+  font: 900 .85rem/24px var(--font-head); text-align: center; color: var(--clr-text); background: var(--clr-surface); border: 2px solid currentColor; }
+.state-nunggu .streak-banner-flame b { color: var(--clr-accent-d); }
+.state-aman .streak-banner-flame b { color: var(--clr-growth-d); }
+@keyframes flameFlicker { 0%, 100% { transform: scale(1) rotate(0); } 30% { transform: scale(1.07) rotate(-4deg); } 60% { transform: scale(.97) rotate(3deg); } }
+.streak-banner-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: .15rem; }
+.streak-banner-text strong { font: 800 1.08rem var(--font-head); color: var(--clr-text); }
+.streak-banner-text span { color: var(--clr-text-sec); font-size: .9rem; }
+.streak-banner-actions { display: flex; flex-direction: column; align-items: flex-end; gap: .35rem; flex: none; }
+.streak-banner-actions .link-btn { font-size: .82rem; display: inline-flex; align-items: center; gap: .25rem; }
+.streak-banner-x { position: absolute; top: .4rem; right: .55rem; width: 28px; height: 28px; border-radius: 50%; font-size: 1.2rem;
+  line-height: 1; color: var(--clr-muted); background: transparent; cursor: pointer; }
+.streak-banner-x:hover { background: var(--clr-cream); color: var(--clr-text); }
+@media (max-width: 560px) {
+  .streak-banner { flex-wrap: wrap; }
+  .streak-banner-actions { flex-direction: row; align-items: center; width: 100%; justify-content: space-between; }
+}
+
+.reminder-card { margin-top: 1.5rem; padding: 1.1rem 1.2rem; border-radius: var(--radius-lg); background: var(--clr-surface);
+  border: 1px solid var(--clr-border); display: flex; flex-direction: column; gap: .9rem; }
+.reminder-head { display: flex; gap: .8rem; align-items: flex-start; }
+.reminder-icon { flex: none; width: 42px; height: 42px; border-radius: 12px; display: grid; place-items: center; font-size: 1.3rem;
+  color: var(--clr-primary); background: var(--clr-primary-l); }
+.reminder-head h3 { margin: 0; font: 800 1.08rem var(--font-head); }
+.reminder-head p { margin: .2rem 0 0; color: var(--clr-text-sec); font-size: .9rem; }
+.reminder-row { display: flex; flex-wrap: wrap; align-items: center; gap: .6rem; }
+.reminder-row label { font-weight: 700; font-size: .9rem; }
+.reminder-row input[type="time"] { font: 700 1rem var(--font-head); padding: .4rem .6rem; border-radius: var(--radius-sm);
+  border: 1.5px solid var(--clr-border); background: var(--clr-bg); color: var(--clr-text); }
+.reminder-row small { color: var(--clr-muted); }
+.reminder-actions { display: flex; flex-wrap: wrap; gap: .6rem; }
+.reminder-actions .btn { display: inline-flex; align-items: center; gap: .4rem; text-decoration: none; }
+.reminder-install { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; padding: .7rem .8rem; border-radius: var(--radius-md);
+  background: var(--clr-cream); color: var(--clr-text-sec); font-size: .88rem; }
+.reminder-install[hidden] { display: none; }
+@media (prefers-reduced-motion: reduce) {
+  .streak-banner, .state-nunggu .streak-banner-flame { animation: none; }
+}

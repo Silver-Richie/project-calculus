@@ -29,7 +29,7 @@ from django.db import transaction
 from django.db.models import F
 from django.utils import timezone
 
-from . import avatar, bot_names, campus, generators, ranking, shop
+from . import avatar, bot_names, campus, generators, ranking, shop, streak
 from .leveling import level_for
 from .models import GhostRecord, RankedMatch, Topic, UserProfile, rank_of
 from .ranking import describe
@@ -340,12 +340,16 @@ def resolve_duel(match, forfeit=False):
                 gems = shop.award(match.user_id, shop.DUEL_WIN_REWARD)
         if not forfeit:                                            # selesai 10 soal tanpa menyerah/putus
             _save_ghost(match, totals["you"], state_before, rank)
+        profile = UserProfile.objects.get(user=match.user)
+        if not forfeit:
+            streak.record_activity(profile)
         rank.refresh_from_db()
         match.result = {
             "verdict": verdict, "forfeit": forfeit, "delta": delta, "apex": state_before.tier == "apex",
             "shield_used": shield_used, "gems_awarded": gems, "terra_safe": verdict == "lose" and delta == 0 and not shield_used,
             "you": totals["you"], "opponent": totals["opponent"],
             "rank_before": describe(state_before),                       # untuk animasi bintang/Apex Points
+            "streak": streak.status(profile),
             "rank": {**describe(rank.state), "wins": rank.wins, "losses": rank.losses},
         }
         match.save(update_fields=["answers", "result"])

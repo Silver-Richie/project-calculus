@@ -411,6 +411,7 @@ const Duel = (() => {
         </div></div>`);
     if (typeof Leaderboard !== 'undefined') Leaderboard.setMyRank(res.rank);
     if (typeof Ranked !== 'undefined') Ranked.update(res.rank, res.shield_used);
+    if (typeof State !== 'undefined') State.setStreak(res.streak);
     const fast = REDUCED();
     if (res.verdict === 'win' && !fast) Confetti.burst();
     await WAIT(fast ? 50 : 1500);                                     // splash raksasa dulu

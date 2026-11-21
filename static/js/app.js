@@ -126,6 +126,8 @@ const State = (() => {
     s.level = SERVER.level || null;
     // Diamond juga hanya dari server (didapat & dibelanjakan di sana, lihat shop.py).
     s.gems = SERVER.gems || 0;
+    // Streak harian dari server (streak.py); 0 bila sudah putus.
+    if (SERVER.streak) s.streak = SERVER.streak.days;
     const p = s.progress[s.faculty] || (s.progress[s.faculty] = { completed: [], active: null });
     (SERVER.completed || []).forEach((slug) => { if (!p.completed.includes(slug)) p.completed.push(slug); });
     // Server adalah sumber kebenaran sub-level aktif: nilai lokal bisa usang (mis. node kurikulum lama).
@@ -233,6 +235,12 @@ const State = (() => {
     },
     hasHearts: () => s.hearts > 0,
     /** Saldo diamond dari server; animasi "+n 💎" bila bertambah. */
+    /** Status streak terbaru dari server (setelah sesi latihan / duel): HUD + banner beranda. */
+    setStreak(st) {
+      if (!st) return;
+      s.streak = st.days; save();
+      if (typeof Reminder !== 'undefined') Reminder.setStreak(st);
+    },
     setGems(n) {
       const gained = n - s.gems;
       s.gems = n; save();
