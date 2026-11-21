@@ -10,6 +10,7 @@ from .views import (
     session_api, submit_session_api, leave_session_api, complete_node_api,
     free_practice_catalog_api, free_practice_start_api, trial_quiz_api,
     set_campus_api, set_avatar_api, leaderboard_api, shop_api, shop_buy_api, shop_equip_api,
+    ranked_start_api, ranked_question_api, ranked_answer_api, ranked_leave_api, ranked_forfeit_api,
 )
 
 app_name = 'gamification'
@@ -38,6 +39,11 @@ urlpatterns = [
     path('api/profile/campus/', set_campus_api, name='set_campus_api'),
     path('api/profile/avatar/', set_avatar_api, name='set_avatar_api'),
     path('api/peringkat/', leaderboard_api, name='leaderboard_api'),
+    path('api/ranked/mulai/', ranked_start_api, name='ranked_start'),
+    path('api/ranked/<int:match_id>/soal/', ranked_question_api, name='ranked_question'),
+    path('api/ranked/<int:match_id>/jawab/', ranked_answer_api, name='ranked_answer'),
+    path('api/ranked/<int:match_id>/keluar-tab/', ranked_leave_api, name='ranked_leave'),
+    path('api/ranked/<int:match_id>/menyerah/', ranked_forfeit_api, name='ranked_forfeit'),
     path('api/toko/', shop_api, name='shop_api'),
     path('api/toko/beli/', shop_buy_api, name='shop_buy_api'),
     path('api/toko/pakai/', shop_equip_api, name='shop_equip_api'),

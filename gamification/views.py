@@ -6,7 +6,6 @@ Views dibuat tipis: pengambilan dan pengolahan data ada di services.py.
 
 import json
 
-from django.conf import settings
 from django.contrib.auth.decorators import login_required
 from django.db.models import Count, Q, Value
 from django.db.models.functions import Coalesce
@@ -15,7 +14,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_POST
 
-from . import avatar, campus, duel, free_practice, generators, ranking, services, sessions, shop
+from . import avatar, campus, free_practice, generators, ranked_duel, ranking, services, sessions, shop
 from .leveling import level_for, level_info
 from .models import Faculty, MainLevel, PracticeSession, SkillNode, Topic, UserProfile
 
@@ -43,7 +42,6 @@ def landing_page(request):
         "faculties": Faculty.objects.all(),
         "server_profile": services.profile_bootstrap(request.user),
         "campus_suggestions": campus.SUGGESTIONS,
-        "duel_enabled": settings.DUEL_ENABLED,
     })
 
 
@@ -204,7 +202,7 @@ def leaderboard_api(request):
                       "fakultas": me.faculty.name if me.faculty else ""}[scope]}
     if duels:
         shown = {r["user_id"] for r in rows + around + [mine]}
-        recent = duel.recent_results(list(shown))
+        recent = ranked_duel.recent_results(list(shown))
         for r in rows + around + [mine]:
             r["recent"] = recent.get(r["user_id"], [])
         data["played"] = qs.filter(Q(user__duel_rank__wins__gt=0) | Q(user__duel_rank__losses__gt=0)).exists()
@@ -418,3 +416,54 @@ def shop_equip_api(request):
     except shop.ShopError as err:
         return JsonResponse({"status": "error", "message": str(err)}, status=400)
     return JsonResponse({"status": "success", **data})
+
+
+# ── Ranked Duel asinkron (hantu/bot, tanpa WebSocket) — aturan di ranked_duel.py ─────────
+def _ranked_call(fn):
+    try:
+        return JsonResponse({"status": "success", **(fn() or {})})
+    except ranked_duel.RankedError as err:
+        return JsonResponse({"status": "error", "message": str(err)}, status=400)
+
+
+@login_required
+@require_POST
+def ranked_start_api(request):
+    """POST /api/ranked/mulai/ — cari lawan (hantu/bot sesuai rank) dan siapkan 10 soal."""
+    return _ranked_call(lambda: ranked_duel.match_intro(ranked_duel.find_match(request.user)))
+
+
+@login_required
+@require_POST
+def ranked_question_api(request, match_id):
+    """POST /api/ranked/<id>/soal/ — buka soal berikutnya (waktu mulai dicatat server)."""
+    return _ranked_call(lambda: {"question": ranked_duel.open_question(match_id, request.user)})
+
+
+@login_required
+@require_POST
+def ranked_answer_api(request, match_id):
+    """POST /api/ranked/<id>/jawab/ {"index": 0, "option": 2|null} — null = waktu habis."""
+    body = _json_body(request)
+    option = body.get("option")
+    return _ranked_call(lambda: ranked_duel.submit_answer(
+        match_id, request.user, int(body.get("index", -1)), None if option is None else int(option)))
+
+
+@login_required
+@require_POST
+def ranked_leave_api(request, match_id):
+    """POST /api/ranked/<id>/keluar-tab/ — anti-curang: keluar tab ke-1 = soal salah, ke-2 = menyerah."""
+    return _ranked_call(lambda: ranked_duel.leave_tab(match_id, request.user))
+
+
+@login_required
+@require_POST
+def ranked_forfeit_api(request, match_id):
+    """POST /api/ranked/<id>/menyerah/ — keluar di tengah duel = kalah (tanpa Streak Shield)."""
+    def run():
+        match = ranked_duel.RankedMatch.objects.filter(pk=match_id, user=request.user).first()
+        if not match:
+            raise ranked_duel.RankedError("Duel-nya gak ketemu.")
+        return {"result": ranked_duel.resolve_duel(match, forfeit=True)}
+    return _ranked_call(run)

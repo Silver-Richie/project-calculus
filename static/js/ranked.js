@@ -17,7 +17,7 @@ const Ranked = (() => {
 
   const TIERS = ['terra', 'luna', 'solar', 'nova', 'apex'];
   const NAME = { terra: 'Terra', luna: 'Luna', solar: 'Solar', nova: 'Nova', apex: 'Apex' };
-  const ROAD_NOTE = { terra: '3★ × 3', luna: '4★ × 3', solar: '4★ × 3', nova: '5★ × 3', apex: '★ tanpa batas' };
+  const ROAD_NOTE = { terra: '3★ × 3', luna: '4★ × 3', solar: '4★ × 3', nova: '5★ × 3', apex: 'Apex Points' };
 
   const profile = (() => {
     try { return JSON.parse(document.getElementById('server-profile')?.textContent || 'null') || {}; }
@@ -30,7 +30,7 @@ const Ranked = (() => {
   const $ = (id) => document.getElementById(id);
 
   function starsHTML(r) {
-    if (r.max_stars == null) return `<span class="ranked-apex-stars">★ ${r.stars}</span>`;
+    if (r.max_stars == null) return `<span class="ranked-apex-stars">${r.apex_points ?? 0} AP</span>`;
     return Array.from({ length: r.max_stars }, (_, i) => `<span class="rs${i < r.stars ? ' on' : ''}">★</span>`).join('');
   }
 

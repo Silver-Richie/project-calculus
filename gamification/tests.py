@@ -1029,11 +1029,15 @@ class RankingRuleTests(TestCase):
         _, d = ranking.apply_result(self.st("nova", 2, 1, streak=2), won=True)
         self.assertEqual(d, 1)                                                          # Nova: tanpa bonus
 
-    def test_terra_never_loses_stars(self):
-        new, delta = ranking.apply_result(self.st("terra", 1, 2, streak=4), won=False)
+    def test_only_terra_three_and_two_are_safe(self):
+        new, delta = ranking.apply_result(self.st("terra", 2, 2, streak=4), won=False)
         self.assertEqual((new.stars, new.win_streak, delta), (2, 0, 0))
         new, _ = ranking.apply_result(self.st("terra", 3, 0), won=False)
         self.assertEqual((new.tier, new.division, new.stars), ("terra", 3, 0))
+        new, delta = ranking.apply_result(self.st("terra", 1, 2), won=False)       # Terra I: sudah bisa turun bintang
+        self.assertEqual((new.stars, delta), (1, -1))
+        new, _ = ranking.apply_result(self.st("terra", 1, 0), won=False)
+        self.assertEqual((new.tier, new.division, new.stars), ("terra", 2, 2))
 
     def test_close_loss_is_protected(self):
         new, delta = ranking.apply_result(self.st("solar", 2, 2), won=False, protected=True)
@@ -1047,21 +1051,38 @@ class RankingRuleTests(TestCase):
         new, _ = ranking.apply_result(self.st("luna", 3, 0), won=False)
         self.assertEqual((new.tier, new.division, new.stars), ("terra", 1, 2))
 
-    def test_apex_entry_exit_and_titles(self):
+    def test_apex_points_entry_exit_and_titles(self):
         new, _ = ranking.apply_result(self.st("nova", 1, 5), won=True)
-        self.assertEqual((new.tier, new.division, new.stars, ranking.label(new)), ("apex", None, 1, "Apex"))
-        new, _ = ranking.apply_result(self.st("apex", None, 0), won=False)
-        self.assertEqual((new.tier, new.division, new.stars), ("nova", 1, 4))
-        self.assertEqual([ranking.apex_title(n) for n in (24, 25, 50, 100, 250)], ["", "Orbit", "Galaksi", "Kosmos", "Kosmos"])
-        self.assertEqual(ranking.label(self.st("apex", None, 37)), "Apex Orbit")
+        self.assertEqual((new.tier, new.division, new.stars, new.apex_points, ranking.label(new)), ("apex", None, 0, 0, "Apex"))
+        apex = replace(self.st("apex", None, 0), apex_points=30)
+        won, d = ranking.apply_result(apex, won=True, apex_change=17)
+        self.assertEqual((won.apex_points, d), (47, 17))
+        lost, d = ranking.apply_result(apex, won=False, apex_change=12)
+        self.assertEqual((lost.apex_points, d), (18, -12))
+        down, _ = ranking.apply_result(replace(apex, apex_points=5), won=False, apex_change=12)
+        self.assertEqual((down.tier, down.division, down.stars), ("nova", 1, 4))
+        shielded, d = ranking.apply_result(apex, won=False, protected=True, apex_change=12)
+        self.assertEqual((shielded.apex_points, d), (30, 0))
+        self.assertEqual([ranking.apex_title(n) for n in (249, 250, 500, 1000, 2500)], ["", "Orbit", "Galaksi", "Kosmos", "Kosmos"])
+        self.assertEqual(ranking.label(replace(apex, apex_points=370)), "Apex Orbit")
+
+    def test_apex_delta_between_10_and_20(self):
+        self.assertEqual(ranking.apex_delta(1000, 1000, True), 15)
+        self.assertEqual(ranking.apex_delta(1000, 1000, False), 15)
+        self.assertGreater(ranking.apex_delta(1000, 1400, True), 18)        # menang lawan kuat: hadiah besar
+        self.assertLess(ranking.apex_delta(1000, 1400, False), 12)          # kalah dari lawan kuat: hukuman kecil
+        for a, b in ((800, 2000), (2000, 800)):
+            for won in (True, False):
+                self.assertTrue(10 <= ranking.apex_delta(a, b, won) <= 20)
 
     def test_ladder_points_increase_one_per_star(self):
         state, points = ranking.RankState(), [0]
-        for _ in range(60):
+        for _ in range(49):                                   # 48 bintang sampai Nova I penuh, lalu masuk Apex
             state, _ = ranking.apply_result(replace(state, win_streak=0), won=True)
             points.append(ranking.ladder_points(state))
-        self.assertEqual(points, list(range(61)))
-        self.assertEqual(ranking.ladder_points(self.st("apex", None, 10)), 3 * (3 + 4 + 4 + 5) + 10)
+        self.assertEqual(points, list(range(50)))
+        self.assertEqual(state.tier, "apex")
+        self.assertEqual(ranking.ladder_points(replace(self.st("apex", None, 0), apex_points=10)), 3 * (3 + 4 + 4 + 5) + 1 + 10)
 
     def test_elo(self):
         self.assertEqual(ranking.elo_update(1000, 1000, 1), 1016)
@@ -1076,13 +1097,14 @@ class RankLeaderboardTests(TestCase):
     def setUpTestData(cls):
         call_command("seed_gamification", stdout=io.StringIO())
         ft = Faculty.objects.get(slug="ft")
-        states = {"ani": ("apex", None, 30, 1300), "budi": ("nova", 1, 2, 1200), "cici": ("nova", 1, 2, 1250), "dedi": None}
+        # Apex memakai Apex Points (300 ≥ 250 = gelar Orbit); bintang Apex selalu 0
+        states = {"ani": ("apex", None, 0, 1300, 300), "budi": ("nova", 1, 2, 1200, 0), "cici": ("nova", 1, 2, 1250, 0), "dedi": None}
         for name, state in states.items():
             user = User.objects.create_user(name, password="rahasia-123")
             UserProfile.objects.create(user=user, faculty=ft, campus="Universitas Indonesia")
             if state:
                 pr = PlayerRank(user=user, mmr=state[3])
-                pr.set_state(ranking.RankState(*state[:3]))
+                pr.set_state(ranking.RankState(*state[:3], 0, state[4]))
                 pr.save()
 
     def setUp(self):
@@ -1136,12 +1158,11 @@ class RankLeaderboardTests(TestCase):
         self.assertEqual(response.context["server_profile"]["rank"]["label"], "Terra III")
         self.assertContains(response, 'id="profile-rank"')
 
-    def test_duel_disabled_shows_coming_soon(self):
-        with self.settings(DUEL_ENABLED=False):
-            response = self.client.get("/")
-        self.assertContains(response, "Segera hadir")
-        self.assertNotContains(response, 'id="duel-start-btn"')
-        self.assertNotContains(response, "Terbuka di Level 3")
+    def test_ranked_available_without_websocket(self):
+        # Ranked asinkron (hantu/bot) tidak butuh WebSocket: tidak ada lagi tombol "Segera hadir"
+        response = self.client.get("/")
+        self.assertNotContains(response, "Segera hadir")
+        self.assertContains(response, "Kebuka di Level 3")                    # dedi masih Level 1
 
 
 
@@ -1820,3 +1841,184 @@ class GeneratorVarietyTests(TestCase):
             core += sum(1 for kind, *_ in pool if kind == "q")
             with self.subTest(topic=ses.topic.slug, session=ses.number):
                 self.assertGreaterEqual(core, self.MIN_CORE)
+
+
+from . import ranked_duel  # noqa: E402
+from .leveling import total_xp_for  # noqa: E402
+from .models import GhostRecord, RankedMatch  # noqa: E402
+
+
+class RankedDuelTests(TestCase):
+    """Ranked Duel asinkron: seed adil, kurva hantu/bot, skor per kesulitan, bintang/shield/Apex, rekaman hantu."""
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_gamification", stdout=io.StringIO())
+
+    def player(self, name, tier="terra", division=3, stars=0, shields=0, mmr=1000):
+        user = User.objects.create_user(name, password="rahasia-123")
+        UserProfile.objects.update_or_create(user=user, defaults={"xp": total_xp_for(5), "star_shields": shields})
+        rank = rank_of(user)
+        rank.set_state(ranking.RankState(tier, division, stars))
+        rank.mmr = mmr
+        rank.save()
+        return user
+
+    def play(self, match, correct=True, seconds=5):
+        """Jawab semua soal (benar/salah) masing-masing `seconds` detik setelah dibuka."""
+        out = None
+        for i in range(len(match.questions)):
+            t0 = timezone.now()
+            ranked_duel.open_question(match.id, match.user, now=t0)
+            q = ranked_duel._question(match.questions[i])
+            opt = next(o["id"] for o in q["options"] if o["is_correct"] == correct)
+            out = ranked_duel.submit_answer(match.id, match.user, i, opt, now=t0 + timedelta(seconds=seconds))
+        return out
+
+    def set_opponent(self, match, correct):
+        match.opponent["answers"] = [{"option": None, "correct": correct, "ms": 10_000,
+                                      "points": ranked_duel.score_for(correct, 10_000, q)} for q in match.questions]
+        match.save()
+
+    def test_seed_gives_identical_ten_questions_with_rules(self):
+        a = ranked_duel.generate_duel_match("abc123", "solar")
+        self.assertEqual(a, ranked_duel.generate_duel_match("abc123", "solar"))
+        self.assertNotEqual(a, ranked_duel.generate_duel_match("abc124", "solar"))
+        self.assertEqual(len(a), 10)
+        rules = {"easy": (30, 100, (1,)), "medium": (60, 200, (2,)), "hard": (120, 300, (3, 4, 5))}
+        for q in a:
+            limit, base, tiers = rules[q["difficulty"]]
+            self.assertEqual((q["time_limit"], q["base"]), (limit, base))
+            self.assertIn(q["tier"], tiers)
+
+    def test_terra_pool_limited_to_level_one_and_two(self):
+        allowed = set(Topic.objects.filter(node__main_level__order__in=(1, 2)).values_list("title", flat=True))
+        for seed in range(15):
+            for q in ranked_duel.generate_duel_match(str(seed), "terra"):
+                self.assertIn(q["topic"], allowed)
+
+    def test_matchmaking_curve(self):
+        S = ranking.RankState
+        self.assertEqual([ranked_duel.ghost_share(S("terra", d)) for d in (3, 2, 1)], [0.0, 0.0, 0.3])
+        self.assertEqual([ranked_duel.ghost_share(S(t, 2)) for t in ("luna", "solar", "nova")], [0.5, 1.0, 1.0])
+        self.assertEqual(ranked_duel.ghost_share(S("apex", None)), 1.0)
+
+    def test_terra_three_always_bot_and_solar_uses_ghost_with_same_questions(self):
+        rookie = self.player("rookie")
+        for _ in range(5):
+            m = ranked_duel.find_match(rookie)
+            self.assertEqual(m.opponent_kind, RankedMatch.BOT)
+            intro = ranked_duel.match_intro(m)
+            self.assertNotIn("opponent_kind", intro)                                        # bot tidak dibocorkan ke browser
+            self.assertEqual(set(intro["opponent"]), set(ranked_duel.player_card(rookie)))  # kartu bot = kartu pemain biasa
+            self.assertIsNone(intro["opponent"]["id"])
+        pro, other = self.player("pro", "solar", 2, 1), self.player("other", "solar", 2, 1)
+        self.assertEqual(ranked_duel.find_match(pro).opponent_kind, RankedMatch.BOT)          # belum ada hantu → bot
+        qs = ranked_duel.generate_duel_match("ghostseed", "solar")
+        ghost = GhostRecord.objects.create(user=other, match_seed="ghostseed", pool="solar", mmr=1000, questions=qs,
+                                           answers=[{"option": 0, "correct": True, "ms": 9000, "points": 150}] * 10,
+                                           total_score=1500, correct=10, total_ms=90000)
+        m = ranked_duel.find_match(pro)
+        self.assertEqual((m.opponent_kind, m.ghost_id, m.match_seed), (RankedMatch.GHOST, ghost.id, "ghostseed"))
+        self.assertEqual(m.questions, qs)                                                    # soal & urutan identik
+
+    def test_score_base_plus_remaining_seconds(self):
+        easy = {"time_limit": 30, "base": 100}
+        hard = {"time_limit": 120, "base": 300}
+        self.assertEqual(ranked_duel.score_for(True, 7_400, easy), 122)
+        self.assertEqual(ranked_duel.score_for(True, 20_000, hard), 400)
+        self.assertEqual(ranked_duel.score_for(False, 1_000, hard), 0)
+        self.assertEqual(ranked_duel.score_for(True, 31_000, easy), 0)
+
+    def test_late_answer_counts_zero(self):
+        user = self.player("lambat")
+        m = ranked_duel.find_match(user)
+        t0 = timezone.now()
+        ranked_duel.open_question(m.id, user, now=t0)
+        q = ranked_duel._question(m.questions[0])
+        good = next(o["id"] for o in q["options"] if o["is_correct"])
+        late = t0 + timedelta(seconds=m.questions[0]["time_limit"] + 5)
+        out = ranked_duel.submit_answer(m.id, user, 0, good, now=late)
+        self.assertEqual((out["you"]["correct"], out["you"]["points"]), (False, 0))
+        with self.assertRaises(ranked_duel.RankedError):
+            ranked_duel.submit_answer(m.id, user, 0, good)                                    # soal sudah ditutup
+
+    def test_win_adds_star_gems_and_saves_ghost(self):
+        user = self.player("juara", "luna", 2, 1)
+        m = ranked_duel.find_match(user, rng=__import__("random").Random(1))
+        self.set_opponent(m, correct=False)
+        res = self.play(m, correct=True)["result"]
+        self.assertEqual((res["verdict"], res["delta"]), ("win", 1))
+        self.assertEqual(rank_of(user).stars, 2)
+        self.assertGreater(res["gems_awarded"], 0)
+        ghost = GhostRecord.objects.get(user=user)
+        self.assertEqual((ghost.match_seed, ghost.pool, len(ghost.answers)), (m.match_seed, m.pool, 10))
+
+    def test_loss_terra_safe_shield_and_normal(self):
+        rookie = self.player("aman")                                                         # Terra III
+        m = ranked_duel.find_match(rookie)
+        self.set_opponent(m, correct=True)
+        res = self.play(m, correct=False)["result"]
+        self.assertEqual((res["verdict"], res["delta"], res["terra_safe"]), ("lose", 0, True))
+        ghost = GhostRecord.objects.get(user=rookie)                                          # kalah pun jadi hantu (tanpa survivorship bias)
+        self.assertEqual((ghost.total_score, ghost.correct), (0, 0))
+        shielded = self.player("perisai", "luna", 2, 2, shields=1)
+        m = ranked_duel.find_match(shielded)
+        self.set_opponent(m, correct=True)
+        res = self.play(m, correct=False)["result"]
+        self.assertEqual((res["delta"], res["shield_used"]), (0, True))
+        self.assertEqual((rank_of(shielded).stars, UserProfile.objects.get(user=shielded).star_shields), (2, 0))
+        plain = self.player("biasa", "luna", 2, 2)
+        m = ranked_duel.find_match(plain)
+        self.set_opponent(m, correct=True)
+        self.assertEqual(self.play(m, correct=False)["result"]["delta"], -1)
+
+    def test_apex_win_gives_points(self):
+        user = self.player("puncak", "apex", None, 0, mmr=1200)
+        rank = rank_of(user)
+        rank.set_state(ranking.RankState("apex", None, 0, 0, 100))
+        rank.save()
+        m = ranked_duel.find_match(user)                                                     # tanpa hantu → bot
+        self.set_opponent(m, correct=False)
+        res = self.play(m, correct=True)["result"]
+        self.assertTrue(10 <= res["delta"] <= 20)
+        self.assertEqual(rank_of(user).apex_points, 100 + res["delta"])
+
+    def test_two_tab_leaves_forfeit_and_stale_match_resolved(self):
+        user = self.player("kabur", "luna", 2, 2)
+        m = ranked_duel.find_match(user)
+        ranked_duel.open_question(m.id, user)
+        first = ranked_duel.leave_tab(m.id, user)
+        self.assertEqual((first["forfeit"], first["voided"]), (False, 0))
+        second = ranked_duel.leave_tab(m.id, user)
+        self.assertTrue(second["forfeit"])
+        self.assertFalse(GhostRecord.objects.filter(user=user).exists())                     # menyerah/putus: tidak jadi hantu
+        self.assertEqual((second["result"]["verdict"], second["result"]["delta"]), ("lose", -1))
+        m2 = ranked_duel.find_match(user)
+        ranked_duel.find_match(user)                                                         # duel lama ditinggal = menyerah
+        m2.refresh_from_db()
+        self.assertEqual((m2.status, m2.result["forfeit"]), (RankedMatch.FINISHED, True))
+
+    def test_api_flow(self):
+        user = self.player("api")
+        c = Client()
+        c.force_login(user)
+        intro = c.post("/api/ranked/mulai/").json()
+        self.assertEqual((intro["status"], intro["total"], len(intro["difficulties"])), ("success", 10, 10))
+        q = c.post(f"/api/ranked/{intro['match_id']}/soal/").json()["question"]
+        self.assertNotIn("is_correct", q["options"][0])                                       # kunci tidak dikirim
+        out = c.post(f"/api/ranked/{intro['match_id']}/jawab/", {"index": 0, "option": None}, content_type="application/json").json()
+        self.assertEqual((out["status"], out["you"]["points"]), ("success", 0))
+        low = self.player("baru")
+        UserProfile.objects.filter(user=low).update(xp=0)
+        c.force_login(low)
+        self.assertEqual(c.post("/api/ranked/mulai/").status_code, 400)                      # Level < 3
+
+    def test_recent_results_include_ranked_matches(self):
+        # titik riwayat W/L di leaderboard ikut menampilkan hasil Ranked Duel asinkron
+        user = self.player("riwayat", "luna", 2, 1)
+        for correct in (True, False):
+            m = ranked_duel.find_match(user)
+            self.set_opponent(m, correct=not correct)
+            self.play(m, correct=correct)
+        self.assertEqual(ranked_duel.recent_results([user.id])[user.id], ["w", "l"])
