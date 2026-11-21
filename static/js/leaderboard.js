@@ -5,7 +5,7 @@
  *                  (dipakai Profil, Ranked & duel.js).
  *  - Leaderboard : papan Level (urut total XP), Rank Duel (urut posisi tangga), dan Menang Duel
  *                  (urut jumlah kemenangan), gaya aplikasi (static/css/leaderboard.css): kartu Posisimu,
- *                  podium 3 teratas, daftar #4 dst → "Tampilkan N" → pemain di sekitarmu, dan state seri
+ *                  podium 3 teratas, daftar #4 dst → "Tampilkan N" → pemain di sekitarmu (hanya dalam Top 100), dan state seri
  *                  bila belum ada duel; Rank Duel juga kolom sebaran tier. Cakupan
  *                  Global · Kampusku · Fakultasku (+ Top 100 Apex di tab Rank) dari
  *                  GET /api/peringkat/?board=…&scope=…; 50 teratas + posisimu sendiri.
@@ -139,6 +139,7 @@ const Leaderboard = (() => {
           : gapHTML(`${fmt(first - TOP)} pemain di antaranya`, true))
         + groupHTML('Di sekitarmu') + around.map(rowHTML).join('');
     }
+    if (body && d.total > rows.length) body += `<li class="lbx-more-note">Leaderboard menampilkan 100 besar dari ${fmt(d.total)} pemain</li>`;
     return body ? `<div class="lbx-card"><ol class="lbx-list">${head}${body}</ol></div>` : '';
   }
 

@@ -2022,3 +2022,42 @@ class RankedDuelTests(TestCase):
             self.set_opponent(m, correct=not correct)
             self.play(m, correct=correct)
         self.assertEqual(ranked_duel.recent_results([user.id])[user.id], ["w", "l"])
+
+    def test_bot_names_varied_faculty_consistent_and_never_real_users(self):
+        import random
+        from . import bot_names
+        rng = random.Random(3)
+        ids = [bot_names.generate(rng) for _ in range(2000)]
+        self.assertGreater(len({i["name"] for i in ids}), 1700)                               # jarang berulang
+        hints = {"FT": "teknik", "FMIPA": "mipa", "Fasilkom": "fasilkom"}
+        for i in ids:
+            for short, word in hints.items():
+                if word in i["name"].lower():
+                    self.assertEqual(i["faculty"], short, i["name"])
+        self.player("guest1234")
+        taken = bot_names.generate(random.Random(0), taken=lambda n: True)                    # semua bentrok → nama cadangan
+        self.assertTrue(taken["name"].startswith("Guest"))
+        for seed in range(200):
+            name = ranked_duel.bot_identity(random.Random(seed))["name"]
+            self.assertFalse(User.objects.filter(username__iexact=name).exists(), name)
+
+
+class LeaderboardTop100Tests(TestCase):
+    """Leaderboard hanya Top 100; posisi pengguna tetap ada; sebaran tier menghitung semua pemain."""
+
+    def test_only_top_100_but_tiers_count_everyone(self):
+        users = User.objects.bulk_create([User(username=f"p{i:03d}") for i in range(105)])
+        UserProfile.objects.bulk_create([UserProfile(user=u, xp=1000 - i) for i, u in enumerate(users)])
+        PlayerRank.objects.bulk_create([PlayerRank(user=u, tier="luna" if i < 10 else "terra", points=200 - i) for i, u in enumerate(users)])
+        last = users[-1]
+        self.client.force_login(last)
+        for board in ("level", "rank", "wins"):
+            data = self.client.get(f"/api/peringkat/?board={board}").json()
+            self.assertEqual(len(data["rows"]), 100, board)
+            self.assertEqual(data["around"], [], board)                                       # di luar 100 besar: tanpa tetangga
+            self.assertEqual(data["me"]["pos"], 105 if board != "wins" else 1, board)
+        tiers = {t["tier"]: t["count"] for t in self.client.get("/api/peringkat/?board=rank").json()["tiers"]}
+        self.assertEqual((tiers["terra"], tiers["luna"], sum(tiers.values())), (95, 10, 105))
+        self.client.force_login(users[3])
+        near = self.client.get("/api/peringkat/?board=level").json()
+        self.assertEqual([r["index"] for r in near["around"]], [1, 2, 3, 4, 5])               # dalam 100 besar: tetangga tetap
