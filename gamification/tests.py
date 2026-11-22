@@ -1426,7 +1426,7 @@ class GoogleLoginTests(TestCase):
 
     def test_login_page_has_field_icons_and_new_title(self):
         response = self.client.get("/auth/masuk/")
-        self.assertContains(response, "Siap melanjutkan quest kalkulusmu hari ini?")
+        self.assertContains(response, "Lanjut belajar bareng Archie")
         self.assertContains(response, 'class="auth-input-icon"', count=5)   # 2 di Masuk + 3 di Daftar
         self.assertContains(response, 'id="mascot-card"')
 

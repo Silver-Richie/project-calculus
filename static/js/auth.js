@@ -63,7 +63,10 @@ const AuthTabs = (() => {
     card.querySelectorAll('.auth-tab').forEach((t) => t.classList.toggle('active', t.dataset.tab === tab));
     card.querySelectorAll('.auth-pane').forEach((p) => p.classList.toggle('active', p.id === `pane-${tab}`));
     const title = card.querySelector('.auth-title');
-    if (title) title.textContent = title.dataset[`title${tab[0].toUpperCase()}${tab.slice(1)}`] || title.textContent;
+    const key = `${tab[0].toUpperCase()}${tab.slice(1)}`;
+    if (title) title.textContent = title.dataset[`title${key}`] || title.textContent;
+    const sub = card.querySelector('.auth-sub[data-sub-masuk]');
+    if (sub) sub.textContent = sub.dataset[`sub${key}`] || sub.textContent;
     const first = card.querySelector(`#pane-${tab} input:not([type=hidden])`);
     if (first) first.focus({ preventScroll: true });
   }
