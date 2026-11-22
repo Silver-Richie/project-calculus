@@ -30,7 +30,7 @@ from django.db.models import Max
 from gamification import content, generators
 from gamification.content import bank, levels
 from gamification.models import (
-    Faculty, SourceDocument, SkillNode, LessonSection, Question, Option,
+    Faculty, SourceDocument, SkillNode, LessonSection, LessonSlide, Question, Option,
     MainLevel, Topic, PracticeSession, QuestionTemplate,
 )
 
@@ -250,6 +250,20 @@ class Command(BaseCommand):
                                       body_html=sec.get("body_html", "").strip(), graphs=sec.get("graphs", []))
                         for k, sec in enumerate(t.get("sections", []), start=1)
                     ])
+                    # Slide eksplisit kurikulum v2 (opsional): {"kind", "title", "body_html", "graphs"}
+                    kinds = {k for k, _ in LessonSlide.KINDS}
+                    for sl in t.get("slides", []):
+                        if sl.get("kind") not in kinds:
+                            raise CommandError(f"Topik {t['slug']}: jenis slide tidak dikenal {sl.get('kind')!r}.")
+                    topic.slides.all().delete()
+                    LessonSlide.objects.bulk_create([
+                        LessonSlide(topic=topic, order=k, kind=sl["kind"], title=sl["title"], tip=sl.get("tip", ""),
+                                    body_html=sl.get("body_html", "").strip(), graphs=sl.get("graphs", []))
+                        for k, sl in enumerate(t.get("slides", []), start=1)
+                    ])
+                    if t.get("practice") is False:          # topik materi saja (latihan menyusul)
+                        topic.sessions.all().delete()
+                        continue
                     for number, tier, title, ratio, xp in levels.SESSION_PLAN:
                         gens = generators.for_topic(topic.slug, number)
                         if not gens:

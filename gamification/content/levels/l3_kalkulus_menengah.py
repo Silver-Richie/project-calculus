@@ -236,3 +236,17 @@ ABSORB_SECTIONS = {("umum-deret", "Uji kekonvergenan deret"): "km-der-uji", ("um
 # U-S4 (integral parsial) saat ini berada di sub-level kd-integral (Level 2) tanpa sesi.
 FIXED_QUESTIONS = {}
 MOVE_QUESTIONS = {"U-S4": ("km-tek-parsial", 3)}
+
+# Kurikulum v2 (Batch 3): slide eksplisit per topik + topik baru (materi saja, latihan menyusul).
+from .l3_slides import NEW_TOPICS as _V2_NEW, SLIDES as _V2_A  # noqa: E402
+from .l3_slides_b import SLIDES as _V2_B  # noqa: E402
+from .l3_slides_c import SLIDES as _V2_C  # noqa: E402
+
+_V2_SLIDES = {**_V2_A, **_V2_B, **_V2_C}
+for _new in _V2_NEW:
+    _sub = next(s for s in SUBLEVELS if any(t["slug"] == _new["after"] for t in s["topics"]))
+    _i = next(i for i, t in enumerate(_sub["topics"]) if t["slug"] == _new["after"]) + 1
+    _sub["topics"].insert(_i, {**{k: v for k, v in _new.items() if k != "after"}, "sections": []})
+for _sub in SUBLEVELS:
+    for _t in _sub["topics"]:
+        _t["slides"] = _V2_SLIDES.get(_t["slug"], [])

@@ -6,7 +6,10 @@
      ========================================================================= -->
 
 <div class="profile-hero">
-  <div class="profile-avatar-lg" id="profile-avatar-lg">{{ server_profile.display_name|first|upper|default:"M" }}</div>
+  <div class="profile-avatar-wrap">
+    {% avatar server_profile.avatar server_profile.display_name|default:"Mahasiswa" server_profile.username cls="profile-avatar-lg" id="profile-avatar-lg" %}
+    <button type="button" class="profile-avatar-edit" data-avatar-edit title="Ganti foto profil" aria-label="Ganti foto profil">{% icon "pen" %}</button>
+  </div>
   <div>
     <div class="profile-hero-name" id="profile-name">{{ server_profile.display_name|default:"Mahasiswa Baru" }}</div>
     <div class="profile-title" id="profile-title">{{ server_profile.look.title_text }}</div>
@@ -61,6 +64,29 @@
     <div class="stat-box-lbl">Diamond</div>
   </div>
 </div>
+
+<!-- Pengingat harian (Tahap 1 notifikasi): Google Calendar / .ics, tanpa OAuth — static/js/reminder.js -->
+<section class="reminder-card" id="reminder-card" aria-labelledby="reminder-title">
+  <div class="reminder-head">
+    <span class="reminder-icon">{% icon "clock" %}</span>
+    <div>
+      <h3 id="reminder-title">Pengingat Harian</h3>
+      <p>Jadwal padat? Pasang pengingat di kalendermu, nanti HP-mu yang ngingetin buat jaga streak.</p>
+    </div>
+  </div>
+  <div class="reminder-row">
+    <label for="reminder-time">Jam latihan</label>
+    <input type="time" id="reminder-time" value="19:00" step="300">
+    <small id="reminder-zone"></small>
+  </div>
+  <div class="reminder-actions">
+    <a class="btn btn-primary" id="reminder-google" href="/pengingat/google/?jam=19:00&tz=-420" target="_blank" rel="noopener">
+      {% icon "pin" %} Pasang di Google Calendar</a>
+    <a class="btn btn-outline" id="reminder-ics" href="/pengingat.ics?jam=19:00&tz=-420" download>
+      {% icon "doc" %} Unduh .ics (Apple/Outlook)</a>
+  </div>
+  <div class="reminder-install" id="reminder-install" hidden></div>
+</section>
 
 <!-- Faculty selector -->
 <div style="margin-top:2rem;">

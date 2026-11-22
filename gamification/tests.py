@@ -15,7 +15,7 @@ from django.core.management import call_command
 from django.test import TestCase, TransactionTestCase, Client
 from django.utils import timezone
 
-from . import consumers, content, duel, generators, leveling, ranking
+from . import consumers, content, duel, generators, leveling, ranking, sessions
 from .content import bank
 from .routing import websocket_urlpatterns
 from .models import (
@@ -392,8 +392,10 @@ class GeneratorTests(TestCase):
             self.assertEqual(generators.generate(key, 123, gen.tiers[0]), generators.generate(key, 123, gen.tiers[0]))
 
     def test_each_topic_has_generators_for_all_five_sessions(self):
+        # semua topik (termasuk topik baru kurikulum v2) wajib punya latihan
         topics = [t["slug"] for m in levels.LEVEL_MODULES for sub in m.SUBLEVELS for t in sub["topics"]]
-        self.assertEqual(len(topics), 9 + 20 + 20 + 45)
+        self.assertTrue(all(t.get("practice") is not False for m in levels.LEVEL_MODULES for sub in m.SUBLEVELS for t in sub["topics"]))
+        self.assertEqual(len(topics), 13 + 20 + 21 + 55)
         for slug in topics:
             for tier in range(1, 6):
                 with self.subTest(topic=slug, tier=tier):
@@ -409,9 +411,11 @@ class CurriculumLevelTests(TestCase):
         self.assertEqual(MainLevel.objects.count(), 4)
         node = SkillNode.objects.get(slug="pre-sistem-bilangan-fungsi")
         self.assertEqual(node.main_level.slug, "precalculus")
-        self.assertEqual(node.topics.count(), 9)
-        for topic in node.topics.all():
-            self.assertTrue(topic.sections.exists(), topic.slug)
+        self.assertEqual(node.topics.count(), 13)                       # 9 topik awal + 4 topik v2, semuanya berlatihan
+        practice = [t for t in node.topics.all() if t.sessions.exists()]
+        self.assertEqual(len(practice), 13)
+        for topic in practice:
+            self.assertTrue(topic.sections.exists() or topic.slides.exists(), topic.slug)
             self.assertEqual(list(topic.sessions.values_list("number", flat=True)), [1, 2, 3, 4, 5])
             for session in topic.sessions.all():
                 self.assertTrue(session.templates.exists())
@@ -436,7 +440,9 @@ class CurriculumLevelTests(TestCase):
             nodes = SkillNode.objects.filter(main_level__slug="kalkulus-lanjut", faculty__slug=fac)
             self.assertEqual(nodes.count(), 5, fac)
             for node in nodes:
-                self.assertEqual(node.topics.count(), 3)
+                # 2 topik inti + 1 terapan, ditambah topik baru v2 — semuanya berlatihan
+                self.assertGreaterEqual(node.topics.count(), 3, node.slug)
+                self.assertEqual(node.topics.filter(sessions__isnull=False).distinct().count(), node.topics.count(), node.slug)
         # materi lama fakultas pindah ke topik terapan fakultasnya; materi dua variabel disalin ke 3 jalur
         self.assertTrue(LessonSection.objects.filter(topic__slug="kl-fk-gd", heading="Sigmoid dan turunannya").exists())
         for fac in ("ft", "fm", "fk"):
@@ -454,7 +460,8 @@ class CurriculumLevelTests(TestCase):
         nodes = SkillNode.objects.filter(main_level__slug="kalkulus-menengah", kind="lesson")
         self.assertEqual(nodes.count(), 5)
         for node in nodes:
-            self.assertEqual(node.topics.count(), 4)
+            # Teknik Pengintegralan mendapat topik baru v2 (Aturan L'Hôpital, materi saja)
+            self.assertEqual(node.topics.count(), 5 if node.slug == "km-teknik-integral" else 4, node.slug)
         self.assertTrue(LessonSection.objects.filter(topic__slug="km-der-uji", source_document__slug="materi-umum").exists())
 
     def test_level_two_structure(self):
@@ -580,6 +587,8 @@ class PracticeSessionApiTests(TestCase):
     def test_completing_all_topics_completes_sublevel(self):
         node = SkillNode.objects.get(slug="pre-sistem-bilangan-fungsi")
         for topic in node.topics.all():
+            if not topic.sessions.exists():                              # topik materi saja: otomatis tuntas
+                continue
             for number in (1, 2, 3):
                 session = topic.sessions.get(number=number)
                 data = self._open(session).json()
@@ -595,7 +604,7 @@ class PracticeSessionApiTests(TestCase):
         cur = self.client.get("/api/curriculum/?faculty=ft").json()
         self.assertTrue(cur["session_progress"][str(self.s1.id)]["passed"])
         node = cur["tree"][0]
-        self.assertEqual(len(node["topics"]), 9)
+        self.assertEqual(len(node["topics"]), 13)                        # 9 berlatihan + 4 materi saja (v2)
         self.assertEqual(len(node["topics"][0]["sessions"]), 5)
 
     def test_topics_unlock_in_order(self):
@@ -1020,11 +1029,15 @@ class RankingRuleTests(TestCase):
         _, d = ranking.apply_result(self.st("nova", 2, 1, streak=2), won=True)
         self.assertEqual(d, 1)                                                          # Nova: tanpa bonus
 
-    def test_terra_never_loses_stars(self):
-        new, delta = ranking.apply_result(self.st("terra", 1, 2, streak=4), won=False)
+    def test_only_terra_three_and_two_are_safe(self):
+        new, delta = ranking.apply_result(self.st("terra", 2, 2, streak=4), won=False)
         self.assertEqual((new.stars, new.win_streak, delta), (2, 0, 0))
         new, _ = ranking.apply_result(self.st("terra", 3, 0), won=False)
         self.assertEqual((new.tier, new.division, new.stars), ("terra", 3, 0))
+        new, delta = ranking.apply_result(self.st("terra", 1, 2), won=False)       # Terra I: sudah bisa turun bintang
+        self.assertEqual((new.stars, delta), (1, -1))
+        new, _ = ranking.apply_result(self.st("terra", 1, 0), won=False)
+        self.assertEqual((new.tier, new.division, new.stars), ("terra", 2, 2))
 
     def test_close_loss_is_protected(self):
         new, delta = ranking.apply_result(self.st("solar", 2, 2), won=False, protected=True)
@@ -1038,21 +1051,38 @@ class RankingRuleTests(TestCase):
         new, _ = ranking.apply_result(self.st("luna", 3, 0), won=False)
         self.assertEqual((new.tier, new.division, new.stars), ("terra", 1, 2))
 
-    def test_apex_entry_exit_and_titles(self):
+    def test_apex_points_entry_exit_and_titles(self):
         new, _ = ranking.apply_result(self.st("nova", 1, 5), won=True)
-        self.assertEqual((new.tier, new.division, new.stars, ranking.label(new)), ("apex", None, 1, "Apex"))
-        new, _ = ranking.apply_result(self.st("apex", None, 0), won=False)
-        self.assertEqual((new.tier, new.division, new.stars), ("nova", 1, 4))
-        self.assertEqual([ranking.apex_title(n) for n in (24, 25, 50, 100, 250)], ["", "Orbit", "Galaksi", "Kosmos", "Kosmos"])
-        self.assertEqual(ranking.label(self.st("apex", None, 37)), "Apex Orbit")
+        self.assertEqual((new.tier, new.division, new.stars, new.apex_points, ranking.label(new)), ("apex", None, 0, 0, "Apex"))
+        apex = replace(self.st("apex", None, 0), apex_points=30)
+        won, d = ranking.apply_result(apex, won=True, apex_change=17)
+        self.assertEqual((won.apex_points, d), (47, 17))
+        lost, d = ranking.apply_result(apex, won=False, apex_change=12)
+        self.assertEqual((lost.apex_points, d), (18, -12))
+        down, _ = ranking.apply_result(replace(apex, apex_points=5), won=False, apex_change=12)
+        self.assertEqual((down.tier, down.division, down.stars), ("nova", 1, 4))
+        shielded, d = ranking.apply_result(apex, won=False, protected=True, apex_change=12)
+        self.assertEqual((shielded.apex_points, d), (30, 0))
+        self.assertEqual([ranking.apex_title(n) for n in (249, 250, 500, 1000, 2500)], ["", "Orbit", "Galaksi", "Kosmos", "Kosmos"])
+        self.assertEqual(ranking.label(replace(apex, apex_points=370)), "Apex Orbit")
+
+    def test_apex_delta_between_10_and_20(self):
+        self.assertEqual(ranking.apex_delta(1000, 1000, True), 15)
+        self.assertEqual(ranking.apex_delta(1000, 1000, False), 15)
+        self.assertGreater(ranking.apex_delta(1000, 1400, True), 18)        # menang lawan kuat: hadiah besar
+        self.assertLess(ranking.apex_delta(1000, 1400, False), 12)          # kalah dari lawan kuat: hukuman kecil
+        for a, b in ((800, 2000), (2000, 800)):
+            for won in (True, False):
+                self.assertTrue(10 <= ranking.apex_delta(a, b, won) <= 20)
 
     def test_ladder_points_increase_one_per_star(self):
         state, points = ranking.RankState(), [0]
-        for _ in range(60):
+        for _ in range(49):                                   # 48 bintang sampai Nova I penuh, lalu masuk Apex
             state, _ = ranking.apply_result(replace(state, win_streak=0), won=True)
             points.append(ranking.ladder_points(state))
-        self.assertEqual(points, list(range(61)))
-        self.assertEqual(ranking.ladder_points(self.st("apex", None, 10)), 3 * (3 + 4 + 4 + 5) + 10)
+        self.assertEqual(points, list(range(50)))
+        self.assertEqual(state.tier, "apex")
+        self.assertEqual(ranking.ladder_points(replace(self.st("apex", None, 0), apex_points=10)), 3 * (3 + 4 + 4 + 5) + 1 + 10)
 
     def test_elo(self):
         self.assertEqual(ranking.elo_update(1000, 1000, 1), 1016)
@@ -1067,13 +1097,14 @@ class RankLeaderboardTests(TestCase):
     def setUpTestData(cls):
         call_command("seed_gamification", stdout=io.StringIO())
         ft = Faculty.objects.get(slug="ft")
-        states = {"ani": ("apex", None, 30, 1300), "budi": ("nova", 1, 2, 1200), "cici": ("nova", 1, 2, 1250), "dedi": None}
+        # Apex memakai Apex Points (300 ≥ 250 = gelar Orbit); bintang Apex selalu 0
+        states = {"ani": ("apex", None, 0, 1300, 300), "budi": ("nova", 1, 2, 1200, 0), "cici": ("nova", 1, 2, 1250, 0), "dedi": None}
         for name, state in states.items():
             user = User.objects.create_user(name, password="rahasia-123")
             UserProfile.objects.create(user=user, faculty=ft, campus="Universitas Indonesia")
             if state:
                 pr = PlayerRank(user=user, mmr=state[3])
-                pr.set_state(ranking.RankState(*state[:3]))
+                pr.set_state(ranking.RankState(*state[:3], 0, state[4]))
                 pr.save()
 
     def setUp(self):
@@ -1127,12 +1158,11 @@ class RankLeaderboardTests(TestCase):
         self.assertEqual(response.context["server_profile"]["rank"]["label"], "Terra III")
         self.assertContains(response, 'id="profile-rank"')
 
-    def test_duel_disabled_shows_coming_soon(self):
-        with self.settings(DUEL_ENABLED=False):
-            response = self.client.get("/")
-        self.assertContains(response, "Segera hadir")
-        self.assertNotContains(response, 'id="duel-start-btn"')
-        self.assertNotContains(response, "Terbuka di Level 3")
+    def test_ranked_available_without_websocket(self):
+        # Ranked asinkron (hantu/bot) tidak butuh WebSocket: tidak ada lagi tombol "Segera hadir"
+        response = self.client.get("/")
+        self.assertNotContains(response, "Segera hadir")
+        self.assertContains(response, "Kebuka di Level 3")                    # dedi masih Level 1
 
 
 
@@ -1558,3 +1588,583 @@ class ShopDuelTests(TestCase):
         res = self.play(a, b, 2)                       # Terra: kalah tidak mengurangi bintang
         self.assertFalse(res[str(b.id)]["shield_used"])
         self.assertEqual(UserProfile.objects.get(user=b).star_shields, 1)
+
+
+# ── Foto profil (gamification/avatar.py) ──────────────────────────────
+import shutil  # noqa: E402
+import tempfile  # noqa: E402
+
+from django.core.files.uploadedfile import SimpleUploadedFile  # noqa: E402
+from django.test import override_settings  # noqa: E402
+
+from . import avatar as avatar_mod  # noqa: E402
+
+PNG_1PX = (b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89"
+           b"\x00\x00\x00\rIDATx\x9cc\xf8\xff\xff?\x00\x05\xfe\x02\xfe\xa7\x35\x81\x84\x00\x00\x00\x00IEND\xaeB`\x82")
+
+
+class AvatarTests(TestCase):
+    """Ganti foto profil: polos, template, unggahan (divalidasi ukuran & tanda tangan berkas)."""
+
+    def setUp(self):
+        self.media = tempfile.mkdtemp()
+        self.override = override_settings(MEDIA_ROOT=self.media)
+        self.override.enable()
+        self.user = User.objects.create_user("foto", password="rahasia-123")
+        self.profile = UserProfile.objects.create(user=self.user)
+        self.client.force_login(self.user)
+
+    def tearDown(self):
+        self.override.disable()
+        shutil.rmtree(self.media, ignore_errors=True)
+
+    def post_json(self, body):
+        return self.client.post("/api/profile/avatar/", data=json.dumps(body), content_type="application/json")
+
+    def upload(self, data, name="a.png"):
+        return self.client.post("/api/profile/avatar/", {"kind": "upload", "file": SimpleUploadedFile(name, data)})
+
+    def test_default_is_initial_and_preset_can_be_chosen(self):
+        self.assertEqual(avatar_mod.describe(self.profile), {"kind": "initial"})
+        r = self.post_json({"kind": "preset", "preset": "integral"}).json()
+        self.assertEqual((r["avatar"]["kind"], r["avatar"]["icon"]), ("preset", "lv-kalkulus-menengah"))
+        self.assertEqual(self.post_json({"kind": "preset", "preset": "ngawur"}).status_code, 400)
+
+    def test_upload_validates_and_replaces_old_file(self):
+        r = self.upload(PNG_1PX).json()
+        self.assertEqual(r["avatar"]["kind"], "upload")
+        first = UserProfile.objects.get(pk=self.profile.pk).avatar_file
+        self.assertTrue(first.name.endswith(".png") and first.storage.exists(first.name))
+        self.assertEqual(self.upload(b"<script>alert(1)</script>", "x.png").status_code, 400)       # bukan gambar
+        self.assertEqual(self.upload(PNG_1PX + b"0" * avatar_mod.MAX_BYTES).status_code, 400)       # kegedean
+        self.post_json({"kind": "initial"})
+        self.assertFalse(first.storage.exists(first.name))                                            # foto lama dihapus
+        self.assertEqual(UserProfile.objects.get(pk=self.profile.pk).avatar_kind, "initial")
+
+    def test_avatar_shown_on_leaderboard_and_profile_page(self):
+        self.post_json({"kind": "preset", "preset": "sine"})
+        me = self.client.get("/api/peringkat/?board=level").json()["me"]
+        self.assertEqual(me["avatar"]["kind"], "preset")
+
+
+# ── Kurikulum v2: silabus & slide eksplisit ───────────────────────────
+from gamification.content import syllabus_v2  # noqa: E402
+from .models import LessonSlide  # noqa: E402
+
+
+class CurriculumV2Tests(TestCase):
+    """Indeks silabus v2 konsisten, dan slide eksplisit (LessonSlide) ikut di API kurikulum."""
+
+    def test_syllabus_slugs_unique_and_slide_kinds_known(self):
+        slugs = [t["slug"] for _, t in syllabus_v2.all_topics()]
+        self.assertEqual(len(slugs), len(set(slugs)))
+        self.assertEqual(len(syllabus_v2.SYLLABUS), 4)
+        self.assertEqual(set(syllabus_v2.TRACKS), {"fasilkom", "fmipa", "ft"})
+        self.assertTrue(all(lo <= hi for _, t in syllabus_v2.all_topics() for lo, hi in [t["slides"]]))
+
+    def test_authored_slides_in_curriculum_payload(self):
+        call_command("seed_gamification", stdout=io.StringIO())
+        topic = Topic.objects.get(slug="pre-bilangan-real")
+        topic.slides.all().delete()                                      # ganti slide hasil seed dengan dua slide uji
+        LessonSlide.objects.create(topic=topic, order=1, kind="intuition", title="Garis bilangan",
+                                   body_html="<p>Interval $[a, b]$ memuat ujungnya.</p>")
+        LessonSlide.objects.create(topic=topic, order=2, kind="pitfall", title="Jebakan", body_html="<p>$-x^2 \\ne (-x)^2$</p>")
+        data = self.client.get("/api/curriculum/?faculty=fasilkom").json()
+        t = next(t for n in data["tree"] for t in n.get("topics", []) if t["slug"] == "pre-bilangan-real")
+        self.assertEqual([(s["kind"], s["title"]) for s in t["slides"]], [("intuition", "Garis bilangan"), ("pitfall", "Jebakan")])
+
+
+class Level1V2Tests(TestCase):
+    """Batch 1: semua topik Level 1 punya slide v2; topik baru materi saja tidak menghalangi progres."""
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_gamification", stdout=io.StringIO())
+
+    def test_every_level1_topic_has_v2_slides_ending_in_checkpoint(self):
+        topics = Topic.objects.filter(node__slug="pre-sistem-bilangan-fungsi").prefetch_related("slides")
+        v2 = [t for t in topics if t.slides.exists()]
+        self.assertEqual(len(v2), 9)
+        for t in v2:
+            kinds = [s.kind for s in t.slides.all()]
+            self.assertEqual(kinds[0], "intuition", t.slug)
+            self.assertEqual(kinds[-1], "checkpoint", t.slug)
+            self.assertIn("example", kinds, t.slug)
+            self.assertIn("pitfall", kinds, t.slug)
+            self.assertTrue(all(s.tip for s in t.slides.all()), t.slug)
+
+    def test_v2_topics_have_practice_and_must_be_passed(self):
+        user = User.objects.create_user("lv1", password="rahasia-123")
+        for slug in ("pre-fungsi-invers", "pre-polinomial-rasional", "pre-barisan-sigma", "pre-vektor-matriks"):
+            topic = Topic.objects.get(slug=slug)
+            self.assertEqual(list(topic.sessions.values_list("number", flat=True)), [1, 2, 3, 4, 5], slug)
+            self.assertFalse(sessions.topic_done(user, topic), slug)   # tidak lagi otomatis ‘selesai’
+
+
+class Level2BatchATests(TestCase):
+    """Batch 2A: empat topik pertama Level 2 punya slide v2 lengkap (intuisi dulu, ditutup checkpoint)."""
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_gamification", stdout=io.StringIO())
+
+    def test_first_half_level2_slides(self):
+        for slug in ("kd-lim-konsep", "kd-lim-aljabar", "kd-lim-kontinu", "kd-tur-definisi"):
+            kinds = list(Topic.objects.get(slug=slug).slides.values_list("kind", flat=True))
+            self.assertGreaterEqual(len(kinds), 8, slug)
+            self.assertEqual((kinds[0], kinds[-1]), ("intuition", "checkpoint"), slug)
+            self.assertTrue({"theorem", "example", "pitfall"} <= set(kinds), slug)
+        # intuisi sekan → singgung tampil sebelum definisi formal turunan
+        titles = list(Topic.objects.get(slug="kd-tur-definisi").slides.values_list("title", flat=True))
+        self.assertLess(titles.index("Eksplorasi: sekan berubah menjadi singgung"), titles.index("Definisi turunan"))
+
+
+class Level2BatchBTests(TestCase):
+    """Batch 2B: paruh kedua Level 2 punya slide v2; soal cerita memakai kerangka Diketahui → Evaluasi."""
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_gamification", stdout=io.StringIO())
+
+    def test_second_half_level2_slides(self):
+        for slug in ("kd-tur-rantai", "kd-apl-laju", "kd-apl-ekstrem", "kd-apl-optimasi",
+                     "kd-int-riemann", "kd-int-tdk", "kd-int-substitusi"):
+            slides = list(Topic.objects.get(slug=slug).slides.all())
+            kinds = [s.kind for s in slides]
+            self.assertGreaterEqual(len(kinds), 7, slug)
+            self.assertEqual((kinds[0], kinds[-1]), ("intuition", "checkpoint"), slug)
+            self.assertTrue({"theorem", "example", "pitfall"} <= set(kinds), slug)
+            self.assertTrue(all(s.tip for s in slides), slug)
+
+    def test_word_problems_use_framework(self):
+        for slug in ("kd-apl-laju", "kd-apl-optimasi"):
+            body = "".join(Topic.objects.get(slug=slug).slides.values_list("body_html", flat=True))
+            pos = [body.find(f"<th>{k}</th>") for k in ("Diketahui", "Ditanya", "Model matematis", "Turunkan", "Evaluasi")]
+            self.assertTrue(all(p >= 0 for p in pos) and pos == sorted(pos), slug)
+
+
+class Level3V2Tests(TestCase):
+    """Batch 3: semua topik Level 3 punya slide v2; topik padat 8–10 slide dengan pohon keputusan."""
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_gamification", stdout=io.StringIO())
+
+    def test_all_level3_topics_have_slides(self):
+        from .content.syllabus_v2 import SYLLABUS
+        level3 = next(lvl for lvl in SYLLABUS if lvl["level"] == "kalkulus-menengah")
+        for t in level3["topics"]:
+            slides = list(Topic.objects.get(slug=t["slug"]).slides.all())
+            kinds = [s.kind for s in slides]
+            self.assertGreaterEqual(len(kinds), t["slides"][0], t["slug"])
+            self.assertEqual((kinds[0], kinds[-1]), ("intuition", "checkpoint"), t["slug"])
+            self.assertTrue({"theorem", "example", "pitfall"} <= set(kinds), t["slug"])
+            self.assertTrue(all(s.tip for s in slides), t["slug"])
+
+    def test_dense_topics_have_decision_trees(self):
+        for slug in ("km-tek-parsial", "km-tek-trig", "km-tek-pecahan", "km-der-uji", "km-der-pangkat"):
+            topic = Topic.objects.get(slug=slug)
+            self.assertTrue(8 <= topic.slides.count() <= 10, slug)
+            self.assertTrue(topic.slides.filter(title__startswith="Pohon keputusan").exists()
+                            or topic.slides.filter(body_html__contains="<b>Cek 1.</b>").exists(), slug)
+        self.assertIn("LIATE", "".join(Topic.objects.get(slug="km-tek-parsial").slides.values_list("title", flat=True)))
+
+    def test_lhopital_topic_has_practice(self):
+        topic = Topic.objects.get(slug="km-lhopital")
+        self.assertEqual(topic.sessions.count(), 5)
+        self.assertFalse(sessions.topic_done(User.objects.create(username="lh"), topic))
+
+
+class Level4V2Tests(TestCase):
+    """Batch 4: Level 4 multivariabel + jalur fakultas punya slide v2 untuk setiap topik silabus."""
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_gamification", stdout=io.StringIO())
+
+    def _check_deck(self, slug, minimum):
+        slides = list(Topic.objects.get(slug=slug).slides.all())
+        kinds = [s.kind for s in slides]
+        self.assertGreaterEqual(len(kinds), minimum, slug)
+        self.assertEqual((kinds[0], kinds[-1]), ("intuition", "checkpoint"), slug)
+        self.assertTrue({"theorem", "example", "pitfall"} <= set(kinds), slug)
+        self.assertTrue(all(s.tip for s in slides), slug)
+
+    def test_core_decks_on_every_faculty_copy(self):
+        for fac in ("ft", "fm", "fk"):
+            for key in ("pb-fungsi", "fungsi-vektor", "tp-parsial", "tp-gradien", "il-ganda", "il-koordinat", "kv-medan", "kv-garis"):
+                self._check_deck(f"kl-{fac}-{key}", 7)
+        for slug in ("kl-ft-lagrange", "kl-fm-hessian", "kl-fk-lagrange", "kl-ft-fluks", "kl-fm-stokes-gauss", "kl-fk-stokes-gauss"):
+            self._check_deck(slug, 8)
+
+    def test_faculty_track_decks(self):
+        for slug in ("kl-fk-asimtotik", "kl-fk-numerik", "kl-fk-gd", "kl-fm-epsilon-delta", "kl-fm-fk-gamma",
+                     "kl-fm-fk-analisis", "kl-ft-pd-orde2", "kl-ft-fourier", "kl-ft-laplace"):
+            self._check_deck(slug, 7)
+        # topik baru hanya muncul di jalur fakultasnya dan kini punya 5 sesi latihan
+        topic = Topic.objects.get(slug="kl-ft-fourier")
+        self.assertEqual(topic.node.faculty.slug, "ft")
+        self.assertEqual(topic.sessions.count(), 5)
+
+    def test_geometric_intuition_before_heavy_computation(self):
+        titles = list(Topic.objects.get(slug="kl-ft-il-ganda").slides.values_list("title", flat=True))
+        self.assertLess(titles.index("Mengapa ada faktor Jacobian?"), titles.index("Integral lipat tiga"))
+        body = "".join(Topic.objects.get(slug="kl-fm-kv-medan").slides.values_list("body_html", flat=True))
+        self.assertIn("fluks", body)
+        self.assertIn("sirkulasi", body)
+
+
+class GeneratorVarietyTests(TestCase):
+    """Setiap sesi (Level 1–4) harus punya > 30 soal inti berbeda (60 seed), agar mengulang sesi tidak mengulang soal."""
+
+    SAMPLES = 60
+    MIN_CORE = 31
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_gamification", stdout=io.StringIO())
+
+    def test_every_session_has_enough_core_variety(self):
+        cache = {}
+
+        def unique(key, tier):
+            if (key, tier) not in cache:
+                qs = (generators.generate(key, s * 7919 + 13, tier) for s in range(self.SAMPLES))
+                cache[(key, tier)] = len({(q["prompt"], q["answer"]) for q in qs})
+            return cache[(key, tier)]
+
+        sessions_qs = PracticeSession.objects.select_related("topic__node")
+        self.assertGreater(sessions_qs.count(), 450)
+        for ses in sessions_qs:
+            pool = sessions._pool(ses, ses.topic.node.faculty_id)
+            core = sum(unique(k, sessions._gen_tier(k, ses.number)) for kind, k, _ in pool if kind == "g")
+            core += sum(1 for kind, *_ in pool if kind == "q")
+            with self.subTest(topic=ses.topic.slug, session=ses.number):
+                self.assertGreaterEqual(core, self.MIN_CORE)
+
+
+from . import ranked_duel  # noqa: E402
+from .leveling import total_xp_for  # noqa: E402
+from .models import GhostRecord, RankedMatch  # noqa: E402
+
+
+class RankedDuelTests(TestCase):
+    """Ranked Duel asinkron: seed adil, kurva hantu/bot, skor per kesulitan, bintang/shield/Apex, rekaman hantu."""
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_gamification", stdout=io.StringIO())
+
+    def player(self, name, tier="terra", division=3, stars=0, shields=0, mmr=1000):
+        user = User.objects.create_user(name, password="rahasia-123")
+        UserProfile.objects.update_or_create(user=user, defaults={"xp": total_xp_for(5), "star_shields": shields})
+        rank = rank_of(user)
+        rank.set_state(ranking.RankState(tier, division, stars))
+        rank.mmr = mmr
+        rank.save()
+        return user
+
+    def play(self, match, correct=True, seconds=5):
+        """Jawab semua soal (benar/salah) masing-masing `seconds` detik setelah dibuka."""
+        out = None
+        for i in range(len(match.questions)):
+            t0 = timezone.now()
+            ranked_duel.open_question(match.id, match.user, now=t0)
+            q = ranked_duel._question(match.questions[i])
+            opt = next(o["id"] for o in q["options"] if o["is_correct"] == correct)
+            out = ranked_duel.submit_answer(match.id, match.user, i, opt, now=t0 + timedelta(seconds=seconds))
+        return out
+
+    def set_opponent(self, match, correct):
+        match.opponent["answers"] = [{"option": None, "correct": correct, "ms": 10_000,
+                                      "points": ranked_duel.score_for(correct, 10_000, q)} for q in match.questions]
+        match.save()
+
+    def test_seed_gives_identical_ten_questions_with_rules(self):
+        a = ranked_duel.generate_duel_match("abc123", "solar")
+        self.assertEqual(a, ranked_duel.generate_duel_match("abc123", "solar"))
+        self.assertNotEqual(a, ranked_duel.generate_duel_match("abc124", "solar"))
+        self.assertEqual(len(a), 10)
+        rules = {"easy": (30, 100, (1,)), "medium": (60, 200, (2,)), "hard": (120, 300, (3, 4, 5))}
+        for q in a:
+            limit, base, tiers = rules[q["difficulty"]]
+            self.assertEqual((q["time_limit"], q["base"]), (limit, base))
+            self.assertIn(q["tier"], tiers)
+
+    def test_terra_pool_limited_to_level_one_and_two(self):
+        allowed = set(Topic.objects.filter(node__main_level__order__in=(1, 2)).values_list("title", flat=True))
+        for seed in range(15):
+            for q in ranked_duel.generate_duel_match(str(seed), "terra"):
+                self.assertIn(q["topic"], allowed)
+
+    def test_matchmaking_curve(self):
+        S = ranking.RankState
+        self.assertEqual([ranked_duel.ghost_share(S("terra", d)) for d in (3, 2, 1)], [0.0, 0.0, 0.3])
+        self.assertEqual([ranked_duel.ghost_share(S(t, 2)) for t in ("luna", "solar", "nova")], [0.5, 1.0, 1.0])
+        self.assertEqual(ranked_duel.ghost_share(S("apex", None)), 1.0)
+
+    def test_terra_three_always_bot_and_solar_uses_ghost_with_same_questions(self):
+        rookie = self.player("rookie")
+        for _ in range(5):
+            m = ranked_duel.find_match(rookie)
+            self.assertEqual(m.opponent_kind, RankedMatch.BOT)
+            intro = ranked_duel.match_intro(m)
+            self.assertNotIn("opponent_kind", intro)                                        # bot tidak dibocorkan ke browser
+            self.assertEqual(set(intro["opponent"]), set(ranked_duel.player_card(rookie)))  # kartu bot = kartu pemain biasa
+            self.assertIsNone(intro["opponent"]["id"])
+        pro, other = self.player("pro", "solar", 2, 1), self.player("other", "solar", 2, 1)
+        self.assertEqual(ranked_duel.find_match(pro).opponent_kind, RankedMatch.BOT)          # belum ada hantu → bot
+        qs = ranked_duel.generate_duel_match("ghostseed", "solar")
+        ghost = GhostRecord.objects.create(user=other, match_seed="ghostseed", pool="solar", mmr=1000, questions=qs,
+                                           answers=[{"option": 0, "correct": True, "ms": 9000, "points": 150}] * 10,
+                                           total_score=1500, correct=10, total_ms=90000)
+        m = ranked_duel.find_match(pro)
+        self.assertEqual((m.opponent_kind, m.ghost_id, m.match_seed), (RankedMatch.GHOST, ghost.id, "ghostseed"))
+        self.assertEqual(m.questions, qs)                                                    # soal & urutan identik
+
+    def test_score_base_plus_remaining_seconds(self):
+        easy = {"time_limit": 30, "base": 100}
+        hard = {"time_limit": 120, "base": 300}
+        self.assertEqual(ranked_duel.score_for(True, 7_400, easy), 122)
+        self.assertEqual(ranked_duel.score_for(True, 20_000, hard), 400)
+        self.assertEqual(ranked_duel.score_for(False, 1_000, hard), 0)
+        self.assertEqual(ranked_duel.score_for(True, 31_000, easy), 0)
+
+    def test_late_answer_counts_zero(self):
+        user = self.player("lambat")
+        m = ranked_duel.find_match(user)
+        t0 = timezone.now()
+        ranked_duel.open_question(m.id, user, now=t0)
+        q = ranked_duel._question(m.questions[0])
+        good = next(o["id"] for o in q["options"] if o["is_correct"])
+        late = t0 + timedelta(seconds=m.questions[0]["time_limit"] + 5)
+        out = ranked_duel.submit_answer(m.id, user, 0, good, now=late)
+        self.assertEqual((out["you"]["correct"], out["you"]["points"]), (False, 0))
+        with self.assertRaises(ranked_duel.RankedError):
+            ranked_duel.submit_answer(m.id, user, 0, good)                                    # soal sudah ditutup
+
+    def test_win_adds_star_gems_and_saves_ghost(self):
+        user = self.player("juara", "luna", 2, 1)
+        m = ranked_duel.find_match(user, rng=__import__("random").Random(1))
+        self.set_opponent(m, correct=False)
+        res = self.play(m, correct=True)["result"]
+        self.assertEqual((res["verdict"], res["delta"]), ("win", 1))
+        self.assertEqual((res["rank_before"]["stars"], res["rank"]["stars"]), (1, 2))       # untuk animasi bintang
+        self.assertEqual(rank_of(user).stars, 2)
+        self.assertGreater(res["gems_awarded"], 0)
+        ghost = GhostRecord.objects.get(user=user)
+        self.assertEqual((ghost.match_seed, ghost.pool, len(ghost.answers)), (m.match_seed, m.pool, 10))
+
+    def test_loss_terra_safe_shield_and_normal(self):
+        rookie = self.player("aman")                                                         # Terra III
+        m = ranked_duel.find_match(rookie)
+        self.set_opponent(m, correct=True)
+        res = self.play(m, correct=False)["result"]
+        self.assertEqual((res["verdict"], res["delta"], res["terra_safe"]), ("lose", 0, True))
+        ghost = GhostRecord.objects.get(user=rookie)                                          # kalah pun jadi hantu (tanpa survivorship bias)
+        self.assertEqual((ghost.total_score, ghost.correct), (0, 0))
+        shielded = self.player("perisai", "luna", 2, 2, shields=1)
+        m = ranked_duel.find_match(shielded)
+        self.set_opponent(m, correct=True)
+        res = self.play(m, correct=False)["result"]
+        self.assertEqual((res["delta"], res["shield_used"]), (0, True))
+        self.assertEqual((rank_of(shielded).stars, UserProfile.objects.get(user=shielded).star_shields), (2, 0))
+        plain = self.player("biasa", "luna", 2, 2)
+        m = ranked_duel.find_match(plain)
+        self.set_opponent(m, correct=True)
+        self.assertEqual(self.play(m, correct=False)["result"]["delta"], -1)
+
+    def test_apex_win_gives_points(self):
+        user = self.player("puncak", "apex", None, 0, mmr=1200)
+        rank = rank_of(user)
+        rank.set_state(ranking.RankState("apex", None, 0, 0, 100))
+        rank.save()
+        m = ranked_duel.find_match(user)                                                     # tanpa hantu → bot
+        self.set_opponent(m, correct=False)
+        res = self.play(m, correct=True)["result"]
+        self.assertTrue(10 <= res["delta"] <= 20)
+        self.assertEqual(rank_of(user).apex_points, 100 + res["delta"])
+
+    def test_two_tab_leaves_forfeit_and_stale_match_resolved(self):
+        user = self.player("kabur", "luna", 2, 2)
+        m = ranked_duel.find_match(user)
+        ranked_duel.open_question(m.id, user)
+        first = ranked_duel.leave_tab(m.id, user)
+        self.assertEqual((first["forfeit"], first["voided"]), (False, 0))
+        second = ranked_duel.leave_tab(m.id, user)
+        self.assertTrue(second["forfeit"])
+        self.assertFalse(GhostRecord.objects.filter(user=user).exists())                     # menyerah/putus: tidak jadi hantu
+        self.assertEqual((second["result"]["verdict"], second["result"]["delta"]), ("lose", -1))
+        m2 = ranked_duel.find_match(user)
+        ranked_duel.find_match(user)                                                         # duel lama ditinggal = menyerah
+        m2.refresh_from_db()
+        self.assertEqual((m2.status, m2.result["forfeit"]), (RankedMatch.FINISHED, True))
+
+    def test_api_flow(self):
+        user = self.player("api")
+        c = Client()
+        c.force_login(user)
+        intro = c.post("/api/ranked/mulai/").json()
+        self.assertEqual((intro["status"], intro["total"], len(intro["difficulties"])), ("success", 10, 10))
+        q = c.post(f"/api/ranked/{intro['match_id']}/soal/").json()["question"]
+        self.assertNotIn("is_correct", q["options"][0])                                       # kunci tidak dikirim
+        m = RankedMatch.objects.get(pk=intro["match_id"])
+        opp = m.opponent["answers"][0]
+        self.assertEqual(q["opponent_ms"], opp["ms"] if opp["ms"] < q["time_limit"] * 1000 else None)  # hanya waktu lawan
+        self.assertNotIn("correct", {k for k in q if "opponent" in k})
+        out = c.post(f"/api/ranked/{intro['match_id']}/jawab/", {"index": 0, "option": None}, content_type="application/json").json()
+        self.assertEqual((out["status"], out["you"]["points"]), ("success", 0))
+        low = self.player("baru")
+        UserProfile.objects.filter(user=low).update(xp=0)
+        c.force_login(low)
+        self.assertEqual(c.post("/api/ranked/mulai/").status_code, 400)                      # Level < 3
+
+    def test_recent_results_include_ranked_matches(self):
+        # titik riwayat W/L di leaderboard ikut menampilkan hasil Ranked Duel asinkron
+        user = self.player("riwayat", "luna", 2, 1)
+        for correct in (True, False):
+            m = ranked_duel.find_match(user)
+            self.set_opponent(m, correct=not correct)
+            self.play(m, correct=correct)
+        self.assertEqual(ranked_duel.recent_results([user.id])[user.id], ["w", "l"])
+
+    def test_bot_names_varied_faculty_consistent_and_never_real_users(self):
+        import random
+        from . import bot_names
+        rng = random.Random(3)
+        ids = [bot_names.generate(rng) for _ in range(2000)]
+        self.assertGreater(len({i["name"] for i in ids}), 1700)                               # jarang berulang
+        hints = {"FT": "teknik", "FMIPA": "mipa", "Fasilkom": "fasilkom"}
+        for i in ids:
+            for short, word in hints.items():
+                if word in i["name"].lower():
+                    self.assertEqual(i["faculty"], short, i["name"])
+        self.player("guest1234")
+        taken = bot_names.generate(random.Random(0), taken=lambda n: True)                    # semua bentrok → nama cadangan
+        self.assertTrue(taken["name"].startswith("Guest"))
+        for seed in range(200):
+            name = ranked_duel.bot_identity(random.Random(seed))["name"]
+            self.assertFalse(User.objects.filter(username__iexact=name).exists(), name)
+
+
+class LeaderboardTop100Tests(TestCase):
+    """Leaderboard hanya Top 100; posisi pengguna tetap ada; sebaran tier menghitung semua pemain."""
+
+    def test_only_top_100_but_tiers_count_everyone(self):
+        users = User.objects.bulk_create([User(username=f"p{i:03d}") for i in range(105)])
+        UserProfile.objects.bulk_create([UserProfile(user=u, xp=1000 - i) for i, u in enumerate(users)])
+        PlayerRank.objects.bulk_create([PlayerRank(user=u, tier="luna" if i < 10 else "terra", points=200 - i) for i, u in enumerate(users)])
+        last = users[-1]
+        self.client.force_login(last)
+        for board in ("level", "rank", "wins"):
+            data = self.client.get(f"/api/peringkat/?board={board}").json()
+            self.assertEqual(len(data["rows"]), 100, board)
+            self.assertEqual(data["around"], [], board)                                       # di luar 100 besar: tanpa tetangga
+            self.assertEqual(data["me"]["pos"], 105 if board != "wins" else 1, board)
+        tiers = {t["tier"]: t["count"] for t in self.client.get("/api/peringkat/?board=rank").json()["tiers"]}
+        self.assertEqual((tiers["terra"], tiers["luna"], sum(tiers.values())), (95, 10, 105))
+        self.client.force_login(users[3])
+        near = self.client.get("/api/peringkat/?board=level").json()
+        self.assertEqual([r["index"] for r in near["around"]], [1, 2, 3, 4, 5])               # dalam 100 besar: tetangga tetap
+
+
+from datetime import datetime, timezone as dt_tz  # noqa: E402
+from django.contrib.staticfiles import finders  # noqa: E402
+from . import reminders, streak  # noqa: E402
+
+
+class NotificationPhase1Tests(TestCase):
+    """Tahap 1 notifikasi: streak sungguhan, PWA (manifest + service worker di akar), pengingat kalender tanpa OAuth."""
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_gamification", stdout=io.StringIO())
+
+    def setUp(self):
+        self.user = User.objects.create_user("streaker", password="rahasia-123")
+        self.profile = UserProfile.objects.create(user=self.user, faculty=Faculty.objects.get(slug="ft"))
+        self.client.force_login(self.user)
+
+    def at(self, y, m, d, hour=12):
+        return datetime(y, m, d, hour, tzinfo=dt_tz.utc)
+
+    # ── streak ──
+    def test_streak_same_day_next_day_and_gap(self):
+        p = self.profile
+        self.assertEqual(streak.status(p, self.at(2026, 11, 20))["state"], "baru")
+        self.assertEqual(streak.record_activity(p, self.at(2026, 11, 20)), 1)
+        self.assertEqual(streak.record_activity(p, self.at(2026, 11, 20, 15)), 1)          # hari yang sama
+        self.assertEqual(streak.record_activity(p, self.at(2026, 11, 21)), 2)              # hari berikutnya
+        self.assertEqual(streak.status(p, self.at(2026, 11, 22)), {"days": 2, "played_today": False, "state": "nunggu"})
+        self.assertEqual(streak.status(p, self.at(2026, 11, 21))["state"], "aman")
+        self.assertEqual(streak.status(p, self.at(2026, 11, 23))["days"], 0)               # bolong sehari: putus
+        self.assertEqual(streak.record_activity(p, self.at(2026, 11, 23)), 1)
+
+    def test_streak_day_follows_wib(self):
+        # 20:00 UTC tgl 20 = 03:00 WIB tgl 21 → dihitung hari berikutnya
+        streak.record_activity(self.profile, self.at(2026, 11, 20, 1))
+        self.assertEqual(streak.record_activity(self.profile, self.at(2026, 11, 20, 20)), 2)
+
+    def test_session_submit_records_streak_and_bootstrap_has_it(self):
+        s1 = PracticeSession.objects.get(topic__slug="pre-bilangan-real", number=1)
+        data = self.client.get(f"/api/session/{s1.id}/").json()
+        answers = [{"id": q["id"], "option": q["options"][0]["id"]} for q in data["questions"]]
+        r = self.client.post(f"/api/session/{s1.id}/submit/", data=json.dumps({"attempt": data["attempt"], "answers": answers}),
+                             content_type="application/json").json()
+        self.assertEqual((r["streak"]["state"], r["streak"]["days"]), ("aman", 1))
+        self.assertEqual(services.profile_bootstrap(self.user)["streak"]["state"], "aman")
+        page = self.client.get("/")
+        self.assertContains(page, 'id="streak-banner"')
+        self.assertContains(page, 'id="reminder-card"')
+
+    # ── PWA ──
+    def test_manifest_and_icons(self):
+        r = self.client.get("/manifest.webmanifest")
+        self.assertEqual(r["Content-Type"], "application/manifest+json")
+        m = r.json()
+        self.assertEqual((m["start_url"].split("?")[0], m["scope"], m["display"]), ("/", "/", "standalone"))
+        sizes = {i["sizes"] for i in m["icons"]}
+        self.assertTrue({"192x192", "512x512"} <= sizes)
+        self.assertIn("maskable", {i["purpose"] for i in m["icons"]})
+        for name in ("icon-192.png", "icon-512.png", "maskable-512.png", "apple-touch-icon.png", "icon.svg"):
+            self.assertTrue(finders.find(f"img/pwa/{name}"), name)
+        self.assertContains(self.client.get("/"), 'rel="manifest" href="/manifest.webmanifest"')
+
+    def test_service_worker_served_from_root(self):
+        r = self.client.get("/sw.js")
+        self.assertEqual(r.status_code, 200)
+        self.assertIn("javascript", r["Content-Type"])
+        self.assertEqual((r["Service-Worker-Allowed"], r["Cache-Control"]), ("/", "no-cache"))
+        body = r.content.decode()
+        self.assertIn("'/offline/'", body)
+        self.assertIn("addEventListener('fetch'", body)
+        self.client.logout()
+        self.assertEqual(self.client.get("/offline/").status_code, 200)                     # tanpa login pun bisa
+
+    # ── pengingat kalender ──
+    def test_first_start_is_next_occurrence_in_utc(self):
+        before = datetime(2026, 11, 21, 10, 0, tzinfo=dt_tz.utc)      # 17:00 WIB
+        after = datetime(2026, 11, 21, 13, 0, tzinfo=dt_tz.utc)       # 20:00 WIB
+        self.assertEqual(reminders.first_start(19, 0, -420, before), datetime(2026, 11, 21, 12, 0, tzinfo=dt_tz.utc))
+        self.assertEqual(reminders.first_start(19, 0, -420, after), datetime(2026, 11, 22, 12, 0, tzinfo=dt_tz.utc))
+        self.assertEqual(reminders.first_start(7, 30, -480, before).strftime("%H:%M"), "23:30")   # 07:30 WITA
+
+    def test_google_calendar_redirect(self):
+        r = self.client.get("/pengingat/google/?jam=19:00&tz=-420")
+        self.assertEqual(r.status_code, 302)
+        url = r["Location"]
+        self.assertTrue(url.startswith("https://calendar.google.com/calendar/render?"))
+        for part in ("action=TEMPLATE", "recur=RRULE%3AFREQ%3DDAILY", "T120000Z%2F", "T121500Z", "text=Latihan%20Calculus%20Bridge"):
+            self.assertIn(part, url)
+        self.assertEqual(self.client.get("/pengingat/google/?jam=25:00&tz=-420").status_code, 400)
+        self.assertEqual(self.client.get("/pengingat/google/?jam=19:00&tz=abc").status_code, 400)
+
+    def test_ics_download(self):
+        r = self.client.get("/pengingat.ics?jam=06:45&tz=-420")
+        self.assertEqual(r["Content-Type"], "text/calendar; charset=utf-8")
+        self.assertIn("attachment", r["Content-Disposition"])
+        body = r.content.decode()
+        self.assertTrue(body.startswith("BEGIN:VCALENDAR\r\n") and body.endswith("END:VCALENDAR\r\n"))
+        for part in ("RRULE:FREQ=DAILY", "BEGIN:VALARM", "TRIGGER:-PT0M", "T234500Z", "SUMMARY:Latihan Calculus Bridge"):
+            self.assertIn(part, body)
+        self.assertTrue(all(len(line.encode()) <= 75 for line in body.split("\r\n")))      # dilipat sesuai RFC 5545

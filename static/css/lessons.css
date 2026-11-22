@@ -13,6 +13,13 @@
 }
 .lesson-tab.active { border-color: var(--clr-primary); background: var(--clr-primary-l); color: var(--clr-primary); }
 .lesson-pane { display: none; }
+/* Jenis slide kurikulum v2 (LessonSlide.kind) */
+.lp-kind { display: inline-block; margin-right: .4rem; padding: .1rem .55rem; border-radius: var(--radius-full); font-size: .72rem; font-weight: 800;
+  background: color-mix(in srgb, var(--k, var(--clr-primary)) 15%, transparent); color: var(--k, var(--clr-primary)); }
+.lp-kind-intuition { --k: #2563EB; } .lp-kind-derivation { --k: #7C3AED; } .lp-kind-theorem { --k: #0F766E; }
+.lp-kind-example { --k: #D97706; } .lp-kind-pitfall { --k: #DC2626; } .lp-kind-checkpoint { --k: #16A34A; }
+/* Rumus KaTeX di slide & tabel: blok rumus bisa digulir bila lebar */
+.katex-display { overflow-x: auto; overflow-y: hidden; padding: .2rem 0; }
 .lesson-pane.active { display: block; }
 
 /* ── kerangka ────────────────────────────────────────────────────── */
@@ -212,3 +219,7 @@
   .lp-slide, .lp-in, .lp-archie { animation: none; }
   .lp-step { transition: none; transform: none; }
 }
+
+/* Potongan kode di slide kurikulum v2 (jalur Fasilkom) */
+.lesson-code { margin: .6rem 0; padding: .7rem .9rem; overflow-x: auto; border-radius: 10px;
+  background: rgba(30, 58, 95, .06); font: 13px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; }

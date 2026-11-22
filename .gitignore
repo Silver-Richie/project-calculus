@@ -17,3 +17,6 @@ __pycache__/
 
 # Hasil collectstatic (server)
 staticfiles/
+
+# Unggahan pengguna (foto profil)
+media/

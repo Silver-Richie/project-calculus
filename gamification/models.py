@@ -205,6 +205,33 @@ class PracticeSession(models.Model):
         return f"{self.topic.slug} · Sesi {self.number} ({self.tier})"
 
 
+class LessonSlide(models.Model):
+    """
+    Satu slide materi topik yang ditulis eksplisit (kurikulum v2). Jumlahnya bebas per topik
+    (topik fondasi ±4–6, topik berat 7–10+). Bila sebuah topik punya slide, viewer Kurikulum
+    (static/js/lessons.js) memakainya; bila tidak, slide dibangun otomatis dari LessonSection.
+    Rumus ditulis LaTeX: $inline$ dan $$blok$$ (dirender KaTeX, static/js/math.js).
+    """
+    KINDS = [
+        ("intuition", "Intuisi"), ("derivation", "Penurunan"), ("theorem", "Teorema"),
+        ("example", "Contoh"), ("pitfall", "Jebakan"), ("checkpoint", "Cek Pemahaman"),
+    ]
+    topic = models.ForeignKey("Topic", on_delete=models.CASCADE, related_name="slides")
+    order = models.PositiveIntegerField(default=1)
+    kind = models.CharField(max_length=12, choices=KINDS)
+    title = models.CharField(max_length=200)
+    body_html = models.TextField(blank=True)
+    tip = models.CharField(max_length=300, blank=True, help_text="Komentar Archie di gelembung saat slide ini tampil")
+    graphs = models.JSONField(default=list, blank=True, help_text="Spesifikasi grafik GraphLab (sama dengan LessonSection)")
+
+    class Meta:
+        ordering = ["topic", "order"]
+        constraints = [models.UniqueConstraint(fields=["topic", "order"], name="unique_slide_order_per_topic")]
+
+    def __str__(self):
+        return f"{self.topic.slug} #{self.order} ({self.kind}) {self.title}"
+
+
 class LessonSection(models.Model):
     """
     Satu bagian materi di dalam SkillNode (mis. "Tabel turunan dasar").
@@ -360,6 +387,7 @@ class UserProfile(models.Model):
     )
     xp = models.PositiveIntegerField(default=0, help_text="Total earned Experience Points")
     streak_days = models.PositiveIntegerField(default=1, help_text="Consecutive days of active practice")
+    last_active_on = models.DateField(null=True, blank=True, help_text="Hari (WIB) terakhir bermain; dasar streak (streak.py)")
     hearts = models.PositiveIntegerField(default=10, help_text="Nyawa tersisa (maks. max_hearts)")
     max_hearts = models.PositiveIntegerField(default=10)
     hearts_lost_at = models.DateTimeField(
@@ -370,6 +398,11 @@ class UserProfile(models.Model):
     star_shields = models.PositiveIntegerField(default=0, help_text="Perisai Bintang: otomatis menahan bintang saat kalah duel")
     equipped = models.JSONField(default=dict, blank=True,
                                 help_text="Kosmetik terpasang per slot: head/face/neck/frame/title → kunci barang toko")
+    # Foto profil (gamification/avatar.py): polos (inisial), template bawaan, atau unggahan sendiri.
+    avatar_kind = models.CharField(max_length=10, default="initial",
+                                   choices=[("initial", "Polos"), ("preset", "Template"), ("upload", "Unggahan")])
+    avatar_preset = models.CharField(max_length=30, blank=True, default="", help_text="Kunci template (avatar.PRESETS)")
+    avatar_file = models.FileField(upload_to="avatars/", blank=True, help_text="Foto unggahan 256×256 (dipotong di browser)")
     campus = models.CharField(
         max_length=120, blank=True, default="",
         help_text="Asal kampus untuk papan peringkat per kampus; 'Umum' = bukan mahasiswa / tidak disebutkan; kosong = belum diisi",
@@ -485,6 +518,7 @@ class PlayerRank(models.Model):
     division = models.PositiveSmallIntegerField(null=True, blank=True, default=3, help_text="3=III, 2=II, 1=I; kosong untuk Apex")
     stars = models.PositiveIntegerField(default=0)
     win_streak = models.PositiveIntegerField(default=0)
+    apex_points = models.PositiveIntegerField(default=0, help_text="Apex Points (mirip ELO, terlihat); hanya dipakai di tier Apex")
     points = models.PositiveIntegerField(default=0, db_index=True)
     mmr = models.IntegerField(default=1000)
     wins = models.PositiveIntegerField(default=0)
@@ -498,11 +532,12 @@ class PlayerRank(models.Model):
     @property
     def state(self):
         from .ranking import RankState
-        return RankState(self.tier, self.division, self.stars, self.win_streak)
+        return RankState(self.tier, self.division, self.stars, self.win_streak, self.apex_points)
 
     def set_state(self, st):
         from .ranking import ladder_points
         self.tier, self.division, self.stars, self.win_streak = st.tier, st.division, st.stars, st.win_streak
+        self.apex_points = st.apex_points
         self.points = ladder_points(st)
 
     def record_draw(self, opponent_mmr):
@@ -512,9 +547,12 @@ class PlayerRank(models.Model):
         self.save()
 
     def record_duel(self, won, opponent_mmr, protected=False):
-        """Terapkan hasil satu duel: bintang (aturan ML) + nilai kemampuan (Elo). Mengembalikan perubahan bintang."""
-        from .ranking import apply_result, elo_update
-        st, delta = apply_result(self.state, won, protected)
+        """
+        Terapkan hasil satu duel: bintang (aturan ML) atau Apex Points, lalu nilai kemampuan (Elo).
+        Mengembalikan perubahan bintang (atau Apex Points bila pemain di Apex).
+        """
+        from .ranking import apex_delta, apply_result, elo_update
+        st, delta = apply_result(self.state, won, protected, apex_delta(self.mmr, opponent_mmr, won))
         self.set_state(st)
         self.mmr = elo_update(self.mmr, opponent_mmr, 1 if won else 0)
         if won:
@@ -589,6 +627,66 @@ class DuelAnswer(models.Model):
 
     class Meta:
         unique_together = [("match", "user", "index")]
+
+class GhostRecord(models.Model):
+    """
+    Rekaman penampilan seorang pemain di satu Ranked Duel, dipakai sebagai lawan ‘hantu’ (asinkron).
+
+    Pemain lain yang mendapat rekaman ini menghadapi 10 soal yang sama persis (match_seed + questions)
+    dalam urutan yang sama, lalu skornya dibandingkan dengan jawaban & waktu yang tersimpan di sini.
+    `pool` = tier soal (level materi dibatasi rank), sehingga hantu hanya dipakai di tier yang sama.
+    """
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="ghost_records")
+    match_seed = models.CharField(max_length=32, db_index=True)
+    pool = models.CharField(max_length=10, help_text="Tier sumber soal (terra … apex)")
+    mmr = models.IntegerField(help_text="Nilai kemampuan pemain saat rekaman dibuat")
+    rank_label = models.CharField(max_length=30, blank=True)
+    questions = models.JSONField(help_text="Resep 10 soal: key, seed, tier generator, difficulty, time_limit, base")
+    answers = models.JSONField(help_text="Per soal: {option, correct, ms, points}")
+    total_score = models.PositiveIntegerField()
+    correct = models.PositiveSmallIntegerField()
+    total_ms = models.PositiveIntegerField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        indexes = [models.Index(fields=["pool", "mmr"])]
+
+    def __str__(self):
+        return f"Hantu {self.user.username} ({self.pool}, {self.total_score} poin)"
+
+
+class RankedMatch(models.Model):
+    """
+    Satu Ranked Duel asinkron (tanpa WebSocket): pemain vs hantu (GhostRecord) atau bot.
+
+    Soal dibuka satu per satu oleh server (q_started_at) dan dinilai di server, sehingga waktu & skor
+    tidak bisa dipalsukan dari browser. Hasil lawan sudah lengkap sejak awal (opponent["answers"]).
+    """
+    ACTIVE, FINISHED = "active", "finished"
+    STATUS_CHOICES = [(ACTIVE, "Berlangsung"), (FINISHED, "Selesai")]
+    GHOST, BOT = "ghost", "bot"
+    KIND_CHOICES = [(GHOST, "Hantu pemain"), (BOT, "Bot")]
+
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="ranked_matches")
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default=ACTIVE, db_index=True)
+    opponent_kind = models.CharField(max_length=5, choices=KIND_CHOICES)
+    ghost = models.ForeignKey(GhostRecord, null=True, blank=True, on_delete=models.SET_NULL, related_name="matches")
+    opponent = models.JSONField(help_text="Kartu lawan + answers per soal (hantu: salinan rekaman; bot: hasil simulasi)")
+    opponent_mmr = models.IntegerField()
+    match_seed = models.CharField(max_length=32)
+    pool = models.CharField(max_length=10)
+    questions = models.JSONField()
+    current = models.PositiveSmallIntegerField(default=0)
+    q_started_at = models.DateTimeField(null=True, blank=True)
+    answers = models.JSONField(default=list)
+    tab_leaves = models.PositiveSmallIntegerField(default=0)
+    result = models.JSONField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    finished_at = models.DateTimeField(null=True, blank=True)
+
+    def __str__(self):
+        return f"Ranked {self.user.username} vs {self.opponent_kind} ({self.status})"
+
 
 class UserProgress(models.Model):
     """

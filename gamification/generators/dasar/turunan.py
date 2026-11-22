@@ -7,7 +7,7 @@ from fractions import Fraction as Fr
 import math
 
 from .. import register
-from ..fmt import MINUS, lin, n, paren, poly, sup
+from ..fmt import MINUS, lin, n, paren, poly, sup, times
 from ..graphs import fn, g2d, param, pt, readout
 from ...content.helpers import tangent_graph
 from ..precalc.common import distinct, nz
@@ -77,6 +77,7 @@ def definisi(rng, tier):
 
 @register("tur.kenali", DF, (2, 3, 4, 5))
 def kenali(rng, tier):
+    from ..precalc.trigonometri import exact, rad_text
     if tier <= 3:
         c, m = rng.randint(1, 4), rng.randint(2, 5)
         val = m * c ** (m - 1)
@@ -85,18 +86,41 @@ def kenali(rng, tier):
         correct = n(val)
         wrong = [n(c ** m), n(m * c ** m), "0", n(val + m)]
     elif tier == 4:
-        k = rng.randint(1, 6)
-        val = Fr(1, 2 * k)
-        prompt = f"Hitung lim<sub>h→0</sub> [√({k * k} + h) − {k}] / h."
-        steps = [f"Ini f′({k * k}) untuk f(x) = √x.", f"f′(x) = 1/(2√x) ⇒ f′({k * k}) = 1/{2 * k} = <b>{n(val)}</b>."]
-        correct, wrong = n(val), [n(Fr(1, k)), n(2 * k), "0", n(Fr(1, k * k))]
+        k, c = rng.randint(1, 9), rng.randint(1, 5)
+        C = "" if c == 1 else str(c)
+        if rng.random() < 0.6:
+            val = Fr(c, 2 * k)
+            prompt = f"Hitung lim<sub>h→0</sub> [√({k * k} + {C}h) − {k}] / h."
+            steps = [f"Tulis sebagai {C}·[√({k * k} + u) − √{k * k}]/u dengan u = {C}h: definisi f′({k * k}) untuk f(x) = √x." if c > 1 else f"Ini f′({k * k}) untuk f(x) = √x.",
+                     f"f′(x) = 1/(2√x) ⇒ {C}{'·' if c > 1 else ''}1/{2 * k} = <b>{n(val)}</b>."]
+            wrong = [n(Fr(c, k)), n(Fr(1, 2 * k)) if c > 1 else n(2 * k), "0", n(Fr(c, k * k))]
+        else:
+            val = Fr(-c, k * k)
+            prompt = f"Hitung lim<sub>h→0</sub> [1/({k} + {C}h) − 1/{k}] / h."
+            steps = [f"Ini {C}·f′({k}) untuk f(x) = 1/x (substitusi u = {C}h)." if c > 1 else f"Ini f′({k}) untuk f(x) = 1/x.",
+                     f"f′(x) = −1/x² ⇒ {C}{'·' if c > 1 else ''}(−1/{k * k}) = <b>{n(val)}</b>."]
+            wrong = [n(-val), n(Fr(-1, k * k)) if c > 1 else n(Fr(-1, k)), "0", n(Fr(-c, k))]
+        correct = n(val)
     else:
-        from ..precalc.trigonometri import exact, rad_text
-        deg = rng.choice([30, 45, 60, 120, 150])
-        val = exact("cos", deg)
-        prompt = f"Hitung lim<sub>h→0</sub> [sin({rad_text(deg)} + h) − sin({rad_text(deg)})] / h."
-        steps = ["Ini definisi turunan sin x di x = a.", f"(sin x)′ = cos x ⇒ cos({rad_text(deg)}) = <b>{val}</b>."]
-        correct, wrong = val, [exact("sin", deg), "0", "1", f"{MINUS}{val}" if not val.startswith(MINUS) else val[1:]]
+        deg, f, c = rng.choice([30, 45, 60, 90, 120, 135, 150, 180]), rng.choice(["sin", "cos"]), rng.randint(1, 3)
+        C = "" if c == 1 else str(c)
+        def val_of(fn_, dg):
+            """Nilai eksak sin/cos sebagai (pecahan, akar) supaya bisa dikali c."""
+            t = exact(fn_, dg).replace(MINUS, "-")
+            neg = t.startswith("-")
+            t = t.lstrip("-")
+            rad = "√2" if "√2" in t else "√3" if "√3" in t else ""
+            co = Fr(t.replace(rad, "1") if rad and not t.startswith(rad) else t.replace(rad, "")) if t not in ("√2/2", "√3/2") else Fr(1, 2)
+            return (-co if neg else co), rad
+        co, rad = val_of("cos" if f == "sin" else "sin", deg)
+        co = co * c * (1 if f == "sin" else -1)
+        fmtv = lambda v: (times(v, rad) if rad else n(v)) if v else "0"
+        val = fmtv(co)
+        prompt = f"Hitung lim<sub>h→0</sub> [{f}({rad_text(deg)} + {C}h) − {f}({rad_text(deg)})] / h."
+        steps = [f"Ini {C}{'·' if c > 1 else ''}f′(a) untuk f(x) = {f} x di a = {rad_text(deg)}.",
+                 f"({f} x)′ = {'cos x' if f == 'sin' else '−sin x'} ⇒ {C}{'·' if c > 1 else ''}{'cos' if f == 'sin' else '−sin'}({rad_text(deg)}) = <b>{val}</b>."]
+        correct = val
+        wrong = [fmtv(-co) if co else "1", fmtv(co * 2) if co else "−1", fmtv(co / c) if c > 1 else exact(f, deg), "0" if co else "2", str(c + 1)]
     return {"prompt": prompt, "correct": correct, "distractors": wrong, "steps": steps,
             "explanation": "Kenali pola lim [f(a + h) − f(a)]/h sebagai f′(a) — tidak perlu menghitung limit dari nol."}
 
@@ -105,13 +129,15 @@ def kenali(rng, tier):
 def terdiferensial(rng, tier):
     c = nz(rng, -3, 3)
     if tier == 4:
-        a, b = 2 * c, -c * c
+        p = nz(rng, -3, 3)
+        a, b = 2 * p * c, -p * c * c
         correct = f"a = {n(a)}, b = {n(b)}"
-        return {"prompt": f"f(x) = x² untuk x ≤ {n(c)} dan f(x) = ax + b untuk x &gt; {n(c)}. Tentukan a, b agar f terdiferensialkan di x = {n(c)}.",
-                "correct": correct, "distractors": [f"a = {n(c)}, b = {n(c * c - c * c)}", f"a = {n(a)}, b = {n(-b)}", f"a = {n(b)}, b = {n(a)}", f"a = {n(2 * c + 1)}, b = {n(b - c)}"],
-                "steps": [f"Kontinu: a·{paren(c)} + b = {c * c}.", f"Turunan kiri = turunan kanan: 2·{paren(c)} = a ⇒ a = {n(a)}.",
-                          f"b = {c * c} − {n(a)}·{paren(c)} = {n(b)}. Jawaban: <b>{correct}</b>. (Garis ax + b adalah garis singgung x² di c.)"],
-                "graphs": [tg("x*x", "2*x", c, caption="Potongan kanan harus berimpit dengan garis singgung merah agar tidak ada ‘sudut’.")],
+        f = f"{'' if p == 1 else MINUS if p == -1 else n(p)}x²"
+        return {"prompt": f"f(x) = {f} untuk x ≤ {n(c)} dan f(x) = ax + b untuk x &gt; {n(c)}. Tentukan a, b agar f terdiferensialkan di x = {n(c)}.",
+                "correct": correct, "distractors": [f"a = {n(p * c)}, b = {n(p * c * c - p * c * c)}", f"a = {n(a)}, b = {n(-b)}", f"a = {n(b)}, b = {n(a)}", f"a = {n(a + 1)}, b = {n(b - c)}"],
+                "steps": [f"Kontinu: a·{paren(c)} + b = {n(p * c * c)}.", f"Turunan kiri = turunan kanan: {n(2 * p)}·{paren(c)} = a ⇒ a = {n(a)}.",
+                          f"b = {n(p * c * c)} − {n(a)}·{paren(c)} = {n(b)}. Jawaban: <b>{correct}</b>. (Garis ax + b adalah garis singgung {f} di c.)"],
+                "graphs": [tg(f"{p}*x*x", f"{2 * p}*x", c, caption="Potongan kanan harus berimpit dengan garis singgung merah agar tidak ada ‘sudut’.")],
                 "explanation": "Terdiferensialkan ⇒ kontinu dan turunan kiri = turunan kanan."}
     m = rng.randint(1, 4)
     return {"prompt": f"Di titik mana f(x) = |{m}x − {m * c}| + {m}x² <b>tidak</b> terdiferensialkan?".replace("− −", "+ "),
@@ -175,11 +201,13 @@ def pangkat(rng, tier):
 @register("tur.tingkat_tinggi", DS, (2, 3, 4, 5))
 def tingkat_tinggi(rng, tier):
     if tier == 5:
-        nn = rng.randint(4, 9)
-        target = nn * (nn - 1)
-        return {"prompt": f"Untuk f(x) = xⁿ (n bilangan asli), diketahui f″(1) = {target}. Tentukan n.", "correct": f"n = {nn}",
-                "distractors": [f"n = {nn - 1}", f"n = {nn + 1}", f"n = {target // 2}", f"n = {int(target ** 0.5)}"],
-                "steps": ["f′(x) = nxⁿ⁻¹, f″(x) = n(n − 1)xⁿ⁻².", f"f″(1) = n(n − 1) = {target}.", f"n² − n − {target} = 0 ⇒ <b>n = {nn}</b> (akar positif)."],
+        nn, a = rng.randint(3, 9), rng.randint(1, 5)
+        target = a * nn * (nn - 1)
+        A = "" if a == 1 else str(a)
+        return {"prompt": f"Untuk f(x) = {A}xⁿ (n bilangan asli), diketahui f″(1) = {target}. Tentukan n.", "correct": f"n = {nn}",
+                "distractors": [f"n = {nn - 1}", f"n = {nn + 1}", f"n = {target // 2}", f"n = {nn * (nn - 1)}" if a > 1 else f"n = {nn + 2}"],
+                "steps": [f"f′(x) = {A}nxⁿ⁻¹, f″(x) = {A}n(n − 1)xⁿ⁻².", f"f″(1) = {A}n(n − 1) = {target} ⇒ n(n − 1) = {nn * (nn - 1)}.",
+                          f"n² − n − {nn * (nn - 1)} = 0 ⇒ <b>n = {nn}</b> (akar positif)."],
                 "explanation": "Turunan kedua = turunan dari turunan pertama."}
     co = [nz(rng, -3, 3), rng.randint(-5, 5), rng.randint(-6, 6), rng.randint(-6, 6), rng.randint(-6, 6)]
     k = rng.randint(-2, 2)
@@ -198,13 +226,28 @@ def tingkat_tinggi(rng, tier):
 
 @register("tur.turunan_ke_n", DS, (4, 5))
 def turunan_ke_n(rng, tier):
-    nn = rng.randint(4, 8)
+    nn, c = rng.randint(4, 8), rng.randint(1, 5)
+    C = "" if c == 1 else str(c)
+    if tier == 5 and rng.random() < 0.5:
+        a, m = rng.randint(2, 4), rng.randint(3, 8)
+        kind = rng.choice(["exp", "sin", "cos"])
+        if kind == "exp":
+            val, f, pat = a ** m, f"e<sup>{a}x</sup>", f"setiap turunan mengalikan {a}: f⁽ᵐ⁾(x) = {a}ᵐe<sup>{a}x</sup>"
+        else:
+            # turunan ke-m dari sin(ax)/cos(ax) di 0
+            cyc = {"sin": [0, 1, 0, -1], "cos": [1, 0, -1, 0]}[kind]
+            val, f, pat = a ** m * cyc[m % 4], f"{kind}({a}x)", f"pola berulang tiap 4 turunan (sin → cos → −sin → −cos), dikali {a} setiap kali"
+        return {"prompt": f"Untuk f(x) = {f}, hitung f<sup>({m})</sup>(0).", "correct": n(val),
+                "distractors": [n(-val) if val else n(a ** m), n(a * m), n(a ** (m - 1)) if val != a ** (m - 1) else n(a ** (m + 1)), "1" if val != 1 else "0"],
+                "steps": [f"{pat[0].upper()}{pat[1:]}.", f"Di x = 0 untuk m = {m}: <b>{n(val)}</b>."],
+                "explanation": "Turunan ke-n: cari pola, jangan menurunkan satu per satu."}
     m = rng.randint(2, nn - 1) if tier == 4 else nn
-    val = math.factorial(nn) // math.factorial(nn - m)
-    return {"prompt": f"Untuk f(x) = x{sup(nn)}, hitung f<sup>({m})</sup>(1)" + (" (turunan ke-n dengan n = pangkatnya)." if m == nn else "."),
-            "correct": n(val), "distractors": [n(nn * m), n(nn ** m), n(val // nn if val // nn else 1), n(math.factorial(m))],
-            "steps": [f"Setiap penurunan menurunkan pangkat 1 dan mengalikan dengan pangkat lama.",
-                      f"f<sup>({m})</sup>(x) = {nn}·{nn - 1}·…·{nn - m + 1}·x{sup(nn - m)}.", f"Di x = 1: {nn}!/{nn - m}! = <b>{val}</b>."],
+    x0 = rng.choice([1, 1, 2]) if tier == 4 else 1
+    val = c * math.factorial(nn) // math.factorial(nn - m) * x0 ** (nn - m)
+    return {"prompt": f"Untuk f(x) = {C}x{sup(nn)}, hitung f<sup>({m})</sup>({x0})" + (" (turunan ke-n dengan n = pangkatnya)." if m == nn else "."),
+            "correct": n(val), "distractors": [n(c * nn * m), n(c * nn ** m), n(val // nn if val // nn else 1), n(c * math.factorial(m)) if c * math.factorial(m) != val else n(val * 2)],
+            "steps": ["Setiap penurunan menurunkan pangkat 1 dan mengalikan dengan pangkat lama.",
+                      f"f<sup>({m})</sup>(x) = {C}{'·' if c > 1 else ''}{nn}·{nn - 1}·…·{nn - m + 1}·x{sup(nn - m)}.", f"Di x = {x0}: {C}{'·' if c > 1 else ''}{nn}!/{nn - m}!{f'·{x0}' + sup(nn - m) if x0 > 1 and nn > m else ''} = <b>{n(val)}</b>."],
             "explanation": "dᵐ/dxᵐ xⁿ = n!/(n − m)! · xⁿ⁻ᵐ; turunan ke-n dari xⁿ adalah n!."}
 
 

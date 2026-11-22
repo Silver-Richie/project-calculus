@@ -5,17 +5,18 @@ Views dibuat tipis: pengambilan dan pengolahan data ada di services.py.
 """
 
 import json
+import uuid
 
-from django.conf import settings
 from django.contrib.auth.decorators import login_required
 from django.db.models import Count, Q, Value
 from django.db.models.functions import Coalesce
-from django.http import JsonResponse
+from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.templatetags.static import static
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_POST
 
-from . import campus, duel, free_practice, generators, ranking, services, sessions, shop
+from . import avatar, campus, free_practice, generators, ranked_duel, ranking, reminders, services, sessions, shop
 from .leveling import level_for, level_info
 from .models import Faculty, MainLevel, PracticeSession, SkillNode, Topic, UserProfile
 
@@ -43,7 +44,6 @@ def landing_page(request):
         "faculties": Faculty.objects.all(),
         "server_profile": services.profile_bootstrap(request.user),
         "campus_suggestions": campus.SUGGESTIONS,
-        "duel_enabled": settings.DUEL_ENABLED,
     })
 
 
@@ -67,6 +67,31 @@ def set_faculty_api(request):
 
 @login_required
 @require_POST
+def set_avatar_api(request):
+    """
+    POST /api/profile/avatar/ — ganti foto profil (gamification/avatar.py).
+    JSON {"kind": "initial"} | {"kind": "preset", "preset": "integral"};
+    unggahan: multipart dengan kind=upload dan berkas "file" (sudah dipotong 256×256 di browser).
+    """
+    profile, _ = UserProfile.objects.get_or_create(user=request.user)
+    body = request.POST if request.FILES or request.content_type.startswith("multipart") else _json_body(request)
+    kind = body.get("kind")
+    try:
+        if kind == "initial":
+            avatar.set_initial(profile)
+        elif kind == "preset":
+            avatar.set_preset(profile, body.get("preset", ""))
+        elif kind == "upload":
+            avatar.set_upload(profile, request.FILES.get("file"))
+        else:
+            raise avatar.AvatarError("Jenis foto gak dikenal.")
+    except avatar.AvatarError as err:
+        return JsonResponse({"status": "error", "message": str(err)}, status=400)
+    return JsonResponse({"status": "success", "avatar": avatar.describe(profile)})
+
+
+@login_required
+@require_POST
 def set_campus_api(request):
     """POST /api/profile/campus/ {"campus": "Universitas Indonesia"} atau {"umum": true}."""
     body = _json_body(request)
@@ -77,6 +102,9 @@ def set_campus_api(request):
     profile.campus = name
     profile.save(update_fields=["campus", "updated_at"])
     return JsonResponse({"status": "success", "campus": name})
+
+
+TOP_LIMIT = 100          # leaderboard hanya menampilkan 100 besar
 
 
 @login_required
@@ -91,9 +119,11 @@ def leaderboard_api(request):
                     scope=apex → Top 100 pemain Apex se-Indonesia.
     * board=wins  : urut jumlah kemenangan duel (bukan posisi rank).
 
-    Mengembalikan 50 (Top Apex: 100) teratas (`rows`), pemain di sekitar posisi pengguna (`around`,
-    dua di atas & dua di bawah), dan baris pengguna (`me`). Posisi sama untuk nilai sama; `index` =
-    urutan pasti di daftar (untuk menggabungkan `rows` & `around` di layar).
+    Mengembalikan Top 100 (`rows`), pemain di sekitar posisi pengguna (`around`, dua di atas & dua di bawah —
+    hanya bila pengguna masih di dalam Top 100, supaya daftar tidak pernah memuat pemain di luar 100 besar),
+    dan baris pengguna (`me`, selalu dengan posisinya). Posisi sama untuk nilai sama; `index` = urutan pasti
+    di daftar (untuk menggabungkan `rows` & `around` di layar).
+    Sebaran tier (`tiers`) tetap menghitung SEMUA pemain di cakupan, bukan hanya Top 100.
     Papan rank/wins juga memuat 5 hasil duel terakhir tiap baris (`recent`) dan `played` (sudah ada
     duel di cakupan ini); papan rank memuat jumlah pemain per tier (`tiers`, kolom Ketinggian).
     "kampus" butuh kampus terisi dan bukan "Umum"; "fakultas" memakai fakultas akun.
@@ -131,7 +161,8 @@ def leaderboard_api(request):
         st = pr.state if pr else ranking.RankState()
         r = {"pos": pos, "index": index, "name": p.user.first_name or p.user.username, "username": p.user.username,
              "user_id": p.user_id, "faculty": p.faculty.short_name if p.faculty else "", "campus": p.campus,
-             "me": p.pk == me.pk, "frame": look.get("frame", ""), "title": look["title_text"], "tier": st.tier}
+             "me": p.pk == me.pk, "frame": look.get("frame", ""), "title": look["title_text"], "tier": st.tier,
+             "avatar": avatar.describe(p)}
         if board == "level":
             r.update(xp=p.xp, level=level_for(p.xp))
         else:
@@ -152,7 +183,7 @@ def leaderboard_api(request):
         return qs.filter(ahead).count()
 
     ordered = qs.order_by(*order)
-    top = list(ordered[:100 if scope == "apex" else 50])
+    top = list(ordered[:TOP_LIMIT])
     rows, pos, prev = [], 0, None
     for i, p in enumerate(top):
         value = getattr(p, key)
@@ -164,8 +195,9 @@ def leaderboard_api(request):
     around = []
     if me_row:
         my_index = index_of(me_row)
-        start = max(0, my_index - 2)
-        around = [row(p, position(p), start + j) for j, p in enumerate(ordered[start:my_index + 3])]
+        if my_index < TOP_LIMIT:
+            start = max(0, my_index - 2)
+            around = [row(p, position(p), start + j) for j, p in enumerate(ordered[start:min(my_index + 3, TOP_LIMIT)])]
         mine = row(me_row, position(me_row), my_index)
     else:
         mine = row(me, qs.filter(**{f"{key}__gt": getattr(me, key, 0) if board == "level" else 0}).count() + 1)
@@ -178,7 +210,7 @@ def leaderboard_api(request):
                       "fakultas": me.faculty.name if me.faculty else ""}[scope]}
     if duels:
         shown = {r["user_id"] for r in rows + around + [mine]}
-        recent = duel.recent_results(list(shown))
+        recent = ranked_duel.recent_results(list(shown))
         for r in rows + around + [mine]:
             r["recent"] = recent.get(r["user_id"], [])
         data["played"] = qs.filter(Q(user__duel_rank__wins__gt=0) | Q(user__duel_rank__losses__gt=0)).exists()
@@ -392,3 +424,120 @@ def shop_equip_api(request):
     except shop.ShopError as err:
         return JsonResponse({"status": "error", "message": str(err)}, status=400)
     return JsonResponse({"status": "success", **data})
+
+
+# ── Ranked Duel asinkron (hantu/bot, tanpa WebSocket) — aturan di ranked_duel.py ─────────
+def _ranked_call(fn):
+    try:
+        return JsonResponse({"status": "success", **(fn() or {})})
+    except ranked_duel.RankedError as err:
+        return JsonResponse({"status": "error", "message": str(err)}, status=400)
+
+
+@login_required
+@require_POST
+def ranked_start_api(request):
+    """POST /api/ranked/mulai/ — cari lawan (hantu/bot sesuai rank) dan siapkan 10 soal."""
+    return _ranked_call(lambda: ranked_duel.match_intro(ranked_duel.find_match(request.user)))
+
+
+@login_required
+@require_POST
+def ranked_question_api(request, match_id):
+    """POST /api/ranked/<id>/soal/ — buka soal berikutnya (waktu mulai dicatat server)."""
+    return _ranked_call(lambda: {"question": ranked_duel.open_question(match_id, request.user)})
+
+
+@login_required
+@require_POST
+def ranked_answer_api(request, match_id):
+    """POST /api/ranked/<id>/jawab/ {"index": 0, "option": 2|null} — null = waktu habis."""
+    body = _json_body(request)
+    option = body.get("option")
+    return _ranked_call(lambda: ranked_duel.submit_answer(
+        match_id, request.user, int(body.get("index", -1)), None if option is None else int(option)))
+
+
+@login_required
+@require_POST
+def ranked_leave_api(request, match_id):
+    """POST /api/ranked/<id>/keluar-tab/ — anti-curang: keluar tab ke-1 = soal salah, ke-2 = menyerah."""
+    return _ranked_call(lambda: ranked_duel.leave_tab(match_id, request.user))
+
+
+@login_required
+@require_POST
+def ranked_forfeit_api(request, match_id):
+    """POST /api/ranked/<id>/menyerah/ — keluar di tengah duel = kalah (tanpa Streak Shield)."""
+    def run():
+        match = ranked_duel.RankedMatch.objects.filter(pk=match_id, user=request.user).first()
+        if not match:
+            raise ranked_duel.RankedError("Duel-nya gak ketemu.")
+        return {"result": ranked_duel.resolve_duel(match, forfeit=True)}
+    return _ranked_call(run)
+
+
+# ── PWA & pengingat harian (Tahap 1 notifikasi) — logika kalender di reminders.py ─────────
+SW_VERSION = "v1"        # naikkan bila daftar berkas cache service worker berubah
+
+
+@require_GET
+def manifest_view(request):
+    """GET /manifest.webmanifest — membuat aplikasi bisa dipasang (Add to Home Screen)."""
+    icon = lambda name, size, purpose="any": {"src": static(f"img/pwa/{name}"), "sizes": size, "type": "image/png", "purpose": purpose}  # noqa: E731
+    data = {
+        "name": "Calculus Bridge", "short_name": "Calculus Bridge", "lang": "id",
+        "description": "Belajar kalkulus interaktif: skill tree, latihan berjenjang, dan Ranked Duel.",
+        "start_url": "/?source=pwa", "scope": "/", "display": "standalone",
+        "background_color": "#F7F5F2", "theme_color": "#2563EB",
+        "icons": [icon("icon-192.png", "192x192"), icon("icon-512.png", "512x512"), icon("maskable-512.png", "512x512", "maskable")],
+    }
+    return JsonResponse(data, content_type="application/manifest+json", json_dumps_params={"ensure_ascii": False})
+
+
+@require_GET
+def service_worker_view(request):
+    """
+    GET /sw.js — service worker dilayani dari akar situs (bukan /static/) agar cakupannya seluruh situs.
+    Tidak di-cache browser lama-lama supaya pembaruan cepat terpasang.
+    """
+    response = render(request, "pwa/sw.js", {"version": SW_VERSION, "offline_url": "/offline/",
+                                             "icon": static("img/pwa/icon-192.png")},
+                      content_type="application/javascript")
+    response["Cache-Control"] = "no-cache"
+    response["Service-Worker-Allowed"] = "/"
+    return response
+
+
+@require_GET
+def offline_view(request):
+    """GET /offline/ — halaman cadangan saat tidak ada koneksi (disimpan service worker)."""
+    return render(request, "pwa/offline.html")
+
+
+def _reminder_start(request):
+    hour, minute, offset = reminders.parse(request.GET.get("jam"), request.GET.get("tz", "-420"))
+    return reminders.first_start(hour, minute, offset), request.build_absolute_uri("/")
+
+
+@require_GET
+def reminder_google_view(request):
+    """GET /pengingat/google/?jam=19:00&tz=-420 — alihkan ke Google Calendar (acara harian, tanpa OAuth)."""
+    try:
+        start, app_url = _reminder_start(request)
+    except ValueError as err:
+        return JsonResponse({"status": "error", "message": str(err)}, status=400)
+    return redirect(reminders.google_url(start, app_url))
+
+
+@require_GET
+def reminder_ics_view(request):
+    """GET /pengingat.ics?jam=19:00&tz=-420 — unduh pengingat harian untuk Apple Calendar / Outlook."""
+    try:
+        start, app_url = _reminder_start(request)
+    except ValueError as err:
+        return JsonResponse({"status": "error", "message": str(err)}, status=400)
+    body = reminders.ics(start, app_url, f"{uuid.uuid4()}@{request.get_host()}")
+    response = HttpResponse(body, content_type="text/calendar; charset=utf-8")
+    response["Content-Disposition"] = 'attachment; filename="pengingat-calculus-bridge.ics"'
+    return response

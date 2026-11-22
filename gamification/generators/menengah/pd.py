@@ -92,25 +92,40 @@ def euler(rng, tier):
 
 @register("pdk.ekuilibrium", KO, (4, 5))
 def ekuilibrium(rng, tier):
-    p, q = sorted(distinct(rng, -4, 6, 2))
+    js = None
     if tier == 4:
+        p, q = sorted(distinct(rng, -4, 6, 2))
         correct = f"y = {n(p)} stabil, y = {n(q)} tidak stabil"
         prompt = f"Tentukan solusi ekuilibrium y′ = (y − {paren(p)})(y − {paren(q)}) dan kestabilannya."
         steps = ["Ekuilibrium: y′ = 0 ⇒ y = p atau y = q.", f"Di antara {n(p)} dan {n(q)} y′ &lt; 0 (turun); di atas {n(q)} y′ &gt; 0; di bawah {n(p)} y′ &gt; 0.",
                  f"Solusi di dekat {n(p)} tertarik ke {n(p)} (stabil); di dekat {n(q)} menjauh (tidak stabil). <b>{correct}</b>."]
-        wrong = [f"y = {n(p)} tidak stabil, y = {n(q)} stabil", f"keduanya stabil", f"y = {n(-p)} dan y = {n(-q)}", "tidak ada ekuilibrium"]
+        wrong = [f"y = {n(p)} tidak stabil, y = {n(q)} stabil", "keduanya stabil", f"y = {n(-p)} dan y = {n(-q)}", "tidak ada ekuilibrium"]
         js = f"(x-({p}))*(x-({q}))"
-    else:
-        K = rng.choice([10, 20, 50, 100])
+    elif rng.random() < 0.5:
+        K, r = rng.choice([10, 20, 30, 40, 50, 60, 80, 100, 120, 200]), rng.choice(["0,1", "0,2", "0,5", "1", "2", "0,05"])
         correct = f"y = 0 tidak stabil, y = {K} stabil"
-        prompt = f"Model logistik y′ = 0,5y(1 − y/{K}). Tentukan ekuilibrium dan kestabilannya."
-        steps = [f"y′ = 0 ⇒ y = 0 atau y = {K}.", f"Untuk 0 &lt; y &lt; {K}: y′ &gt; 0 (naik ke {K}); untuk y &gt; {K}: y′ &lt; 0 (turun ke {K}).", f"<b>{correct}</b> (daya tampung)."]
+        prompt = f"Model logistik y′ = {r}y(1 − y/{K}). Tentukan ekuilibrium dan kestabilannya."
+        steps = [f"y′ = 0 ⇒ y = 0 atau y = {K}.", f"Untuk 0 &lt; y &lt; {K}: y′ &gt; 0 (naik ke {K}); untuk y &gt; {K}: y′ &lt; 0 (turun ke {K}).", f"<b>{correct}</b> (daya tampung; laju {r} tidak memengaruhi kestabilan)."]
         wrong = [f"y = 0 stabil, y = {K} tidak stabil", "keduanya stabil", f"hanya y = {K // 2}", "tidak ada ekuilibrium"]
-        js = None
+    else:
+        p, q, s = sorted(distinct(rng, -4, 6, 3))
+        sg = rng.choice([1, -1])
+        lab = {True: "stabil", False: "tidak stabil"}
+        # f = sg·(y − p)(y − q)(y − s): untuk sg = +1 tengah stabil, untuk sg = −1 kedua ujung stabil
+        stab = (sg < 0, sg > 0, sg < 0)
+        correct = f"y = {n(p)} {lab[stab[0]]}, y = {n(q)} {lab[stab[1]]}, y = {n(s)} {lab[stab[2]]}"
+        prompt = f"Tentukan kestabilan ekuilibrium y′ = {'−' if sg < 0 else ''}(y − {paren(p)})(y − {paren(q)})(y − {paren(s)})."
+        steps = ["Ekuilibrium: y = " + ", ".join(n(v) for v in (p, q, s)) + ".",
+                 f"Tanda y′ pada interval (−∞, {n(p)}), ({n(p)}, {n(q)}), ({n(q)}, {n(s)}), ({n(s)}, ∞): " + ", ".join(("+" if (sg * (-1) ** (3 - i)) > 0 else "−") for i in range(4)) + ".",
+                 "Stabil bila panah di kedua sisi menunjuk ke ekuilibrium.", f"<b>{correct}</b>."]
+        flip = lambda st: f"y = {n(p)} {lab[not st[0]]}, y = {n(q)} {lab[not st[1]]}, y = {n(s)} {lab[not st[2]]}"
+        wrong = [flip(stab), f"y = {n(p)} stabil, y = {n(q)} stabil, y = {n(s)} stabil", f"y = {n(p)} tidak stabil, y = {n(q)} tidak stabil, y = {n(s)} tidak stabil",
+                 f"y = {n(p)} {lab[stab[0]]}, y = {n(q)} {lab[not stab[1]]}, y = {n(s)} {lab[stab[2]]}"]
+        js = f"{sg}*(x-({p}))*(x-({q}))*(x-({s}))"
     return {"prompt": prompt, "correct": correct, "distractors": wrong, "steps": steps,
-            "graphs": [g2d("Garis fase: tanda y′ sebagai fungsi y", [p - 3, q + 3], [-8, 8], [], [fn(js, "blue", "f(y)"), hline(0), pt(p, 0, "green"), pt(q, 0, "red")], None,
-                           "Hijau = stabil (panah menuju), merah = tidak stabil (panah menjauh).")] if js else [],
-            "explanation": "PD otonom y′ = f(y): ekuilibrium di akar f; stabil bila f berubah dari + ke −."}
+            "graphs": [g2d("Garis fase: tanda y′ = f(y)", [-6, 8], [-10, 10], [], [fn(js, "blue", "f(y)"), hline(0, "gray")], None,
+                           "Sumbu horizontal = y. f(y) &gt; 0: y naik; f(y) &lt; 0: y turun.")] if js else [],
+            "explanation": "Analisis kualitatif: tanda y′ menentukan arah gerak solusi."}
 
 
 # ════════════════════════ Topik 2: PD terpisah ═════════════════════════════
@@ -160,35 +175,47 @@ def pdt_xy(rng, tier):
 @register("pdt.x_per_y", TP, (2, 3, 4, 5))
 def x_per_y(rng, tier):
     if tier <= 4:
-        a, b, c = rng.choice([(3, 4, 5), (4, 3, 5), (5, 12, 13), (6, 8, 10), (8, 15, 17)])
-        return {"prompt": f"Selesaikan y′ = x/y, y(0) = {a} (y &gt; 0), lalu hitung y({b}).", "correct": n(c),
-                "distractors": [n(a + b), n(b), n(c + 1), n(a * b)],
-                "steps": ["y dy = x dx ⇒ y²/2 = x²/2 + C ⇒ y² = x² + C′.", f"y(0) = {a} ⇒ C′ = {a * a}: y = √(x² + {a * a}).", f"y({b}) = √({b * b} + {a * a}) = <b>{c}</b>."],
-                "graphs": [slope_field("Medan arah y′ = x/y (hiperbola)", "x/y", [-6, 6], [0.5, 12], f"sqrt(x*x+{a * a})", "Solusi berupa cabang hiperbola y² − x² = konstan.")],
+        while True:
+            k, a, b = rng.randint(1, 3 if tier > 2 else 1), rng.randint(1, 9 if tier > 2 else 20), rng.randint(1, 9 if tier > 2 else 20)
+            c2 = k * b * b + a * a
+            if math.isqrt(c2) ** 2 == c2:
+                break
+        c = math.isqrt(c2)
+        K = "" if k == 1 else str(k)
+        b = b * rng.choice([1, -1])
+        return {"prompt": f"Selesaikan y′ = {K}x/y, y(0) = {a} (y &gt; 0), lalu hitung y({n(b)}).", "correct": n(c),
+                "distractors": [n(a + abs(b)), n(abs(b)), n(c + 1), n(a * abs(b))],
+                "steps": [f"y dy = {K}x dx ⇒ y²/2 = {K}x²/2 + C ⇒ y² = {K}x² + C′.", f"y(0) = {a} ⇒ C′ = {a * a}: y = √({K}x² + {a * a}).",
+                          f"y({n(b)}) = √({k * b * b} + {a * a}) = <b>{c}</b>."],
+                "graphs": [slope_field(f"Medan arah y′ = {K}x/y", f"{k}*x/y", [-6, 6], [0.5, 12], f"sqrt({k}*x*x+{a * a})", "Solusi berupa cabang hiperbola y² − kx² = konstan.")],
                 "explanation": "PD terpisah dengan solusi implisit."}
-    a, b = rng.randint(1, 3), rng.randint(1, 3)
-    c3 = a ** 3 + b ** 3
-    return {"prompt": f"Selesaikan y′ = x²/y², y(0) = {a}, lalu hitung y³ di x = {b}.", "correct": n(c3),
-            "distractors": [n(a ** 3), n((a + b) ** 3), n(b ** 3), n(c3 + 1)],
-            "steps": ["y² dy = x² dx ⇒ y³/3 = x³/3 + C ⇒ y³ = x³ + C′.", f"C′ = {a ** 3}.", f"y³({b}) = {b ** 3} + {a ** 3} = <b>{c3}</b>."],
+    a, b, k = rng.randint(1, 5), rng.randint(1, 5), rng.randint(1, 3)
+    K = "" if k == 1 else str(k)
+    c3 = k * b ** 3 + a ** 3
+    return {"prompt": f"Selesaikan y′ = {K}x²/y², y(0) = {a}, lalu hitung y³ di x = {b}.", "correct": n(c3),
+            "distractors": [n(a ** 3), n((a + b) ** 3), n(k * b ** 3), n(c3 + 1)],
+            "steps": [f"y² dy = {K}x² dx ⇒ y³/3 = {K}x³/3 + C ⇒ y³ = {K}x³ + C′.", f"C′ = {a ** 3}.", f"y³({b}) = {k * b ** 3} + {a ** 3} = <b>{c3}</b>."],
             "explanation": "Integralkan kedua ruas setelah dipisah."}
 
 
 @register("pdt.ledakan", TP, (3, 4, 5))
 def ledakan(rng, tier):
-    a = rng.randint(2, 6)
+    c = rng.randint(1, 3)
+    a = rng.randint(c + 1, 9)
+    C = "" if c == 1 else str(c)
     if tier <= 4:
-        b = rng.randint(1, a - 1)
-        val = Fr(1, a - b)
-        return {"prompt": f"Selesaikan y′ = y², y(0) = 1/{a}, lalu hitung y({b}).", "correct": n(val),
-                "distractors": [n(Fr(1, a + b)), n(Fr(1, a) + b), n(Fr(b, a)), n(val * 2)],
-                "steps": ["dy/y² = dx ⇒ −1/y = x + C.", f"y(0) = 1/{a} ⇒ C = −{a} ⇒ y = 1/({a} − x).", f"y({b}) = 1/{a - b} = <b>{n(val)}</b>."],
+        b = rng.choice([v for v in range(1, 9) if c * v < a])
+        val = Fr(1, a - c * b)
+        return {"prompt": f"Selesaikan y′ = {C}y², y(0) = 1/{a}, lalu hitung y({b}).", "correct": n(val),
+                "distractors": [n(Fr(1, a + c * b)), n(Fr(1, a) + b), n(Fr(1, a - b)) if c > 1 else n(Fr(b, a)), n(val * 2)],
+                "steps": [f"dy/y² = {C}dx ⇒ −1/y = {C}x + K.", f"y(0) = 1/{a} ⇒ K = −{a} ⇒ y = 1/({a} − {C}x).", f"y({b}) = 1/{a - c * b} = <b>{n(val)}</b>."],
                 "explanation": "PD nonlinear bisa memiliki solusi yang ‘meledak’ dalam waktu terbatas."}
-    return {"prompt": f"Solusi y′ = y², y(0) = 1/{a} hanya terdefinisi pada interval …", "correct": f"x &lt; {a}",
-            "distractors": [f"x &gt; {a}", "semua bilangan real", f"x &lt; 1/{a}", f"−{a} &lt; x &lt; {a}"],
-            "steps": [f"y = 1/({a} − x).", f"y → ∞ saat x → {a}⁻ (solusi meledak).", f"Interval kontinu yang memuat x = 0: <b>x &lt; {a}</b>."],
-            "graphs": [g2d("Solusi meledak: y = 1/(a − x)", [-2, a + 2], [0, 10], [param("aa", "a", 1, 6, 0.5, a, "a")],
-                           [fn("1/(aa-x)", "red", "y"), {"type": "vline", "x": "aa", "color": "gray", "dash": True}], None,
+    T = Fr(a, c)
+    return {"prompt": f"Solusi y′ = {C}y², y(0) = 1/{a} hanya terdefinisi pada interval …", "correct": f"x &lt; {n(T)}",
+            "distractors": [f"x &gt; {n(T)}", "semua bilangan real", f"x &lt; 1/{a}", f"−{n(T)} &lt; x &lt; {n(T)}"],
+            "steps": [f"y = 1/({a} − {C}x).", f"y → ∞ saat x → {n(T)}⁻ (solusi meledak).", f"Interval kontinu yang memuat x = 0: <b>x &lt; {n(T)}</b>."],
+            "graphs": [g2d("Solusi meledak: y = 1/(a − cx)", [-2, float(T) + 2], [0, 10], [param("aa", "a", 1, 9, 0.5, a, "a")],
+                           [fn(f"1/(aa-{c}*x)", "red", "y"), {"type": "vline", "x": f"aa/{c}", "color": "gray", "dash": True}], None,
                            "Semakin kecil y(0), semakin lama sebelum meledak.")],
             "explanation": "Interval keberadaan solusi bergantung pada syarat awal."}
 
@@ -273,28 +300,36 @@ def rc(rng, tier):
 # ════════════════════════ Topik 4: Model PD ════════════════════════════════
 @register("pdm.bunga", MD, (1, 2))
 def bunga(rng, tier):
-    r = rng.choice([2, 4, 5, 8, 10])
+    r = rng.randint(1, 12)
+    k = f"{r / 100:g}".replace(".", ",")
     if tier == 1:
-        correct = f"A = A₀e<sup>{n(Fr(r, 100))}t</sup>"
-        return {"prompt": f"Tabungan bertambah dengan bunga kontinu {r}% per tahun: A′ = {n(Fr(r, 100))}A. Solusinya adalah …", "correct": correct,
-                "distractors": [f"A = A₀(1 + {n(Fr(r, 100))}t)", f"A = A₀ + e<sup>{n(Fr(r, 100))}t</sup>", f"A = A₀e<sup>{r}t</sup>", f"A = {n(Fr(r, 100))}A₀t"],
-                "steps": ["A′ = kA ⇒ A = A₀e<sup>kt</sup>.", f"k = {n(Fr(r, 100))}: <b>{correct}</b>."], "explanation": "Pertumbuhan eksponensial: laju ∝ besaran."}
-    correct = f"t = ln 2 / {r / 100:g} ≈ {math.log(2) * 100 / r:.1f} tahun".replace(".", ",")
-    return {"prompt": f"Dengan bunga kontinu {r}% per tahun, berapa lama tabungan menjadi dua kali lipat?", "correct": correct,
-            "distractors": [f"t = {100 // r} tahun", f"t = 2/{r / 100:g} tahun".replace(".", ","), f"t = ln {r} tahun", f"t = {r / 100:g}·ln 2 tahun".replace(".", ",")],
-            "steps": ["2A₀ = A₀e<sup>kt</sup> ⇒ t = ln 2/k.", f"<b>{correct}</b> (aturan 70: ≈ 70/{r})."], "explanation": "Waktu ganda = ln 2 / k."}
+        A0 = rng.choice([100, 500, 1000, 2000, 5000, 10000])
+        correct = f"A = {A0}e<sup>{k}t</sup>"
+        return {"prompt": f"Tabungan USD {A0} bertambah dengan bunga kontinu {r}% per tahun: A′ = {k}A. Solusinya adalah …", "correct": correct,
+                "distractors": [f"A = {A0}(1 + {k}t)", f"A = {A0} + e<sup>{k}t</sup>", f"A = {A0}e<sup>{r}t</sup>", f"A = {k}·{A0}t"],
+                "steps": ["A′ = kA ⇒ A = A₀e<sup>kt</sup>.", f"k = {k}, A₀ = {A0}: <b>{correct}</b>."], "explanation": "Pertumbuhan eksponensial: laju ∝ besaran."}
+    m = rng.choice([2, 3, 4, 10])
+    yrs = math.log(m) * 100 / r
+    word = {2: "dua kali lipat", 3: "tiga kali lipat", 4: "empat kali lipat", 10: "sepuluh kali lipat"}[m]
+    correct = f"t = ln {m}/{k} ≈ {yrs:.1f} tahun".replace(".", ",")
+    return {"prompt": f"Dengan bunga kontinu {r}% per tahun, berapa lama tabungan menjadi {word}?", "correct": correct,
+            "distractors": [f"t = {m}/{k} tahun", f"t = {k}·ln {m} tahun", f"t = ln {m} tahun", f"t = {m - 1}/{k} tahun"],
+            "steps": [f"{m}A₀ = A₀e<sup>kt</sup> ⇒ t = ln {m}/k.", f"<b>{correct}</b>." + (f" (aturan 70: ≈ 70/{r})" if m == 2 else "")],
+            "explanation": "Waktu kelipatan m = ln m / k."}
 
 
 @register("pdm.peluruhan", MD, (1, 2, 3))
 def peluruhan(rng, tier):
-    h = rng.choice([5, 8, 10, 20, 30])
+    h = rng.choice([2, 3, 4, 5, 6, 8, 10, 12, 15, 20, 25, 30, 40, 50])
     if tier == 1:
-        correct = f"k = ln 2 / {h}"
-        return {"prompt": f"Zat meluruh menurut y′ = −ky dengan waktu paruh {h} tahun. Nilai k adalah …", "correct": correct,
-                "distractors": [f"k = {h}/ln 2", f"k = 1/{h}", f"k = ln {h}/2", f"k = 2/{h}"],
-                "steps": [f"y = y₀e<sup>−kt</sup>; saat t = {h}: 1/2 = e<sup>−{h}k</sup>.", f"<b>{correct}</b>."], "explanation": "k = ln 2 / waktu paruh."}
-    m0 = rng.choice([100, 200, 400, 800])
-    p = rng.randint(1, 3) if tier == 2 else rng.randint(2, 4)
+        m = rng.choice([2, 2, 3, 4])
+        frac = {2: "setengah (waktu paruh)", 3: "sepertiga", 4: "seperempat"}[m]
+        correct = f"k = ln {m}/{h}"
+        return {"prompt": f"Zat meluruh menurut y′ = −ky dan tersisa {frac} setelah {h} tahun. Nilai k adalah …", "correct": correct,
+                "distractors": [f"k = {h}/ln {m}", f"k = 1/({m}·{h})", f"k = ln {h}/{m}", f"k = {m}/{h}"],
+                "steps": [f"y = y₀e<sup>−kt</sup>; saat t = {h}: 1/{m} = e<sup>−{h}k</sup>.", f"−{h}k = −ln {m} ⇒ <b>{correct}</b>."], "explanation": "k = ln m / waktu tersisa 1/m."}
+    m0 = rng.choice([60, 80, 100, 120, 160, 200, 240, 300, 400, 500, 640, 800, 1000])
+    p = rng.randint(1, 3) if tier == 2 else rng.randint(2, 5)
     t = h * p
     val = Fr(m0, 2 ** p)
     return {"prompt": f"Massa awal {m0} g, waktu paruh {h} tahun, y′ = −ky. Berapa massa setelah {t} tahun?", "correct": f"{n(val)} g",

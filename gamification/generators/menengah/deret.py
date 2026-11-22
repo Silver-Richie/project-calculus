@@ -7,7 +7,7 @@ from fractions import Fraction as Fr
 import math
 
 from .. import register
-from ..fmt import MINUS, n, paren, sup
+from ..fmt import MINUS, fac, lin, n, paren, sqrt_simplify, sup, surd, terms, times
 from ..graphs import fn, g2d, hline, param, pt, readout
 from ..precalc.common import distinct, nz
 
@@ -66,43 +66,118 @@ def bs_limit(rng, tier):
             "explanation": "Limit barisan = limit fungsi f(x) untuk x → ∞ bila aₙ = f(n)."}
 
 
+def quad_root(k, D):
+    """(k + √D)/2 disederhanakan (D bukan kuadrat sempurna)."""
+    c, r = sqrt_simplify(D)
+    if k % 2 == 0 and c % 2 == 0:
+        return f"{n(k // 2)} + {surd(c // 2, r)}" if k else surd(c // 2, r)
+    return f"({n(k)} + {surd(c, r)})/2"
+
+
+def quad_root_minus(k, D):
+    c, r = sqrt_simplify(D)
+    if k % 2 == 0 and c % 2 == 0:
+        return f"{n(k // 2)} − {surd(c // 2, r)}"
+    return f"({n(k)} − {surd(c, r)})/2"
+
+
+def _iterate(f, a1, steps=400):
+    a = a1
+    for _ in range(steps):
+        a = f(a)
+    return a
+
+
 @register("bs.rekursif", BS, (2, 3, 4, 5))
 def rekursif(rng, tier):
     if tier <= 3:
-        m = rng.randint(2, 6)
-        c = m * (m - 1)
-        prompt = f"a₁ = 1, aₙ₊₁ = √({c} + aₙ). Barisan ini naik dan terbatas. Berapa limitnya?"
-        correct = n(m)
-        steps = ["Misal limit L: L = √(" + str(c) + " + L) ⇒ L² − L − " + str(c) + " = 0.", f"(L − {m})(L + {m - 1}) = 0 ⇒ L = {m} (L &gt; 0).", f"<b>{m}</b>."]
-        wrong = [n(m - 1), n(c), "∞", n(m + 1)]
-        js = None
-    elif tier == 4:
-        s = rng.randint(2, 9)
-        c = s * s
-        prompt = f"Barisan Newton aₙ₊₁ = (aₙ + {c}/aₙ)/2 dengan a₁ = 1 konvergen ke …"
-        correct = n(s)
-        steps = [f"Limit L memenuhi L = (L + {c}/L)/2 ⇒ L² = {c}.", f"a₁ &gt; 0 ⇒ semua suku positif ⇒ L = <b>{s}</b> (metode Newton untuk √{c}, Fasilkom)."]
-        wrong = [n(c), n(Fr(c, 2)), "1", n(s + 1)]
+        # aₙ₊₁ = √(c + d·aₙ): titik tetap L² = c + dL, dipilih L bulat > d sehingga c > 0
+        d = rng.randint(1, 2) if tier == 2 else rng.randint(1, 4)
+        L = rng.randint(d + 1, d + 7)
+        c, a1 = L * L - d * L, rng.randint(0, L - 1)
+        dtxt = "" if d == 1 else str(d)
+        prompt = f"a₁ = {a1}, aₙ₊₁ = √({c} + {dtxt}aₙ). Barisan ini naik dan terbatas. Berapa limitnya?"
+        steps = [f"Misal limit L: L = √({c} + {dtxt}L) ⇒ L² − {dtxt}L − {c} = 0.".replace("− 1L", "− L"),
+                 f"(L − {L})(L + {L - d}) = 0 ⇒ L = {L} (akar lain negatif, padahal semua suku ≥ 0).", f"<b>{L}</b>."]
+        return {"prompt": prompt, "correct": n(L), "distractors": [n(d - L), n(L + 1), n(c), n(L - 1), "∞"], "steps": steps,
+                "explanation": "Teorema barisan monoton: monoton & terbatas ⇒ konvergen; limit didapat dari persamaan titik tetap."}
+    if tier == 4:
+        kind = rng.choice(["mobius", "mobius", "newton"])
+        if kind == "newton":
+            s, a1 = rng.randint(2, 12), rng.randint(1, 4)
+            c = s * s
+            prompt = f"Barisan Newton aₙ₊₁ = (aₙ + {c}/aₙ)/2 dengan a₁ = {a1} konvergen ke …"
+            steps = [f"Limit L memenuhi L = (L + {c}/L)/2 ⇒ L² = {c}.", f"a₁ &gt; 0 ⇒ semua suku positif ⇒ L = <b>{s}</b> (metode Newton untuk √{c})."]
+            return {"prompt": prompt, "correct": n(s), "distractors": [n(c), n(Fr(c, 2)), n(-s), n(s + 1)], "steps": steps,
+                    "explanation": "Limit barisan rekursif konvergen adalah titik tetap fungsi iterasinya."}
+        # aₙ₊₁ = (p·aₙ + q)/(aₙ + s) dengan titik tetap L (menarik) dan M (menolak)
+        while True:
+            L, M, s = rng.randint(1, 6), rng.randint(-6, 5), rng.randint(1, 6)
+            p, q = s + L + M, -L * M
+            if M == L or abs(s + M) >= abs(s + L) or (s + L) * (s + M) == 0:
+                continue
+            a1 = rng.choice([v for v in range(0, 5) if v != M])
+            try:
+                lim = _iterate(lambda a: (p * a + q) / (a + s), float(a1))
+            except ZeroDivisionError:
+                continue
+            if abs(lim - L) < 1e-9:
+                break
+        num = terms([(p, "aₙ")], q)
+        fl = lambda r: "L" if r == 0 else f"(L {MINUS if r > 0 else '+'} {abs(r)})"
+        prompt = f"Barisan aₙ₊₁ = ({num})/(aₙ + {s}) dengan a₁ = {a1} diketahui konvergen. Berapa limitnya?"
+        steps = [f"Limit L memenuhi L = ({terms([(p, 'L')], q)})/(L + {s}) ⇒ L² + {s}L = {terms([(p, 'L')], q)}.",
+                 f"{terms([(1, 'L²'), (s - p, 'L')], -q)} = 0 ⇒ {fl(M) + fl(L) if M == 0 else fl(L) + fl(M)} = 0 ⇒ L = {L} atau L = {n(M)}.",
+                 f"Titik tetap yang menarik adalah yang memenuhi |f′(L)| &lt; 1: f′(x) = {(s + L) * (s + M)}/(x + {s})², |f′({L})| = {n(Fr(abs(s + M), s + L))} &lt; 1, sedangkan |f′({n(M)})| = {n(Fr(abs(s + L), abs(s + M))) if s + M else '∞'} &gt; 1.",
+                 f"Jadi limitnya <b>{L}</b>."]
+        return {"prompt": prompt, "correct": n(L), "distractors": [n(M), n(L + 1), n(p), "divergen"], "steps": steps,
+                "explanation": "Barisan rekursif aₙ₊₁ = f(aₙ) konvergen ke titik tetap yang menarik (|f′(L)| < 1)."}
+    # tier 5: limit irasional berbentuk (k + √D)/2
+    if rng.random() < 0.5:
+        while True:
+            k, m = rng.randint(1, 5), rng.randint(1, 8)
+            D = k * k + 4 * m
+            if math.isqrt(D) ** 2 != D:
+                break
+        prompt = f"aₙ₊₁ = {k} + {m}/aₙ, a₁ = 1. Barisan ini konvergen. Limitnya adalah …"
+        steps = [f"L = {k} + {m}/L ⇒ L² − {k}L − {m} = 0.".replace(" 1L", " L"), f"L = ({k} ± √{D})/2; semua suku ≥ {k} &gt; 0 sehingga dipilih akar positif.",
+                 f"<b>{quad_root(k, D)}</b>{' (rasio emas φ)' if (k, m) == (1, 1) else ''}."]
     else:
-        prompt = "aₙ₊₁ = 1 + 1/aₙ, a₁ = 1 (1, 2, 3/2, 5/3, …). Limitnya adalah …"
-        correct = "(1 + √5)/2"
-        steps = ["Rasio bilangan Fibonacci berturutan.", "L = 1 + 1/L ⇒ L² − L − 1 = 0.", "L &gt; 0 ⇒ <b>(1 + √5)/2</b> (rasio emas φ)."]
-        wrong = ["(1 − √5)/2", "2", "√5", "3/2"]
-    return {"prompt": prompt, "correct": correct, "distractors": wrong, "steps": steps,
+        while True:
+            c = rng.randint(1, 14)
+            D = 1 + 4 * c
+            if math.isqrt(D) ** 2 != D:
+                break
+        k = 1
+        prompt = f"aₙ₊₁ = √({c} + aₙ), a₁ = 0. Barisan ini naik dan terbatas. Limitnya adalah …"
+        steps = [f"L = √({c} + L) ⇒ L² − L − {c} = 0.", f"L = (1 ± √{D})/2; L ≥ 0 sehingga dipilih akar positif.", f"<b>{quad_root(1, D)}</b>."]
+    correct = quad_root(k, D)
+    c_, r_ = sqrt_simplify(D)
+    return {"prompt": prompt, "correct": correct, "distractors": [quad_root_minus(k, D), surd(c_, r_), f"{n(k)} + {surd(c_, r_)}", n(k + 1)], "steps": steps,
             "explanation": "Teorema barisan monoton: monoton & terbatas ⇒ konvergen; limit didapat dari persamaan titik tetap."}
 
 
 @register("bs.apit", BS, (4, 5))
 def apit(rng, tier):
-    cases = [("sin(n)/n", "0", "−1/n ≤ sin n / n ≤ 1/n dan kedua batas → 0."),
-             ("(−1)ⁿ/n²", "0", "|aₙ| ≤ 1/n² → 0."),
-             ("n!/nⁿ", "0", "n!/nⁿ = (1/n)(2/n)…(n/n) ≤ 1/n → 0."),
-             ("ⁿ√n", "1", "ln ⁿ√n = (ln n)/n → 0 ⇒ ⁿ√n → e⁰ = 1."),
-             ("(2ⁿ + 3ⁿ)<sup>1/n</sup>", "3", "3ⁿ ≤ 2ⁿ + 3ⁿ ≤ 2·3ⁿ ⇒ 3 ≤ aₙ ≤ 2<sup>1/n</sup>·3 → 3.")]
-    term, ans, why = rng.choice(cases if tier == 5 else cases[:4])
-    return {"prompt": f"Hitung lim<sub>n→∞</sub> {term}.", "correct": ans, "distractors": [v for v in ["0", "1", "∞", "tidak ada", "3", "e"] if v != ans],
-            "steps": ["Teorema apit: bn ≤ aₙ ≤ cₙ, bn, cₙ → L ⇒ aₙ → L.", why, f"<b>{ans}</b>."],
-            "explanation": "Teorema apit menangani suku berosilasi atau faktorial."}
+    a, b, c, p = rng.randint(2, 9), rng.randint(1, 9), rng.randint(2, 9), rng.randint(1, 3)
+    ns = "n" if p == 1 else f"n{sup(p)}"
+    x, y = sorted(distinct(rng, 2, 9, 2))
+    z = rng.randint(y + 1, 12)
+    cases = [(f"sin({a}n)/({ns} + {b})", "0", f"−1/({ns} + {b}) ≤ aₙ ≤ 1/({ns} + {b}) dan kedua batas → 0."),
+             (f"{c}·cos(n²)/{ns}", "0", f"|aₙ| ≤ {c}/{ns} → 0."),
+             (f"(−1)ⁿ·{c}/{ns}", "0", f"|aₙ| = {c}/{ns} → 0."),
+             (f"({x}ⁿ + {y}ⁿ)<sup>1/n</sup>", str(y), f"{y}ⁿ ≤ {x}ⁿ + {y}ⁿ ≤ 2·{y}ⁿ ⇒ {y} ≤ aₙ ≤ 2<sup>1/n</sup>·{y} → {y}."),
+             (f"ⁿ√({c}n)", "1", f"ln aₙ = (ln {c} + ln n)/n → 0 ⇒ aₙ → e⁰ = 1."),
+             (f"{c}ⁿ/n!", "0", f"Untuk n &gt; {2 * c}: setiap faktor tambahan {c}/k ≤ 1/2, sehingga aₙ ≤ K·(1/2)ⁿ → 0.")]
+    if tier == 5:
+        cases += [(f"({x}ⁿ + {y}ⁿ + {z}ⁿ)<sup>1/n</sup>", str(z), f"{z}ⁿ ≤ aₙⁿ ≤ 3·{z}ⁿ ⇒ {z} ≤ aₙ ≤ 3<sup>1/n</sup>·{z} → {z}."),
+                  (f"n!/nⁿ", "0", "n!/nⁿ = (1/n)(2/n)…(n/n) ≤ 1/n → 0."),
+                  (f"(n{sup(p + 1)} + {c})<sup>1/n</sup>", "1", f"1 ≤ aₙ ≤ (2n{sup(p + 1)})<sup>1/n</sup> = 2<sup>1/n</sup>(ⁿ√n){sup(p + 1)} → 1."),
+                  (f"({y}ⁿ + n{sup(p)})<sup>1/n</sup>", str(y), f"{y}ⁿ ≤ aₙⁿ ≤ 2·{y}ⁿ untuk n besar (eksponensial mengalahkan polinom) ⇒ aₙ → {y}.")]
+    term, ans, why = rng.choice(cases)
+    return {"prompt": f"Hitung lim<sub>n→∞</sub> {term}.", "correct": ans, "distractors": [v for v in ["0", "1", "∞", "tidak ada", str(x), str(x + y), "e"] if v != ans],
+            "steps": ["Teorema apit: bₙ ≤ aₙ ≤ cₙ dan bₙ, cₙ → L ⇒ aₙ → L.", why, f"<b>{ans}</b>."],
+            "explanation": "Teorema apit menangani suku berosilasi, faktorial, dan akar ke-n."}
 
 
 # ════════════════════════ Topik 2: Deret geometri & teleskopik ═════════════
@@ -136,24 +211,48 @@ def dg_konvergen(rng, tier):
             "steps": [f"r = x/{k}; konvergen ⇔ |x/{k}| &lt; 1 ⇔ |x| &lt; {k}.", f"Jumlah 1/(1 − x/{k}) = {k}/({k} − x)."], "explanation": "Deret geometri dengan rasio bergantung x adalah deret pangkat pertama."}
 
 
+def _fac(a, b, var="n"):
+    s = lin(a, b, var)
+    return s if s == var else f"({s})"
+
+
 @register("dg.teleskopik", GM, (2, 3, 4, 5))
 def teleskopik(rng, tier):
+    c = rng.randint(1, 6)
+    if tier == 5 and rng.random() < 0.6:
+        if rng.random() < 0.5:
+            k = rng.randint(1, 4)
+            n0 = k + 1
+            val = Fr(c, 2 * k) * sum(Fr(1, j) for j in range(1, 2 * k + 1))
+            prompt = f"Hitung Σ<sub>n={n0}</sub><sup>∞</sup> {c}/(n² − {k * k})."
+            steps = [f"n² − {k * k} = (n − {k})(n + {k}) ⇒ {c}/(n² − {k * k}) = ({n(Fr(c, 2 * k))})[1/(n − {k}) − 1/(n + {k})].",
+                     f"Suku positif 1/(n − {k}) memuat 1, 1/2, 1/3, …; suku negatif 1/(n + {k}) memuat 1/{2 * k + 1}, 1/{2 * k + 2}, … — yang tersisa 1 + 1/2 + … + 1/{2 * k}.",
+                     f"Σ = ({n(Fr(c, 2 * k))})(1 + 1/2 + … + 1/{2 * k}) = <b>{n(val)}</b>."]
+            first = Fr(c, 2 * k)
+        else:
+            n0 = rng.randint(1, 4)
+            val = Fr(c, 2 * n0 * (n0 + 1))
+            prompt = f"Hitung Σ<sub>n={n0}</sub><sup>∞</sup> {c}/(n(n + 1)(n + 2))."
+            steps = ["1/(n(n + 1)(n + 2)) = (1/2)[1/(n(n + 1)) − 1/((n + 1)(n + 2))] — selisih dua suku berurutan.",
+                     f"Teleskopik: tersisa (1/2)·1/({n0}·{n0 + 1}).", f"Dikali {c}: <b>{n(val)}</b>."]
+            first = Fr(c, n0 * (n0 + 1))
+        return {"prompt": prompt, "correct": n(val), "distractors": [n(val * 2), n(first), "divergen", n(val / 2), n(val + 1)], "steps": steps,
+                "explanation": "Deret teleskopik: tulis suku sebagai selisih, sebagian besar suku saling menghapus."}
     if tier <= 3:
-        k = rng.randint(1, 3)
-        val = Fr(1, k) * sum(Fr(1, j) for j in range(1, k + 1))
-        prompt = f"Hitung Σ<sub>n=1</sub><sup>∞</sup> 1/(n(n + {k}))." if k > 1 else "Hitung Σ<sub>n=1</sub><sup>∞</sup> 1/(n(n + 1))."
-        steps = [f"1/(n(n + {k})) = (1/{k})[1/n − 1/(n + {k})].", f"Teleskopik: tersisa (1/{k})(1 + 1/2 + … + 1/{k}).", f"= <b>{n(val)}</b>."]
-    elif tier == 4:
-        val = Fr(1, 2)
-        prompt = "Hitung Σ<sub>n=1</sub><sup>∞</sup> 1/((2n − 1)(2n + 1))."
-        steps = ["= (1/2)[1/(2n − 1) − 1/(2n + 1)].", "Teleskopik: (1/2)(1 − 0).", "<b>1/2</b>."]
+        a, b, k, n0 = 1, rng.randint(0, 1 if tier == 2 else 3), rng.randint(1, 2 if tier == 2 else 3), rng.randint(1, 2)
     else:
-        val = Fr(3, 2)
-        prompt = "Hitung Σ<sub>n=2</sub><sup>∞</sup> 2/(n² − 1)."
-        steps = ["2/(n² − 1) = 1/(n − 1) − 1/(n + 1).", "Jumlah parsial: (1 − 1/3) + (1/2 − 1/4) + (1/3 − 1/5) + … — yang tidak terhapus hanya 1 dan 1/2.",
-                 "Σ = 1 + 1/2 = <b>3/2</b>."]
-    return {"prompt": prompt, "correct": n(val), "distractors": [n(val * 2), "1", "divergen", n(val / 2)], "steps": steps,
-            "explanation": "Deret teleskopik: tulis suku sebagai selisih, sebagian besar suku saling menghapus."}
+        a, k, n0 = rng.choice([2, 3]), rng.randint(1, 2), 1
+        b = rng.choice([v for v in (-1, 1, 2) if a + v >= 1 and math.gcd(a, abs(v)) == 1])
+    # c/((an + b)(a(n + k) + b)) = (c/(ak))[1/(an + b) − 1/(a(n + k) + b)]
+    lead = Fr(c, a * k)
+    left = [a * (n0 + j) + b for j in range(k)]
+    val = lead * sum(Fr(1, v) for v in left)
+    prompt = f"Hitung Σ<sub>n={n0}</sub><sup>∞</sup> {c}/({_fac(a, b)}{_fac(a, b + a * k)})."
+    steps = [f"Pecahan parsial: {c}/({_fac(a, b)}{_fac(a, b + a * k)}) = ({n(lead)})[1/{_fac(a, b)} − 1/{_fac(a, b + a * k)}] (selisih penyebut {a * k}).",
+             f"Suku positif 1/{_fac(a, b)} mulai dari n = {n0} tidak terhapus untuk {k} suku pertama: {' + '.join(f'1/{v}' if v != 1 else '1' for v in left)}.",
+             f"Σ = ({n(lead)})({' + '.join(f'1/{v}' if v != 1 else '1' for v in left)}) = <b>{n(val)}</b>."]
+    return {"prompt": prompt, "correct": n(val), "distractors": [n(val * a * k) if a * k > 1 else n(val * 2), n(lead * Fr(1, left[0])) if k > 1 else n(val / 2), "divergen", n(val + 1), n(val * 2)],
+            "steps": steps, "explanation": "Deret teleskopik: tulis suku sebagai selisih, sebagian besar suku saling menghapus."}
 
 
 @register("dg.desimal", GM, (2, 3))
@@ -181,27 +280,43 @@ def pantulan(rng, tier):
 # ════════════════════════ Topik 3: Uji kekonvergenan ═══════════════════════
 @register("du.divergensi", UJ, (1, 2))
 def divergensi(rng, tier):
-    k = rng.randint(1, 5)
-    term, ans = rng.choice([(f"n/(n + {k})", "divergen (suku → 1 ≠ 0)"), (f"({k}n² + 1)/(n² + {k})", f"divergen (suku → {k} ≠ 0)"),
-                            ("cos(1/n)", "divergen (suku → 1 ≠ 0)"), (f"(1 + 1/n)ⁿ", "divergen (suku → e ≠ 0)")])
+    a, b, c, k = rng.randint(1, 9), rng.randint(0, 9), rng.randint(1, 5), rng.randint(1, 5)
+    L = n(Fr(a, c))
+    cases = [(f"({terms([(a, 'n')], b)})/({terms([(c, 'n')], k)})", L), (f"({a}n² + 1)/({c}n² + n)", L),
+             (f"cos({k}/n)", "1"), (f"(1 + {k}/n)ⁿ".replace("(1 + 1/n)", "(1 + 1/n)"), "e" if k == 1 else f"e{sup(k)}"),
+             (f"n·sin({k}/n)", str(k)), (f"ⁿ√{a + 1}", "1"), (f"arctan({k}n)", "π/2")]
+    term, lim = rng.choice(cases)
+    ans = f"divergen (suku → {lim} ≠ 0)"
     return {"prompt": f"Apa kesimpulan uji suku ke-n untuk Σ {term}?", "correct": ans,
-            "distractors": ["konvergen (suku menuju 0)", "uji tidak dapat menyimpulkan", "konvergen mutlak", "konvergen bersyarat"],
-            "steps": ["Uji divergensi: jika lim aₙ ≠ 0 maka Σ aₙ divergen.", f"Suku {term} tidak menuju 0.", f"<b>{ans}</b>. (Catatan: aₙ → 0 saja tidak menjamin konvergen, contoh Σ 1/n.)"],
+            "distractors": ["konvergen (suku menuju 0)", "uji tidak dapat menyimpulkan", "konvergen mutlak", f"konvergen ke {lim}"],
+            "steps": ["Uji divergensi: jika lim aₙ ≠ 0 maka Σ aₙ divergen.", f"lim {term} = {lim} ≠ 0.", f"<b>{ans}</b>. (Catatan: aₙ → 0 saja tidak menjamin konvergen, contoh Σ 1/n.)"],
             "explanation": "Syarat perlu konvergen: aₙ → 0."}
 
 
 @register("du.p_deret", UJ, (1, 2, 3))
 def p_deret(rng, tier):
-    p = rng.choice([Fr(2), Fr(3), Fr(1, 2), Fr(1), Fr(3, 2), Fr(4, 3), Fr(2, 3)])
-    conv = p > 1
-    ans = "konvergen" if conv else "divergen"
+    p = rng.choice([Fr(2), Fr(3), Fr(1, 2), Fr(1), Fr(3, 2), Fr(4, 3), Fr(2, 3), Fr(5, 2), Fr(1, 3), Fr(5, 4)])
+    c, k = rng.randint(1, 9), rng.randint(1, 9)
     if tier == 1:
-        prompt = f"Apakah deret-p Σ 1/n<sup>{n(p)}</sup> konvergen?"
-        why = f"p = {n(p)} {'&gt;' if conv else '≤'} 1."
-    else:
-        c = rng.randint(1, 9)
-        prompt = f"Apakah Σ {c}/(n<sup>{n(p)}</sup> + {c}) konvergen?"
+        conv = p > 1
+        prompt = f"Apakah deret Σ {c}/n<sup>{n(p)}</sup> konvergen?"
+        why = f"Konstanta {c} tidak memengaruhi konvergensi; p = {n(p)} {'&gt;' if conv else '≤'} 1."
+    elif tier == 2:
+        conv = p > 1
+        prompt = f"Apakah Σ {c}/(n<sup>{n(p)}</sup> + {k}) konvergen?"
         why = f"Untuk n besar suku ≈ {c}/n<sup>{n(p)}</sup>; uji banding limit dengan deret-p, p = {n(p)} {'&gt;' if conv else '≤'} 1."
+    else:
+        if rng.random() < 0.5:
+            r, s = rng.randint(0, 3), rng.randint(1, 5)
+            q = s - r
+            conv = q > 1
+            prompt = f"Apakah Σ {'n' if r == 1 else f'n{sup(r)}' if r else '1'}/(n{sup(s) if s > 1 else ''} + {k}) konvergen?"
+            why = f"Suku ≈ n{sup(r) if r > 1 else '' if r else '⁰'}/n{sup(s) if s > 1 else ''} = 1/n{sup(q) if q != 1 else ''}: deret-p dengan p = {q} {'&gt;' if conv else '≤'} 1.".replace("n⁰", "1")
+        else:
+            conv = p > 1
+            prompt = f"Apakah Σ<sub>n≥2</sub> 1/(n (ln n)<sup>{n(p)}</sup>) konvergen?"
+            why = f"Uji integral: u = ln x mengubah ∫ dx/(x (ln x)ᵖ) menjadi ∫ du/uᵖ — konvergen ⇔ p &gt; 1; p = {n(p)}."
+    ans = "konvergen" if conv else "divergen"
     return {"prompt": prompt, "correct": ans, "distractors": ["divergen" if conv else "konvergen", "konvergen ke 1", "tidak dapat ditentukan"],
             "steps": ["Deret-p Σ 1/nᵖ konvergen ⇔ p &gt; 1 (uji integral: ∫₁^∞ x⁻ᵖ dx).", why, f"<b>{ans}</b>."],
             "graphs": [g2d("Jumlah parsial Σ 1/nᵖ", [0, 60], [0, 8], [param("pp", "p", 0.5, 3, 0.05, float(p), "p")],
@@ -245,19 +360,28 @@ def du_banding(rng, tier):
 
 @register("du.alternating", UJ, (4, 5))
 def alternating(rng, tier):
-    p = rng.choice([Fr(1), Fr(1, 2), Fr(2), Fr(3, 2), Fr(1, 3)])
-    if p > 1:
-        ans = "konvergen mutlak"
-    else:
-        ans = "konvergen bersyarat"
     if tier == 5 and rng.random() < 0.4:
-        return {"prompt": "Berapa jumlah deret harmonik bergantian 1 − 1/2 + 1/3 − 1/4 + …?", "correct": "ln 2",
-                "distractors": ["1", "1/2", "divergen", "π/4"],
-                "steps": ["Deret Maclaurin ln(1 + x) = x − x²/2 + x³/3 − … berlaku untuk −1 &lt; x ≤ 1.", "Substitusi x = 1 ⇒ jumlah <b>ln 2</b>.",
-                          "Deret ini konvergen bersyarat: menyusun ulang suku dapat mengubah jumlahnya (teorema Riemann)."],
+        k = rng.randint(1, 9)
+        if k == 1:
+            prompt, correct = "Berapa jumlah deret harmonik bergantian 1 − 1/2 + 1/3 − 1/4 + …?", "ln 2"
+        else:
+            prompt, correct = f"Berapa jumlah Σ<sub>n≥1</sub> (−1)ⁿ⁺¹/(n·{k}ⁿ)?", f"ln({k + 1}/{k})"
+        return {"prompt": prompt, "correct": correct, "distractors": ["1", f"ln {k + 1}", "divergen", f"1/{k + 1}", "π/4"],
+                "steps": ["Deret Maclaurin ln(1 + x) = x − x²/2 + x³/3 − … berlaku untuk −1 &lt; x ≤ 1.", f"Substitusi x = {'1' if k == 1 else f'1/{k}'} ⇒ jumlah <b>{correct}</b>.",
+                          "Untuk x = 1 deret konvergen bersyarat: menyusun ulang suku dapat mengubah jumlahnya (teorema Riemann)."],
                 "explanation": "Deret bergantian bisa konvergen walau deret nilai mutlaknya divergen."}
-    return {"prompt": f"Klasifikasikan deret Σ (−1)ⁿ/n<sup>{n(p)}</sup>.", "correct": ans, "distractors": [v for v in ["konvergen mutlak", "konvergen bersyarat", "divergen", "konvergen ke 0"] if v != ans],
-            "steps": ["Uji deret bergantian: bₙ = 1/nᵖ turun dan → 0 ⇒ deret konvergen.", f"Σ |aₙ| = Σ 1/nᵖ dengan p = {n(p)}: {'konvergen' if p > 1 else 'divergen'}.",
+    r, s, k = rng.randint(0, 2), rng.randint(1, 4), rng.randint(1, 9)
+    q = Fr(s - r) if rng.random() < 0.6 else rng.choice([Fr(1, 2), Fr(3, 2), Fr(1, 3), Fr(5, 2)])
+    if q.denominator == 1 and rng.random() < 0.6:
+        num = "n" if r == 1 else f"n{sup(r)}" if r else "1"
+        term = f"(−1)ⁿ·{num}/(n{sup(s) if s > 1 else ''} + {k})"
+        q = Fr(s - r)
+    else:
+        term = f"(−1)ⁿ·{k}/n<sup>{n(q)}</sup>"
+    ans = "konvergen mutlak" if q > 1 else "konvergen bersyarat" if q > 0 else "divergen"
+    return {"prompt": f"Klasifikasikan deret Σ {term}.", "correct": ans, "distractors": [v for v in ["konvergen mutlak", "konvergen bersyarat", "divergen", "konvergen ke 0"] if v != ans],
+            "steps": [f"|aₙ| berperilaku seperti 1/n<sup>{n(q)}</sup>.",
+                      "q ≤ 0: suku tidak menuju 0 ⇒ divergen." if q <= 0 else f"Uji deret bergantian: |aₙ| akhirnya turun dan → 0 ⇒ Σ aₙ konvergen; Σ |aₙ| deret-p dengan p = {n(q)}: {'konvergen' if q > 1 else 'divergen'}.",
                       f"<b>{ans}</b>."],
             "explanation": "Mutlak: Σ|aₙ| konvergen. Bersyarat: Σ aₙ konvergen tetapi Σ|aₙ| divergen."}
 
@@ -265,31 +389,46 @@ def alternating(rng, tier):
 # ════════════════════════ Topik 4: Deret pangkat & Taylor ══════════════════
 @register("dp.dikenal", PW, (1, 2))
 def dikenal(rng, tier):
-    cases = [("Σ xⁿ/n!", "eˣ"), ("Σ (−1)ⁿx²ⁿ⁺¹/(2n + 1)!", "sin x"), ("Σ (−1)ⁿx²ⁿ/(2n)!", "cos x"), ("Σ xⁿ (|x| &lt; 1)", "1/(1 − x)"),
-             ("Σ (−1)ⁿ⁺¹xⁿ/n (n ≥ 1)", "ln(1 + x)")]
-    series, f = rng.choice(cases if tier == 2 else cases[:4])
-    return {"prompt": f"Deret Maclaurin {series} adalah ekspansi dari fungsi …", "correct": f, "distractors": [c[1] for c in cases if c[1] != f],
-            "steps": ["Hafalkan deret Maclaurin dasar: eˣ, sin x, cos x, 1/(1 − x), ln(1 + x).", f"<b>{f}</b>."],
+    a = rng.randint(1, 5)
+    ax = "x" if a == 1 else f"{a}x"
+    A = "x" if a == 1 else f"({a}x)"
+    cases = [(f"Σ {A}ⁿ/n!", f"e<sup>{ax}</sup>" if a > 1 else "eˣ"), (f"Σ (−1)ⁿ{A}<sup>2n+1</sup>/(2n + 1)!", f"sin({ax})" if a > 1 else "sin x"),
+             (f"Σ (−1)ⁿ{A}<sup>2n</sup>/(2n)!", f"cos({ax})" if a > 1 else "cos x"), (f"Σ {A}ⁿ (|x| &lt; {n(Fr(1, a))})", f"1/(1 − {ax})")]
+    if tier == 2:
+        cases += [(f"Σ (−1)ⁿ{A}<sup>2n</sup> (|x| &lt; {n(Fr(1, a))})", f"1/(1 + {a * a if a > 1 else ''}x²)"),
+                  (f"Σ<sub>n≥1</sub> (−1)ⁿ⁺¹{A}ⁿ/n", f"ln(1 + {ax})"), (f"Σ xⁿ⁺{a}/n!", f"x{sup(a) if a > 1 else ''}eˣ")]
+    series, f = rng.choice(cases)
+    return {"prompt": f"Deret Maclaurin {series} adalah ekspansi dari fungsi …", "correct": f, "distractors": [c[1] for c in cases if c[1] != f] + [f"e<sup>−{ax}</sup>"],
+            "steps": ["Hafalkan deret Maclaurin dasar: eᵘ, sin u, cos u, 1/(1 − u), ln(1 + u).", f"Di sini u = {ax} (substitusi ke deret baku): <b>{f}</b>."],
             "graphs": [g2d("Polinom Taylor menghampiri eˣ", [-3, 3], [-2, 12], [param("N", "derajat N", 0, 10, 1, 3, "N")],
                            [fn("exp(x)", "blue", "eˣ"), fn("sum(0,N,k=>pow(x,k)/fact(k))", "red", "Tₙ(x)", dash=True)], None, "Naikkan N: polinom makin berimpit dengan eˣ.")],
-            "explanation": "f(x) = Σ f⁽ⁿ⁾(0)xⁿ/n! (Maclaurin)."}
+            "explanation": "f(x) = Σ f⁽ⁿ⁾(0)xⁿ/n! (Maclaurin); substitusi u = ax memberi deret baru tanpa menurunkan ulang."}
 
 
 @register("dp.jari_jari", PW, (1, 2, 3))
 def jari_jari(rng, tier):
-    c = rng.randint(2, 6)
+    c, k = rng.randint(2, 9), rng.randint(1, 3)
     if tier == 1:
-        term, ans = rng.choice([(f"xⁿ/{c}ⁿ", f"R = {c}"), ("xⁿ/n!", "R = ∞"), ("n!·xⁿ", "R = 0")])
-        steps = ["Uji rasio: |aₙ₊₁xⁿ⁺¹/(aₙxⁿ)| &lt; 1.", f"Hasil: <b>{ans}</b>."]
+        term, ans = rng.choice([(f"xⁿ/{c}ⁿ", f"R = {c}"), ("xⁿ/n!", "R = ∞"), ("n!·xⁿ", "R = 0"), (f"{c}ⁿxⁿ", f"R = 1/{c}"),
+                                (f"n{sup(k) if k > 1 else ''}xⁿ/{c}ⁿ", f"R = {c}"), (f"xⁿ/(n{sup(k) if k > 1 else ''}·{c}ⁿ)", f"R = {c}"), (f"{c}ⁿxⁿ/n!", "R = ∞")])
+        steps = ["Uji rasio: |aₙ₊₁xⁿ⁺¹/(aₙxⁿ)| &lt; 1 (faktor polinom nᵏ tidak memengaruhi R).", f"Hasil: <b>{ans}</b>."]
         prompt = f"Tentukan jari-jari kekonvergenan Σ {term}."
         wrong = [o for o in [f"R = {c}", "R = ∞", "R = 0", "R = 1", f"R = 1/{c}"] if o != ans]
     else:
-        a = rng.randint(-3, 3)
-        ans = f"[{n(a - c)}, {n(a + c)})"
-        prompt = f"Tentukan interval kekonvergenan Σ<sub>n≥1</sub> (x − {paren(a)})ⁿ/(n·{c}ⁿ)."
-        steps = [f"Uji rasio ⇒ |x − {paren(a)}| &lt; {c} ⇒ R = {c}.", f"Ujung x = {n(a + c)}: Σ 1/n (harmonik) divergen.",
-                 f"Ujung x = {n(a - c)}: Σ (−1)ⁿ/n konvergen (bergantian).", f"Interval: <b>{ans}</b>."]
-        wrong = [f"({n(a - c)}, {n(a + c)}]", f"[{n(a - c)}, {n(a + c)}]", f"({n(a - c)}, {n(a + c)})", f"[{n(-c)}, {n(c)})"]
+        a = rng.randint(-4, 4)
+        p = rng.choice([1, 1, 2]) if tier == 3 else 1
+        sign = rng.choice([1, -1]) if tier == 3 else 1
+        lo, hi = a - c, a + c
+        if p == 2:
+            ans, endtxt = f"[{n(lo)}, {n(hi)}]", "Kedua ujung: Σ (±1)ⁿ/n² konvergen mutlak."
+        elif sign == 1:
+            ans, endtxt = f"[{n(lo)}, {n(hi)})", f"Ujung x = {n(hi)}: Σ 1/n divergen; x = {n(lo)}: Σ (−1)ⁿ/n konvergen."
+        else:
+            ans, endtxt = f"({n(lo)}, {n(hi)}]", f"Ujung x = {n(hi)}: Σ (−1)ⁿ/n konvergen; x = {n(lo)}: Σ 1/n divergen."
+        sg = "(−1)ⁿ" if sign < 0 else ""
+        prompt = f"Tentukan interval kekonvergenan Σ<sub>n≥1</sub> {sg}{fac(a)}ⁿ/(n{sup(2) if p == 2 else ''}·{c}ⁿ)."
+        steps = [f"Uji rasio ⇒ |x − {paren(a)}| &lt; {c} ⇒ R = {c}, pusat {n(a)}.", endtxt, f"Interval: <b>{ans}</b>."]
+        wrong = [w for w in [f"({n(lo)}, {n(hi)}]", f"[{n(lo)}, {n(hi)}]", f"({n(lo)}, {n(hi)})", f"[{n(lo)}, {n(hi)})", f"[{n(-c)}, {n(c)})"] if w != ans]
     return {"prompt": prompt, "correct": ans, "distractors": wrong, "steps": steps, "explanation": "Deret pangkat konvergen pada interval berpusat a; ujung diuji terpisah."}
 
 
@@ -318,27 +457,50 @@ def koefisien(rng, tier):
 
 @register("dp.turunan_ke_n", PW, (4, 5))
 def turunan_ke_n(rng, tier):
-    m = rng.randint(1, 3)
+    m, a = rng.randint(1, 3), rng.choice([1, 1, 2, -1, 3])
     k = m + rng.randint(1, 4)
-    # f = x^m e^x = Σ x^{n+m}/n! ⇒ koef x^k = 1/(k − m)! ⇒ f^(k)(0) = k!/(k − m)!
-    val = math.factorial(k) // math.factorial(k - m)
-    return {"prompt": f"Untuk f(x) = x{sup(m) if m > 1 else ''}eˣ, hitung f<sup>({k})</sup>(0) memakai deret Maclaurin.", "correct": n(val),
-            "distractors": [n(math.factorial(k)), n(Fr(1, math.factorial(k - m))), n(val * 2), n(k - m)],
-            "steps": [f"x{sup(m)}eˣ = Σ xⁿ⁺{m}/n!; koefisien x{sup(k)} = 1/({k} − {m})!.", f"f<sup>({k})</sup>(0) = {k}!·(koefisien) = {k}!/{k - m}!.", f"= <b>{val}</b>."],
+    # f = x^m e^{ax} = Σ aⁿ x^{n+m}/n! ⇒ koef x^k = a^{k−m}/(k − m)! ⇒ f^(k)(0) = k!·a^{k−m}/(k − m)!
+    val = math.factorial(k) * a ** (k - m) // math.factorial(k - m)
+    e = "eˣ" if a == 1 else "e⁻ˣ" if a == -1 else f"e<sup>{a}x</sup>"
+    return {"prompt": f"Untuk f(x) = x{sup(m) if m > 1 else ''}{e}, hitung f<sup>({k})</sup>(0) memakai deret Maclaurin.", "correct": n(val),
+            "distractors": [n(math.factorial(k)), n(Fr(a ** (k - m), math.factorial(k - m))), n(val * 2), n(-val) if val else "1"],
+            "steps": [f"x{sup(m) if m > 1 else ''}{e} = Σ {paren(a)}ⁿxⁿ⁺{m}/n!; koefisien x{sup(k)} = {paren(a)}{sup(k - m)}/({k} − {m})!.",
+                      f"f<sup>({k})</sup>(0) = {k}!·(koefisien) = {k}!·{paren(a)}{sup(k - m)}/{k - m}!.", f"= <b>{n(val)}</b>."],
             "explanation": "Koefisien deret Taylor cₖ = f⁽ᵏ⁾(0)/k!."}
 
 
 @register("dp.jumlah_deret", PW, (3, 4, 5))
 def jumlah_deret(rng, tier):
-    k = rng.randint(2, 5)
+    k, c = rng.randint(2, 9), rng.randint(1, 4)
+    C = "" if c == 1 else str(c)
     if tier <= 4:
-        val = Fr(k, (k - 1) ** 2)
-        prompt = f"Hitung Σ<sub>n=1</sub><sup>∞</sup> n/{k}ⁿ."
-        steps = ["Turunkan Σ xⁿ = 1/(1 − x): Σ n xⁿ⁻¹ = 1/(1 − x)², jadi Σ n xⁿ = x/(1 − x)².", f"x = 1/{k}: (1/{k})/(1 − 1/{k})² = <b>{n(val)}</b>."]
+        if tier == 3 or rng.random() < 0.5:
+            val = Fr(c * k, (k - 1) ** 2)
+            prompt = f"Hitung Σ<sub>n=1</sub><sup>∞</sup> {C}n/{k}ⁿ."
+            steps = ["Turunkan Σ xⁿ = 1/(1 − x): Σ n xⁿ = x/(1 − x)².", f"x = 1/{k}: (1/{k})/(1 − 1/{k})² = {n(Fr(k, (k - 1) ** 2))}{f', dikali {c}' if c > 1 else ''} = <b>{n(val)}</b>."]
+        else:
+            val = Fr(c * k * (k + 1), (k - 1) ** 3)
+            prompt = f"Hitung Σ<sub>n=1</sub><sup>∞</sup> {C}n²/{k}ⁿ."
+            steps = ["Turunkan dua kali: Σ n² xⁿ = x(1 + x)/(1 − x)³.", f"x = 1/{k}: = {n(Fr(k * (k + 1), (k - 1) ** 3))}{f', dikali {c}' if c > 1 else ''} = <b>{n(val)}</b>."]
+        correct = n(val)
+        wrong = [n(Fr(c, k - 1)), n(Fr(c * k, k - 1)), "divergen", n(val * 2), n(Fr(c * k * k, (k - 1) ** 2))]
     else:
-        val = None
-        prompt = f"Hitung Σ<sub>n=0</sub><sup>∞</sup> {k}ⁿ/n!."
-        steps = [f"Σ xⁿ/n! = eˣ dengan x = {k}.", f"= <b>e{sup(k)}</b>."]
-    correct = n(val) if val is not None else f"e{sup(k)}"
-    return {"prompt": prompt, "correct": correct, "distractors": [n(Fr(1, k - 1)), n(Fr(k, k - 1)), "divergen", f"e{sup(k - 1)}" if val is None else n(Fr(k * k, (k - 1) ** 2))],
-            "steps": steps, "explanation": "Turunkan/integralkan deret pangkat suku demi suku di dalam jari-jari kekonvergenan."}
+        kind = rng.choice(["exp", "cos", "sin", "ln", "expm1"])
+        if kind == "exp":
+            prompt, correct = f"Hitung Σ<sub>n=0</sub><sup>∞</sup> {C}·{k}ⁿ/n!.".replace("> ·", "> "), f"{C}e{sup(k)}"
+            steps = [f"Σ xⁿ/n! = eˣ dengan x = {k}.", f"= <b>{correct}</b>."]
+        elif kind == "cos":
+            prompt, correct = f"Hitung Σ<sub>n=0</sub><sup>∞</sup> (−1)ⁿ{k}<sup>2n</sup>/(2n)!.", f"cos {k}"
+            steps = [f"Σ (−1)ⁿx<sup>2n</sup>/(2n)! = cos x dengan x = {k}.", f"<b>{correct}</b>."]
+        elif kind == "sin":
+            prompt, correct = f"Hitung Σ<sub>n=0</sub><sup>∞</sup> (−1)ⁿ{k}<sup>2n+1</sup>/(2n + 1)!.", f"sin {k}"
+            steps = [f"Σ (−1)ⁿx<sup>2n+1</sup>/(2n + 1)! = sin x dengan x = {k}.", f"<b>{correct}</b>."]
+        elif kind == "ln":
+            prompt, correct = f"Hitung Σ<sub>n=1</sub><sup>∞</sup> 1/(n·{k}ⁿ).", f"ln({k}/{k - 1})" if k > 2 else "ln 2"
+            steps = ["Σ xⁿ/n = −ln(1 − x) untuk |x| &lt; 1.", f"x = 1/{k}: −ln(1 − 1/{k}) = <b>{correct}</b>."]
+        else:
+            prompt, correct = f"Hitung Σ<sub>n=0</sub><sup>∞</sup> {k}ⁿ/(n + 1)!.", f"(e{sup(k)} − 1)/{k}"
+            steps = [f"Σ xⁿ/(n + 1)! = (1/x)Σ xⁿ⁺¹/(n + 1)! = (eˣ − 1)/x.", f"x = {k}: <b>{correct}</b>."]
+        wrong = [f"e{sup(k)}" if correct != f"e{sup(k)}" else f"e{sup(k + 1)}", f"e{sup(k - 1)}", "divergen", f"cos {k}" if kind != "cos" else f"sin {k}", f"ln {k}"]
+    return {"prompt": prompt, "correct": correct, "distractors": wrong,
+            "steps": steps, "explanation": "Turunkan/integralkan deret pangkat suku demi suku di dalam jari-jari kekonvergenan; kenali deret baku."}

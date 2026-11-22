@@ -5,7 +5,7 @@
  *                  (dipakai Profil, Ranked & duel.js).
  *  - Leaderboard : papan Level (urut total XP), Rank Duel (urut posisi tangga), dan Menang Duel
  *                  (urut jumlah kemenangan), gaya aplikasi (static/css/leaderboard.css): kartu Posisimu,
- *                  podium 3 teratas, daftar #4 dst → "Tampilkan N" → pemain di sekitarmu, dan state seri
+ *                  podium 3 teratas, daftar #4 dst → "Tampilkan N" → pemain di sekitarmu (hanya dalam Top 100), dan state seri
  *                  bila belum ada duel; Rank Duel juga kolom sebaran tier. Cakupan
  *                  Global · Kampusku · Fakultasku (+ Top 100 Apex di tab Rank) dari
  *                  GET /api/peringkat/?board=…&scope=…; 50 teratas + posisimu sendiri.
@@ -17,8 +17,11 @@ const RankBadge = (() => {
   'use strict';
 
   /** Bintang: sub-rank biasa = ★ terisi / ☆ kosong sampai batas; Apex = ★ + angka (tanpa batas). */
+  /** Ambang gelar Apex berikutnya (ranking.APEX_TITLES: Orbit 250, Galaksi 500, Kosmos 1000). */
+  const apexGoal = (ap) => (ap < 250 ? 250 : ap < 500 ? 500 : 1000);
+
   function stars(rank) {
-    if (rank.max_stars == null) return `<span class="rb-stars apex">★ ${rank.stars}</span>`;
+    if (rank.max_stars == null) return `<span class="rb-stars apex">${rank.apex_points ?? 0} AP</span>`;
     return `<span class="rb-stars" aria-label="${rank.stars} dari ${rank.max_stars} bintang">${
       '★'.repeat(rank.stars)}<i>${'☆'.repeat(rank.max_stars - rank.stars)}</i></span>`;
   }
@@ -33,7 +36,7 @@ const RankBadge = (() => {
   function next(rank) {
     if (rank.max_stars == null) {
       return rank.apex_title === 'Kosmos' ? 'Gelar tertinggi Apex udah kamu raih!'
-        : `Gelar berikutnya di ${rank.stars < 25 ? 25 : rank.stars < 50 ? 50 : 100}★`;
+        : `Gelar berikutnya di ${apexGoal(rank.apex_points || 0)} Apex Points`;
     }
     return `Butuh ${rank.max_stars - rank.stars + 1} kemenangan lagi buat naik tier`;   // bintang penuh + 1 menang = naik
   }
@@ -57,8 +60,6 @@ const Leaderboard = (() => {
   const MIN_DUEL_LEVEL = 3;      // = duel.MIN_LEVEL
   const PODIUM = 3;              // posisi 1–3 tampil sebagai kartu podium
   const TOP = 5;                 // baris teratas yang selalu tampil sebelum "Tampilkan N"
-  const COLORS = ['#2563EB', '#16A34A', '#D97706', '#DB2777', '#7C3AED', '#0D9488', '#DC2626', '#4B5563'];
-  const colorOf = (name) => COLORS[[...name].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7) % COLORS.length];
   const BOARDS = {
     level: { sub: 'XP dari sesi latihan tiap topik. Makin banyak sesi yang beres, makin tinggi levelmu.',
              cols: ['#', 'Pemain', 'Level', 'XP'] },
@@ -70,8 +71,7 @@ const Leaderboard = (() => {
 
   /* ── potongan tampilan ──────────────────────────────────────────── */
   const where = (r) => [r.faculty, r.campus && r.campus !== 'Umum' ? r.campus : ''].filter(Boolean).join(' · ');
-  const avatar = (r, cls = '') =>
-    `<span class="lbx-av ${cls}${r.frame ? ` frame ${esc(r.frame)}` : ''}" style="--av:${colorOf(r.username)}">${esc((r.name[0] || '?').toUpperCase())}</span>`;
+  const avatar = (r, cls = '') => Avatar.html(r.avatar, r.name, r.username, `lbx-av ${cls}${r.frame ? ` frame ${esc(r.frame)}` : ''}`);
   const chip = (r) => (board === 'level'
     ? `<span class="lbx-pill">Lv ${r.level}</span>`
     : `<span class="lbx-pill t-${r.tier}">${esc(r.rank.label)}</span>`);
@@ -139,13 +139,12 @@ const Leaderboard = (() => {
           : gapHTML(`${fmt(first - TOP)} pemain di antaranya`, true))
         + groupHTML('Di sekitarmu') + around.map(rowHTML).join('');
     }
+    if (body && d.total > rows.length) body += `<li class="lbx-more-note">Leaderboard menampilkan 100 besar dari ${fmt(d.total)} pemain</li>`;
     return body ? `<div class="lbx-card"><ol class="lbx-list">${head}${body}</ol></div>` : '';
   }
 
   /* ── kartu Posisimu ─────────────────────────────────────────────── */
   function duelButton(text) {
-    // Server tanpa WebSocket (DUEL_ENABLED=False) menandai halaman Ranked dengan data-duel-off.
-    if (document.querySelector('[data-duel-off]')) return `<button type="button" class="lbx-btn" disabled>${Icon('clock')} Duel segera hadir</button>`;
     const lv = (typeof State !== 'undefined' && State.get().level?.level) || 1;
     return lv >= MIN_DUEL_LEVEL
       ? `<button type="button" class="lbx-btn" data-lbx="duel">${Icon('swords')} ${text}</button>`
@@ -156,8 +155,8 @@ const Leaderboard = (() => {
   function rankProgress(r) {
     if (r.max_stars == null) {
       if (!r.next_label) return ['Gelar tertinggi Apex udah kamu raih', 100];
-      const goal = r.stars < 25 ? 25 : r.stars < 50 ? 50 : 100;
-      return [`Butuh ${goal - r.stars} bintang lagi ke ${r.next_label}`, (r.stars / goal) * 100];
+      const ap = r.apex_points || 0, goal = apexGoal(ap);
+      return [`Butuh ${goal - ap} Apex Points lagi ke ${r.next_label}`, (ap / goal) * 100];
     }
     return [`Butuh ${r.max_stars - r.stars + 1} kemenangan lagi ke ${r.next_label}`, (r.stars / (r.max_stars + 1)) * 100];
   }
@@ -220,7 +219,7 @@ const Leaderboard = (() => {
       let mark = '';
       if (d.played && m.index != null && m.tier === t.tier) {
         const r = m.rank;
-        const frac = r.max_stars == null ? Math.min(1, r.stars / 100) : ((3 - r.division) * r.max_stars + r.stars) / (3 * r.max_stars);
+        const frac = r.max_stars == null ? Math.min(1, (r.apex_points || 0) / 1000) : ((3 - r.division) * r.max_stars + r.stars) / (3 * r.max_stars);
         mark = `<span class="lbx-mark" style="top:${(90 - frac * 50).toFixed(1)}%"><em>kamu</em></span>`;
       }
       const start = !d.played && t.tier === 'terra'

@@ -568,12 +568,15 @@ def epsilon_delta(rng, tier):
                                 {"type": "vband", "from": f"{c}-eps/{abs(m)}", "to": f"{c}+eps/{abs(m)}", "color": "green"}],
                                [readout("δ = ε/|m|", f"eps/{abs(m)}", 4)], "Setiap x di pita hijau menghasilkan f(x) di pita merah.")],
                 "explanation": "Definisi: ∀ε > 0 ∃δ > 0 sehingga 0 < |x − c| < δ ⇒ |f(x) − L| < ε."}
-    c = rng.randint(1, 4)
-    eps = Fr(1, rng.choice([10, 100]))
-    delta = min(Fr(1), eps / (2 * c + 1))
-    return {"prompt": f"Bukti lim<sub>x→{c}</sub> x² = {c * c} memakai δ = min(1, ε/(2·{c} + 1)). Berapa δ untuk ε = {n(eps)}?",
-            "correct": f"δ = {n(delta)}", "distractors": [f"δ = {n(eps / (2 * c))}", f"δ = {n(eps)}", "δ = 1", f"δ = {n(eps / (c * c))}"],
-            "steps": [f"|x² − {c * c}| = |x − {c}|·|x + {c}|.", f"Batasi |x − {c}| &lt; 1 ⇒ |x + {c}| &lt; 2·{c} + 1 = {2 * c + 1}.",
-                      f"Maka |x² − {c * c}| &lt; {2 * c + 1}·|x − {c}| &lt; ε bila |x − {c}| &lt; ε/{2 * c + 1}.",
-                      f"δ = min(1, {n(eps)}/{2 * c + 1}) = <b>{n(delta)}</b>."],
+    c, a = rng.randint(1, 9), rng.randint(1, 3)
+    eps = rng.choice([Fr(1, 10), Fr(1, 20), Fr(1, 50), Fr(1, 100), Fr(1, 1000), Fr(2), Fr(5), Fr(30)])
+    K = a * (2 * c + 1)
+    delta = min(Fr(1), eps / K)
+    A = "" if a == 1 else str(a)
+    return {"prompt": f"Bukti lim<sub>x→{c}</sub> {A}x² = {a * c * c} memakai δ = min(1, ε/{K}). Berapa δ untuk ε = {n(eps)}?",
+            "correct": f"δ = {n(delta)}", "distractors": [f"δ = {n(eps / (2 * a * c))}", f"δ = {n(eps)}" if eps != delta else f"δ = {n(eps * 2)}", "δ = 1" if delta != 1 else f"δ = {n(eps / K)}",
+                                                          f"δ = {n(eps / (a * c * c))}"],
+            "steps": [f"|{A}x² − {a * c * c}| = {A}{'·' if a > 1 else ''}|x − {c}|·|x + {c}|.", f"Batasi |x − {c}| &lt; 1 ⇒ |x + {c}| &lt; 2·{c} + 1 = {2 * c + 1}.",
+                      f"Maka |{A}x² − {a * c * c}| &lt; {K}·|x − {c}| &lt; ε bila |x − {c}| &lt; ε/{K}.",
+                      f"δ = min(1, {n(eps)}/{K}) = <b>{n(delta)}</b>" + (" (ε besar: batas 1 yang aktif)." if delta == 1 else ".")],
             "explanation": "Untuk fungsi nonlinear, batasi dulu δ ≤ 1 agar faktor |x + c| terbatas (Stewart §2.4)."}

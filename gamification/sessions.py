@@ -27,7 +27,7 @@ from django.db import transaction
 from django.db.models import Q
 from django.utils import timezone
 
-from . import generators, shop
+from . import generators, shop, streak
 from .leveling import level_for, level_info
 from .models import PracticeSession, Question, SkillNode, Topic, UserProfile, UserProgress, UserSessionProgress
 
@@ -217,6 +217,9 @@ def is_unlocked(user, session):
 
 
 def topic_done(user, topic):
+    """Topik tuntas = Sesi wajib terakhir lulus; topik materi saja (tanpa sesi) dianggap tuntas."""
+    if not topic.sessions.exists():
+        return True
     return UserSessionProgress.objects.filter(
         user=user, session__topic=topic, session__number=REQUIRED_SESSIONS, passed=True
     ).exists()
@@ -316,6 +319,8 @@ def submit_session(user, session, attempt, answers):
     heart_lost = score < pass_score(session)
     if heart_lost:
         profile.lose_heart()
+    if answers:                         # sesi yang benar-benar dikerjakan (bukan gagal otomatis karena kabur)
+        streak.record_activity(profile)
 
     xp = max(0, score - prev_best) * session.xp_per_question
     level_before = level_for(profile.xp)
@@ -352,6 +357,7 @@ def submit_session(user, session, attempt, answers):
         "unlocked_next_session": newly_passed and session.number < 5,
         "topic_done": topic_done(user, session.topic),
         "node_completed": completed_node, "next_node": next_node,
+        "streak": streak.status(profile),
     }
 
 

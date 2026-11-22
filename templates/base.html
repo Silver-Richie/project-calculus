@@ -6,11 +6,21 @@
   <script>document.documentElement.classList.add('js');</script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{% block title %}Calculus Bridge{% endblock %}</title>
+  {# PWA: bisa dipasang ke layar utama (Android/desktop/iOS); manifest & service worker dari akar situs #}
+  <link rel="manifest" href="/manifest.webmanifest">
+  <meta name="theme-color" content="#2563EB">
+  <link rel="icon" type="image/svg+xml" href="{% static 'img/pwa/icon.svg' %}">
+  <link rel="apple-touch-icon" href="{% static 'img/pwa/apple-touch-icon.png' %}">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Calculus Bridge">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
   {% block head_meta %}{% endblock %}
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{% asset 'vendor/katex/katex.min.css' %}">
   <link rel="stylesheet" href="{% asset 'css/style.css' %}">
   <link rel="stylesheet" href="{% asset 'css/practice.css' %}">
   <link rel="stylesheet" href="{% asset 'css/lessons.css' %}">
@@ -23,11 +33,20 @@
 <body class="{% block body_class %}{% endblock %}">
   {% include 'components/icons.html' %}
   <canvas id="confetti-canvas"></canvas>
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => { navigator.serviceWorker.register('/sw.js').catch(() => {}); });
+    }
+  </script>
 
   <div id="app">
     {% block content %}{% endblock %}
   </div>
 
+  {# Rumus LaTeX ($…$ / $$…$$) dirender KaTeX di semua halaman (static/js/math.js) #}
+  <script src="{% asset 'vendor/katex/katex.min.js' %}"></script>
+  <script src="{% asset 'vendor/katex/contrib/auto-render.min.js' %}"></script>
+  <script src="{% asset 'js/math.js' %}"></script>
   {# Pecahan bertumpuk di soal & materi (semua halaman) #}
   <script src="{% asset 'js/mathfrac.js' %}"></script>
   {# Ikon SVG dari sprite components/icons.html (semua halaman) #}
@@ -44,6 +63,8 @@
   <script src="{% asset 'js/leaderboard.js' %}"></script>
   <script src="{% asset 'js/duel.js' %}"></script>
   <script src="{% asset 'js/ranked.js' %}"></script>
+  <script src="{% asset 'js/avatar.js' %}"></script>
+  <script src="{% asset 'js/reminder.js' %}"></script>
   {% endblock %}
   {% block extra_js %}{% endblock %}
 </body>

@@ -10,7 +10,7 @@ import random
 from django.db.models import Prefetch, Q
 
 from .models import (
-    Faculty, SourceDocument, SkillNode, LessonSection, Question, Option, MainLevel, Topic, PracticeSession,
+    Faculty, SourceDocument, SkillNode, LessonSection, LessonSlide, Question, Option, MainLevel, Topic, PracticeSession,
 )
 
 DEFAULT_FACULTY = "fasilkom"
@@ -43,6 +43,7 @@ def tree_nodes(faculty):
             Prefetch("sections", queryset=LessonSection.objects.order_by("order")),
             Prefetch("topics", queryset=Topic.objects.order_by("order").prefetch_related(
                 Prefetch("sections", queryset=LessonSection.objects.select_related("source_document").order_by("order")),
+                Prefetch("slides", queryset=LessonSlide.objects.order_by("order")),
                 Prefetch("sessions", queryset=PracticeSession.objects.order_by("number")),
             )),
             Prefetch(
@@ -127,6 +128,8 @@ def serialize_topic(topic):
         "sections": [{"heading": s.heading, "body_html": s.body_html, "graphs": s.graphs,
                       "source": s.source_document.filename if s.source_document_id else ""}
                      for s in topic.sections.all()],
+        "slides": [{"kind": s.kind, "title": s.title, "body_html": s.body_html, "tip": s.tip, "graphs": s.graphs}
+                   for s in topic.slides.all()],
         "sessions": [session_meta(s) for s in topic.sessions.all()],
     }
 
@@ -453,6 +456,7 @@ def profile_bootstrap(user):
     from .models import UserProfile, rank_of
     from .ranking import describe
     from .shop import MAX_SHIELDS, appearance
+    from . import avatar, streak
 
     profile, _ = UserProfile.objects.get_or_create(user=user)
     duel = rank_of(user)
@@ -472,7 +476,9 @@ def profile_bootstrap(user):
         "star_shields": profile.star_shields,
         "max_shields": MAX_SHIELDS,
         "look": appearance(profile),
+        "avatar": avatar.describe(profile), "avatar_presets": avatar.all_presets(),
         "diagnostic_level": profile.diagnostic_level,
+        "streak": streak.status(profile),
         "completed": [r.node.slug for r in records if r.status == "completed"],
         "active": next((r.node.slug for r in records if r.status == "active"), None),
     }

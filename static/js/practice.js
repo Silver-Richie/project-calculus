@@ -59,6 +59,8 @@ const Practice = (() => {
   }
 
   function topicDone(t) {
+    // Topik tanpa sesi soal: dianggap lewat begitu urutannya tercapai (tidak melompati topik sebelumnya).
+    if (!t.sessions.length) return topicUnlocked(t);
     const req = t.sessions.find((s) => s.number === Curriculum.requiredSessions);
     return !!(req && Curriculum.sessionProgress(req.id)?.passed);
   }
@@ -217,6 +219,16 @@ const Practice = (() => {
         </div>`;
       return;
     }
+    if (!topic.sessions.length) {
+      box.innerHTML = `
+        <div class="level-complete">
+          <div class="trophy-anim">${Icon('book')}</div>
+          <h3>Latihan topik ini menyusul</h3>
+          <p>Materinya udah lengkap di Kurikulum. Pelajari dulu di sana; topik ini gak menghalangi progresmu.</p>
+          <button class="btn btn-primary" onclick="Lessons.openFromDrawer('${topic.slug}')">${Icon('play')} Buka materi</button>
+        </div>`;
+      return;
+    }
     const noHearts = !State.hasHearts();
     box.innerHTML = `
       ${noHearts ? `<div class="hearts-banner">${Icon('heart-broken')} Heart habis, sesi dikunci dulu. Penuh lagi dalam <b>${State.refillText()}</b>.</div>` : ''}
@@ -333,6 +345,7 @@ const Practice = (() => {
     const s = running.session;
     Curriculum.setSessionProgress(s.id, { attempts: r.attempts, best: r.best, last: r.score, passed: r.passed || !!Curriculum.sessionProgress(s.id)?.passed });
     State.setLevel(r.level, r.xp_awarded);
+    State.setStreak(r.streak);
     if (r.leveled_up) LevelUp.show(r.level, r.gems_awarded);
     if (r.gems != null) State.setGems(r.gems);
     if (r.hearts) State.setHearts(r.hearts);

@@ -12,6 +12,7 @@ Rujukan buku (folder Downloads user):
 """
 
 from ..helpers import bullets, param, readout, table
+from .l1_slides import NEW_TOPICS, SLIDES
 
 MAIN_LEVEL = {
     "slug": "precalculus",
@@ -512,6 +513,14 @@ TOPICS = [
         ],
     },
 ]
+
+# Kurikulum v2 (Batch 1): slide eksplisit per topik + 4 topik baru materi saja (lihat l1_slides.py).
+for _t in TOPICS:
+    _t["slides"] = SLIDES.get(_t["slug"], [])
+for _new in NEW_TOPICS:
+    _i = next(i for i, t in enumerate(TOPICS) if t["slug"] == _new["after"]) + 1
+    TOPICS.insert(_i, {**{k: v for k, v in _new.items() if k != "after"},
+                       "sections": [], "slides": SLIDES[_new["slug"]]})
 
 SUBLEVELS = [
     {

@@ -41,9 +41,8 @@ DEBUG = not PRODUCTION
 ALLOWED_HOSTS = ["localhost", "127.0.0.1"] + [h.strip() for h in os.getenv('ALLOWED_HOSTS', '').split(',') if h.strip()]
 CSRF_TRUSTED_ORIGINS = [f"https://{h}" for h in ALLOWED_HOSTS if h not in ("localhost", "127.0.0.1")]
 
-# Duel real-time butuh server ASGI (WebSocket). PythonAnywhere memakai WSGI, jadi di sana
-# DUEL_ENABLED=False: tombol duel (halaman Ranked & Peringkat) diganti "Segera hadir".
-DUEL_ENABLED = os.getenv('DUEL_ENABLED', 'True').lower() == 'true'
+# Ranked Duel memakai lawan hantu/bot lewat HTTP biasa (gamification/ranked_duel.py), jadi juga jalan di
+# PythonAnywhere (WSGI). Kode duel real-time WebSocket (consumers.py) tetap ada tetapi tidak dipakai Ranked.
 
 if PRODUCTION:
     SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')  # HTTPS diputus di proxy hosting
@@ -207,6 +206,11 @@ STATIC_ROOT = BASE_DIR / 'staticfiles'   # hasil collectstatic; di PythonAnywher
 STATICFILES_DIRS = [
     BASE_DIR / 'static',
 ]
+
+# Unggahan pengguna (foto profil). Di PythonAnywhere: petakan /media/ → folder media/ di tab Web.
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
+
 
 # Autentikasi (templates/auth/)
 LOGIN_URL = 'gamification:auth_login'

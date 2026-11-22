@@ -42,7 +42,7 @@
 
   <!-- Profile mini at bottom -->
   <div class="sidebar-profile-mini">
-    <div class="profile-avatar" id="sidebar-avatar">{{ server_profile.display_name|first|upper|default:"M" }}</div>
+    {% avatar server_profile.avatar server_profile.display_name|default:"Mahasiswa" server_profile.username cls="profile-avatar" id="sidebar-avatar" %}
     <div class="profile-mini-info">
       <div class="profile-mini-name" id="sidebar-username">{{ server_profile.display_name|default:"Mahasiswa" }}</div>
       <div class="profile-mini-fac"  id="sidebar-fac">@{{ server_profile.username }}</div>

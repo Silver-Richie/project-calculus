@@ -1,0 +1,30 @@
+{% load static %}<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#2563EB">
+  <title>Offline · Calculus Bridge</title>
+  {# Berdiri sendiri (tanpa CSS eksternal) karena hanya halaman ini yang tersimpan di cache. #}
+  <style>
+    :root { color-scheme: light dark; --bg: #F7F5F2; --card: #fff; --text: #1F2937; --muted: #6B7280; --primary: #2563EB; }
+    @media (prefers-color-scheme: dark) { :root { --bg: #0F172A; --card: #1E293B; --text: #E5E7EB; --muted: #94A3B8; } }
+    body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: var(--bg); color: var(--text);
+           font: 16px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+    main { width: min(420px, calc(100% - 32px)); padding: 2rem 1.5rem; border-radius: 20px; background: var(--card);
+           text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,.08); }
+    img { width: 72px; height: 72px; border-radius: 18px; }
+    h1 { font-size: 1.4rem; margin: 1rem 0 .4rem; }
+    p { color: var(--muted); margin: 0 0 1.25rem; }
+    button { font: inherit; font-weight: 700; color: #fff; background: var(--primary); border: 0; border-radius: 999px; padding: .7rem 1.4rem; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <main>
+    <img src="{% static 'img/pwa/icon-192.png' %}" alt="">
+    <h1>Kamu lagi offline</h1>
+    <p>Calculus Bridge butuh internet buat ngambil soal dan nyimpen progresmu. Sambungkan lagi, lalu coba muat ulang.</p>
+    <button type="button" onclick="location.reload()">Muat ulang</button>
+  </main>
+</body>
+</html>

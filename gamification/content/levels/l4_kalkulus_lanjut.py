@@ -268,3 +268,20 @@ FIXED_QUESTIONS = {
     "FK-S2": ("kl-fk-gd", 2), "FK-S3": ("kd-int-riemann", 3), "FK-H1": ("kl-fk-gd", 3), "FK-H2": ("kl-fk-gd", 4), "FK-H3": ("kd-int-riemann", 4),
     "U-S6": ("kl-ft-tp-parsial", 1),
 }
+
+# Kurikulum v2 (Batch 4): dek inti dipasang ke salinan topik inti tiap fakultas (kl-ft/fm/fk-<kunci>),
+# dek jalur ke slug spesifik, dan topik baru (materi saja, latihan menyusul) disisipkan setelah slug "after".
+from .l4_slides import CORE_SLIDES as _CORE_A, NEW_TOPICS as _NEW_A, SLIDES as _V2_A  # noqa: E402
+from .l4_slides_b import CORE_SLIDES as _CORE_B, NEW_TOPICS as _NEW_B, SLIDES as _V2_B  # noqa: E402
+from .l4_slides_c import NEW_TOPICS as _NEW_C, SLIDES as _V2_C  # noqa: E402
+from .l4_slides_d import NEW_TOPICS as _NEW_D, SLIDES as _V2_D  # noqa: E402
+
+_V2_SLIDES = {**_V2_A, **_V2_B, **_V2_C, **_V2_D}
+_V2_CORE = {**_CORE_A, **_CORE_B}
+for _new in [*_NEW_A, *_NEW_B, *_NEW_C, *_NEW_D]:
+    _sub = next(s for s in SUBLEVELS if any(t["slug"] == _new["after"] for t in s["topics"]))
+    _i = next(i for i, t in enumerate(_sub["topics"]) if t["slug"] == _new["after"]) + 1
+    _sub["topics"].insert(_i, {**{k: v for k, v in _new.items() if k != "after"}, "sections": []})
+for _sub in SUBLEVELS:
+    for _t in _sub["topics"]:
+        _t["slides"] = _V2_SLIDES.get(_t["slug"]) or _V2_CORE.get(_t["slug"][len("kl-ft-"):], [])
