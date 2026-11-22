@@ -22,7 +22,8 @@
     const btn = document.getElementById('theme-toggle-btn');
     if (!btn) return;
     const dark = theme === 'dark';
-    btn.innerHTML = `<svg class="ic" aria-hidden="true" focusable="false"><use href="#i-${dark ? 'sun' : 'moon'}"/></svg>`;
+    const prefix = btn.dataset.iconPrefix || 'i-';   // homepage memakai sprite garisnya sendiri (hl-)
+    btn.innerHTML = `<svg class="ic" aria-hidden="true" focusable="false"><use href="#${prefix}${dark ? 'sun' : 'moon'}"/></svg>`;
     btn.title = dark ? 'Ganti ke mode terang' : 'Ganti ke mode gelap';
     btn.setAttribute('aria-label', btn.title);
     btn.setAttribute('aria-pressed', String(dark));

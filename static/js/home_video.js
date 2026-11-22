@@ -474,7 +474,7 @@ const HomeVideo = (() => {
   function setPlaying(on) {
     playing = on;
     root.classList.toggle('is-paused', !on);
-    $('vp-play').innerHTML = Icon(on ? 'pause' : 'resume');
+    $('vp-play').innerHTML = `<svg class="ic"><use href="#hl-${on ? 'pause' : 'play'}"/></svg>`;   // sprite garis homepage
     $('vp-play').setAttribute('aria-label', on ? 'Jeda' : 'Putar');
     cancelAnimationFrame(raf);
     if (on) { last = performance.now(); raf = requestAnimationFrame(frame); }
