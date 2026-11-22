@@ -30,22 +30,33 @@
     border-radius: 16px;
   }
   .family-fallback svg { width: 120px; height: 120px; }
+  .fam-sky, .fam-clouds { display: none; }   /* banner terlalu pendek untuk langit */
 }
 
 /* ── Warna lingkungan (kelas f-* dari archie_family.js) ────────── */
-.fam .f-cliff { fill: var(--clr-cream); stroke: var(--fam-pencil); stroke-width: 2; stroke-linejoin: round; }
+/* Arsiran pensil warna: daratan, dinding tebing, sungai, daun, kayu (token --wash-* di auth_card.css). */
+.fam .f-land { fill: var(--wash-grass); }
+.fam .f-earth { fill: var(--wash-earth); }
+.fam .f-river { fill: var(--wash-water); }
+.fam .f-cloud { fill: var(--wash-cloud); stroke: var(--fam-pencil); stroke-width: 2; stroke-linejoin: round; }
+.fam .f-sun { fill: var(--wash-sun); stroke: var(--fam-pencil); stroke-width: 2; }
+.fam .f-moon { fill: var(--wash-sun); stroke: var(--fam-pencil); stroke-width: 2; stroke-linejoin: round; }
+.fam-sky { cursor: pointer; }
+.fam-moon, [data-theme="dark"] .fam-sun { display: none; }
+[data-theme="dark"] .fam-moon { display: inline; }
+.fam .f-cliff { fill: none; stroke: var(--fam-pencil); stroke-width: 2; stroke-linejoin: round; }
 .fam .f-hair { stroke: var(--fam-hair); fill: none; }
 .fam .f-pencil { stroke: var(--fam-pencil); }
 .fam .f-water { fill: none; stroke: var(--ink-text); stroke-width: 1.5; stroke-linecap: round; opacity: .35; }
 .fam .f-deck { fill: none; stroke: var(--ink); stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; }
-.fam .f-plank { fill: var(--clr-surface); stroke: var(--fam-pencil); stroke-width: 1.2; }
+.fam .f-plank { fill: var(--wash-wood); stroke: var(--fam-pencil); stroke-width: 1.2; }
 .fam .f-tangent { stroke: var(--ink-text); stroke-width: 1.5; stroke-dasharray: 4 5; stroke-linecap: round; }
 .fam .f-label { font: 500 15px var(--font-body); fill: var(--clr-text-sec); }
 .fam .f-flag, .fam .f-red-fill, .fam .f-apple { fill: var(--fam-red); }
 .fam .f-stem { stroke: var(--fam-pencil); }
-.fam .f-trunk { fill: var(--clr-surface); stroke: var(--fam-pencil); stroke-width: 2.5; stroke-linejoin: round; }
+.fam .f-trunk { fill: var(--wash-wood); stroke: var(--fam-pencil); stroke-width: 2.5; stroke-linejoin: round; }
 .fam .f-crown-out circle { fill: none; stroke: var(--fam-pencil); stroke-width: 5; }   /* garis luar gabungan lingkaran */
-.fam .f-crown circle { fill: var(--clr-surface); }
+.fam .f-crown circle { fill: var(--wash-leaf); }
 .fam .f-board { fill: var(--clr-surface); stroke: var(--fam-pencil); stroke-width: 2.5; }
 .fam .f-grid { stroke: var(--grid-line-strong); stroke-width: 1; fill: none; }
 .fam .f-tray { fill: var(--fam-pencil); }

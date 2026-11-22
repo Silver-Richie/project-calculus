@@ -31,12 +31,12 @@ const Reminder = (() => {
   function bannerHTML(st) {
     const d = st.days;
     const content = {
-      nunggu: [`Streak ${d} hari-mu nunggu`, 'Main hari ini biar gak putus! Satu sesi latihan atau satu Ranked Duel udah cukup.'],
-      aman: [`Mantap, streak ${d} hari aman!`, `Kamu udah main hari ini. Balik lagi besok buat hari ke-${d + 1}.`],
+      nunggu: [`Streak ${d} hari-mu nunggu`, 'Main hari ini biar gak putus. Satu sesi latihan atau satu Ranked Duel udah cukup.'],
+      aman: [`Mantap, streak ${d} hari aman`, `Kamu udah main hari ini. Balik lagi besok buat hari ke-${d + 1}.`],
       baru: ['Nyalain api streak-mu hari ini', 'Selesaikan satu sesi latihan dan mulai hitung hari berturut-turut.'],
     }[st.state];
     const cta = st.state === 'aman' ? ''
-      : `<button type="button" class="btn btn-accent btn-sm" data-streak="play">${Icon('play')} Main sekarang</button>`;
+      : `<button type="button" class="btn btn-primary btn-sm" data-streak="play">${Icon('play')} Main sekarang</button>`;
     return `
       <span class="streak-banner-flame" aria-hidden="true">${Icon('flame')}${st.state !== 'baru' ? `<b>${d}</b>` : ''}</span>
       <div class="streak-banner-text"><strong>${content[0]}</strong><span>${content[1]}</span></div>

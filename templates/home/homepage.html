@@ -75,13 +75,13 @@
   <!-- ═══ Hero: teks kiri · Archie berdiri di puncak kurva jembatan (kertas berpetak) ═══ -->
   <section class="hp-hero">
     <div class="hp-hero-copy">
-      <p class="hp-eyebrow">Untuk mahasiswa baru FT, FMIPA, dan Fasilkom</p>
+      <p class="hp-eyebrow"><span class="hp-eyebrow-dot" aria-hidden="true"></span>Untuk mahasiswa baru FT, FMIPA, dan Fasilkom</p>
       <h1>Seberangi <span class="hp-ink">jurang<svg viewBox="0 0 100 14" preserveAspectRatio="none" aria-hidden="true"><path d="M2 11C26 11 32 3 50 3S74 11 98 11"/></svg></span> kalkulus bersama Archie</h1>
       <p class="hp-lead">Belajar limit, turunan, sampai integral lewat skill tree ala game, soal acak plus
         pembahasan step-by-step, dan grafik yang bisa kamu geser sendiri.</p>
       <div class="hp-cta">
         <button type="button" class="btn btn-primary btn-lg" data-video="tour"><svg class="ic"><use href="#hl-play"/></svg>Tonton pengenalan</button>
-        <a class="btn btn-outline btn-lg" href="#coba">Coba 5 soal dulu</a>
+        <a class="btn btn-outline btn-lg hp-cta-alt" href="#coba">Coba 5 soal dulu</a>
       </div>
       <ul class="hp-stats">
         <li><b>{{ level_count }}</b> level kurikulum</li>
@@ -92,12 +92,58 @@
 
     <div class="hp-hero-art">
       <svg class="hp-bridge" viewBox="0 0 520 400" aria-hidden="true">
-        <path class="hp-cliff" d="M0 318C24 312 46 314 72 330V400H0Z"/>
-        <path class="hp-cliff" d="M448 330C474 314 496 312 520 318V400H448Z"/>
-        <path class="hp-curve" d="M64 330C150 330 176 196 260 196S370 330 456 330"/>
-        <path class="hp-tangent" d="M188 196H332"/>
-        <circle class="hp-peak" cx="260" cy="196" r="5"/>
-        <text class="hp-curve-label" x="344" y="200">f′(x) = 0</text>
+        {# Awan pensil + simbol matematika di ruang kosong #}
+        <path class="hp-cloud" d="M64 92a14 14 0 0 1 22-14a20 20 0 0 1 36 4a12 12 0 0 1 4 24H70a10 10 0 0 1-6-14Z"/>
+        <path class="hp-cloud" d="M392 128a10 10 0 0 1 16-10a14 14 0 0 1 26 3a9 9 0 0 1 3 17h-40a7 7 0 0 1-5-10Z"/>
+        {# Simbol: tiap simbol punya gerak sendiri (home.css) + bergeser mengikuti kursor (--mx/--my dari home.js) #}
+        <g class="hp-par" style="--d: 14"><text class="hp-math hp-m1" x="36" y="172">lim<tspan class="hp-math-sub" x="38" dy="18">x→0</tspan></text></g>
+        <g class="hp-par" style="--d: -18"><text class="hp-math hp-math-int hp-m2" x="456" y="204">∫</text></g>
+        <g class="hp-par" style="--d: 10"><text class="hp-math hp-m3" x="392" y="280">Δx</text></g>
+        <g class="hp-par" style="--d: -8"><text class="hp-math hp-m4" x="24" y="268">dy/dx</text></g>
+        {# Sungai di dasar jurang #}
+        <path class="hp-river" d="M100 374C150 368 200 380 260 374S372 368 420 376V400H100Z"/>
+        <path class="hp-wave" d="M150 386q10-4 20 0t20 0M300 384q10-4 20 0t20 0M232 394q8-3 16 0"/>
+        {# Tebing: muka depan (tanah) · sisi dalam (lebih gelap) · bibir atas (rumput) #}
+        <path class="hp-cliff" d="M0 328C34 326 70 330 104 336V400H0Z"/>
+        <path class="hp-cliff-side" d="M104 336L116 328V400H104Z"/>
+        <path class="hp-cliff-top" d="M0 320C36 316 76 320 116 328L104 336C70 330 34 326 0 328Z"/>
+        <path class="hp-cliff" d="M520 328C486 326 450 330 416 336V400H520Z"/>
+        <path class="hp-cliff-side" d="M416 336L404 328V400H416Z"/>
+        <path class="hp-cliff-top" d="M520 320C484 316 444 320 404 328L416 336C450 330 486 326 520 328Z"/>
+        <path class="hp-grass" d="M14 320l2-7l3 7M30 318l1-6l3 6M98 325l2-6l2 6M424 325l2-6l2 6M488 318l1-6l3 6M502 320l2-7l3 7"/>
+        {# Jembatan: kurva tergambar sekali saat halaman dibuka (home.js), Archie berjalan di ujung penanya #}
+        <path class="hp-curve" id="hero-curve" d="M80 327C156 327 178 196 260 196S364 327 440 327"/>
+        {# Transisi SMA → kuliah: arus titik di tali + kapsul rumus yang meluncur dari kiri ke kanan dan
+           berubah jadi turunannya saat melewati Archie di puncak (SMIL; dijeda sampai pembuka selesai) #}
+        <g class="hp-transit">
+          <path class="hp-flow" d="M80 327C156 327 178 196 260 196S364 327 440 327"/>
+          <g class="hp-rider" opacity="0">
+            <animateMotion dur="7.5s" begin="0s" repeatCount="indefinite"><mpath href="#hero-curve"/></animateMotion>
+            <animate attributeName="opacity" values="0;1;1;0" keyTimes="0;.08;.92;1" dur="7.5s" begin="0s" repeatCount="indefinite"/>
+            <rect x="-24" y="-30" width="48" height="24" rx="12"/>
+            <text y="-13">x²<animate attributeName="opacity" values="1;1;0;0" keyTimes="0;.47;.53;1" dur="7.5s" begin="0s" repeatCount="indefinite"/></text>
+            <text class="is-after" y="-13" opacity="0">2x<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;.47;.53;1" dur="7.5s" begin="0s" repeatCount="indefinite"/></text>
+          </g>
+          <g class="hp-rider" opacity="0">
+            <animateMotion dur="7.5s" begin="2.5s" repeatCount="indefinite"><mpath href="#hero-curve"/></animateMotion>
+            <animate attributeName="opacity" values="0;1;1;0" keyTimes="0;.08;.92;1" dur="7.5s" begin="2.5s" repeatCount="indefinite"/>
+            <rect x="-24" y="-30" width="48" height="24" rx="12"/>
+            <text y="-13">sin x<animate attributeName="opacity" values="1;1;0;0" keyTimes="0;.47;.53;1" dur="7.5s" begin="2.5s" repeatCount="indefinite"/></text>
+            <text class="is-after" y="-13" opacity="0">cos x<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;.47;.53;1" dur="7.5s" begin="2.5s" repeatCount="indefinite"/></text>
+          </g>
+          <g class="hp-rider" opacity="0">
+            <animateMotion dur="7.5s" begin="5s" repeatCount="indefinite"><mpath href="#hero-curve"/></animateMotion>
+            <animate attributeName="opacity" values="0;1;1;0" keyTimes="0;.08;.92;1" dur="7.5s" begin="5s" repeatCount="indefinite"/>
+            <rect x="-24" y="-30" width="48" height="24" rx="12"/>
+            <text y="-13">x³<animate attributeName="opacity" values="1;1;0;0" keyTimes="0;.47;.53;1" dur="7.5s" begin="5s" repeatCount="indefinite"/></text>
+            <text class="is-after" y="-13" opacity="0">3x²<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;.47;.53;1" dur="7.5s" begin="5s" repeatCount="indefinite"/></text>
+          </g>
+        </g>
+        <g class="hp-peakmark">
+          <path class="hp-tangent" d="M188 196H332"/>
+          <circle class="hp-peak" cx="260" cy="196" r="5"/>
+          <text class="hp-curve-label" x="344" y="200">f′(x) = 0</text>
+        </g>
       </svg>
       <div class="hp-bubble" id="hero-bubble" aria-live="polite">Halo, aku <b>Archie</b>. Klik aku buat tips kalkulus</div>
       <button type="button" class="hp-archie" id="hero-archie" aria-label="Klik Archie untuk tips kalkulus">
@@ -114,37 +160,37 @@
       <p>Tiap fitur punya video singkat bareng Archie</p>
     </div>
     <div class="hp-features">
-      <article class="hp-feature">
+      <article class="hp-feature" style="--tone: var(--t-blue)">
         <svg class="ic hp-feature-icon"><use href="#hl-map"/></svg>
         <h3>Skill Tree 4 Level</h3>
         <p>Dari PreCalculus sampai Kalkulus Tingkat Lanjut. Beresin satu node buat buka jalan berikutnya.</p>
         <button type="button" class="hp-play" data-video="peta"><svg class="ic"><use href="#hl-play"/></svg>Tonton <small>13 dtk</small></button>
       </article>
-      <article class="hp-feature">
+      <article class="hp-feature" style="--tone: var(--t-coral)">
         <svg class="ic hp-feature-icon"><use href="#hl-target"/></svg>
         <h3>Latihan &amp; Pembahasan</h3>
         <p>Soal diacak khusus buat kamu, hint bertahap, dan pembahasan step-by-step. Ada Mode Latihan juga.</p>
         <button type="button" class="hp-play" data-video="latihan"><svg class="ic"><use href="#hl-play"/></svg>Tonton <small>18 dtk</small></button>
       </article>
-      <article class="hp-feature">
+      <article class="hp-feature" style="--tone: var(--t-green)">
         <svg class="ic hp-feature-icon"><use href="#hl-graph"/></svg>
         <h3>Grafik Interaktif</h3>
         <p>Geser slider, terus lihat garis singgung, luas, atau kurvanya berubah langsung di depan mata.</p>
         <button type="button" class="hp-play" data-video="grafik"><svg class="ic"><use href="#hl-play"/></svg>Tonton <small>15 dtk</small></button>
       </article>
-      <article class="hp-feature">
+      <article class="hp-feature" style="--tone: var(--t-amber)">
         <svg class="ic hp-feature-icon"><use href="#hl-pen"/></svg>
         <h3>Kanvas Coretan</h3>
         <p>Hitung langsung di samping soal pakai mouse, jari, atau stylus. Coretan otomatis tersimpan di tiap soal.</p>
         <button type="button" class="hp-play" data-video="papan"><svg class="ic"><use href="#hl-play"/></svg>Tonton <small>13 dtk</small></button>
       </article>
-      <article class="hp-feature">
+      <article class="hp-feature" style="--tone: var(--t-orange)">
         <svg class="ic hp-feature-icon"><use href="#hl-flame"/></svg>
         <h3>XP, Streak &amp; Heart</h3>
         <p>Kumpulin XP, jaga streak harian, hemat heart, terus naik di leaderboard.</p>
         <button type="button" class="hp-play" data-video="gamifikasi"><svg class="ic"><use href="#hl-play"/></svg>Tonton <small>13 dtk</small></button>
       </article>
-      <article class="hp-feature">
+      <article class="hp-feature" style="--tone: var(--t-sky)">
         <svg class="ic hp-feature-icon"><use href="#hl-compass"/></svg>
         <h3>Jalur Fakultas &amp; Tes Diagnostik</h3>
         <p>Pilih FT, FMIPA, atau Fasilkom, terus ikut tes diagnostik 10 soal buat tahu kamu mulai dari mana.</p>
@@ -185,17 +231,17 @@
     </svg>
     <ol class="hp-steps">
       <li>
-        <span class="hp-step-num">1</span>
+        <span class="hp-step-num" style="--tone: var(--t-blue)">1</span>
         <h3>Daftar</h3>
         <p>Pakai akun Google, atau bikin username dan password sendiri.</p>
       </li>
       <li>
-        <span class="hp-step-num">2</span>
+        <span class="hp-step-num" style="--tone: var(--t-coral)">2</span>
         <h3>Pilih fakultas &amp; tes diagnostik</h3>
         <p>Pilih FT, FMIPA, atau Fasilkom. Tes diagnostik 10 soal (opsional) ngasih rekomendasi kamu mulai dari mana.</p>
       </li>
       <li>
-        <span class="hp-step-num">3</span>
+        <span class="hp-step-num" style="--tone: var(--t-green)">3</span>
         <h3>Belajar &amp; naik level</h3>
         <p>Baca materi, kerjain 5 sesi tiap topik, kumpulin XP, terus buka node berikutnya.</p>
       </li>

@@ -57,6 +57,9 @@
   --shadow-3d-primary: 0 4px 0 var(--clr-primary-d);
   --shadow-3d-growth: 0 4px 0 var(--clr-growth-d);
   --shadow-3d-accent: 0 4px 0 var(--clr-accent-d);
+
+  /* Warna per level utama: tinta jalur skill tree, node selesai, titik sesi */
+  --lv-1: #16A34A; --lv-2: #2563EB; --lv-3: #D97706; --lv-4: #E11D48;
 }
 
 /* ── Mode gelap (beranda) ─────────────────────────────────────────────────────
@@ -87,10 +90,10 @@
 
   --shadow-card: 0 2px 12px rgba(0, 0, 0, .35);
   --shadow-pop: 0 8px 30px rgba(0, 0, 0, .5);
+  --lv-1: #4ADE80; --lv-2: #60A5FA; --lv-3: #FBBF24; --lv-4: #FB7185;
 }
 
 /* Warna terang yang ditulis langsung di aturan lain */
-[data-theme="dark"] .hud-pill.streak { border-color: rgba(249, 115, 22, .3); background: var(--clr-accent-l); }
 [data-theme="dark"] .diff-medium { background: rgba(234, 179, 8, .16); color: #FACC15; }
 [data-theme="dark"] .gl-svg { background: #0F172A; }
 [data-theme="dark"] .gl-grid { stroke: #1E293B; }
@@ -238,37 +241,19 @@ img {
   padding: .3rem .85rem;
   font-size: .88rem;
   font-weight: 600;
-  color: var(--clr-text-sec);
-  transition: border-color .2s;
+  color: var(--clr-text);
+  font-variant-numeric: tabular-nums;
+  transition: border-color .2s, transform .2s;
 }
 
 .hud-pill:hover {
-  border-color: var(--clr-primary);
+  border-color: color-mix(in srgb, var(--clr-text) 25%, transparent);
+  transform: scale(1.04);
 }
 
-.hud-pill.xp {
-  color: var(--clr-primary);
-  border-color: var(--clr-primary-l);
-  background: var(--clr-primary-l);
-}
-
-.hud-pill.streak {
-  color: var(--clr-accent);
-  border-color: #FED7AA;
-  background: #FFF7ED;
-}
-
-.hud-pill.hearts {
-  color: var(--clr-danger);
-  border-color: var(--clr-danger-l);
-  background: var(--clr-danger-l);
-}
-
-.hud-pill.gems {
-  color: var(--clr-growth);
-  border-color: var(--clr-growth-l);
-  background: var(--clr-growth-l);
-}
+/* Angka HUD berubah: memantul sebentar (State.updateHUD menambah .hud-bump) */
+.hud-bump { display: inline-block; animation: hudBump .5s cubic-bezier(.22, 1, .36, 1); }
+@keyframes hudBump { 35% { transform: scale(1.3); color: var(--clr-primary); } }
 
 .hud-right {
   display: flex;
@@ -298,11 +283,12 @@ img {
 /* ── LEFT SIDEBAR ─────────────────────────────────────────────────────────── */
 .site-sidebar {
   grid-area: sidebar;
-  background: var(--clr-sidebar);
-  color: white;
+  background: var(--clr-surface);
+  border-right: 1px solid var(--clr-border);
+  color: var(--clr-text-sec);
   display: flex;
   flex-direction: column;
-  padding: 1.25rem 0;
+  padding: 20px 0;
   position: sticky;
   top: var(--nav-h);
   height: calc(100vh - var(--nav-h) - var(--bottom-nav-h));
@@ -310,37 +296,46 @@ img {
 }
 
 .sidebar-label {
-  font-size: .72rem;
-  font-weight: 700;
-  letter-spacing: .08em;
-  text-transform: uppercase;
-  color: rgba(255, 255, 255, .45);
-  padding: 0 1.25rem .5rem;
+  font-size: .8rem;
+  font-weight: 500;
+  color: var(--clr-muted);
+  padding: 0 24px 8px;
 }
 
 .sidebar-item {
   display: flex;
   align-items: center;
-  gap: .75rem;
-  padding: .75rem 1.25rem;
+  gap: 10px;
+  height: 40px;
+  margin: 0 12px 2px;
+  padding: 0 12px;
+  border-radius: 10px;
   font-size: .92rem;
-  font-weight: 600;
-  color: rgba(255, 255, 255, .65);
-  border-left: 3px solid transparent;
-  transition: all .2s;
+  font-weight: 500;
+  color: var(--clr-text-sec);
+  transition: background-color .15s, color .15s, transform .15s;
   cursor: pointer;
 }
 
 .sidebar-item:hover {
-  background: rgba(255, 255, 255, .08);
-  color: white;
+  background: var(--clr-cream);
+  color: var(--clr-text);
+  transform: scale(1.02);
 }
 
+/* Jalur fakultas terpilih */
 .sidebar-item.active {
-  background: rgba(37, 99, 235, .25);
-  border-left-color: var(--clr-primary);
-  color: white;
+  background: var(--clr-cream);
+  color: var(--clr-text);
+  font-weight: 600;
 }
+
+/* Halaman yang sedang dibuka (Nav.go) */
+.sidebar-item[data-page].active {
+  background: var(--clr-primary-l);
+  color: var(--clr-primary-d);
+}
+[data-theme="dark"] .sidebar-item[data-page].active { color: #93C5FD; }
 
 .sidebar-item .fac-dot {
   width: 10px;
@@ -363,14 +358,14 @@ img {
 
 .sidebar-divider {
   height: 1px;
-  background: rgba(255, 255, 255, .1);
-  margin: .75rem 1.25rem;
+  background: var(--clr-border);
+  margin: 12px 24px 16px;
 }
 
 .sidebar-profile-mini {
   margin-top: auto;
-  padding: 1rem 1.25rem;
-  border-top: 1px solid rgba(255, 255, 255, .1);
+  padding: 16px 24px;
+  border-top: 1px solid var(--clr-border);
   display: flex;
   align-items: center;
   gap: .6rem;
@@ -397,7 +392,7 @@ img {
 .profile-mini-name {
   font-size: .88rem;
   font-weight: 600;
-  color: white;
+  color: var(--clr-text);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -405,7 +400,7 @@ img {
 
 .profile-mini-fac {
   font-size: .75rem;
-  color: rgba(255, 255, 255, .5);
+  color: var(--clr-muted);
 }
 
 /* ── MAIN CONTENT AREA ────────────────────────────────────────────────────── */
@@ -665,26 +660,12 @@ img {
   padding-bottom: 3rem;
 }
 
+/* Penghubung antar-unit: garis pensil putus-putus, sama dengan jalur tinta node terkunci */
 .tree-connector {
-  width: 4px;
-  min-height: 60px;
-  background: var(--clr-cream);
-  margin: 0 auto;
-  border-radius: 2px;
-  position: relative;
-}
-
-.tree-connector::after {
-  content: '';
-  position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
-  bottom: 0;
   width: 0;
-  height: 0;
-  border-left: 6px solid transparent;
-  border-right: 6px solid transparent;
-  border-top: 8px solid var(--clr-cream);
+  min-height: 60px;
+  margin: 0 auto;
+  border-left: 2px dashed color-mix(in srgb, var(--clr-muted) 70%, transparent);
 }
 
 .tree-node {
@@ -1888,6 +1869,17 @@ img {
 }
 
 /* ── Responsive ───────────────────────────────────────────────────────────── */
+@media (min-width: 769px) {
+  :root { --bottom-nav-h: 0px; }
+  #app {
+    grid-template-rows: var(--nav-h) 1fr;
+    grid-template-areas:
+      "hud    hud"
+      "sidebar main";
+  }
+  .bottom-nav, #hud-faculty-badge { display: none; }
+}
+
 @media (max-width: 768px) {
   :root {
     --sidebar-w: 0px;
@@ -2612,7 +2604,7 @@ form:not(.stepper-on) .dq-nav [data-step=next] { display: none; }
 /* ════════════════════════════════════════════════════════════════
    LEVEL, ASAL KAMPUS & PAPAN PERINGKAT (leaderboard.js)
    ════════════════════════════════════════════════════════════════ */
-.hud-pill.level { color: var(--clr-gold); border-color: color-mix(in srgb, var(--clr-gold) 35%, transparent); background: color-mix(in srgb, var(--clr-gold) 12%, transparent); font-weight: 800; }
+.hud-pill.level { font-weight: 700; }
 
 /* Profil: kartu level + baris kampus */
 .profile-level {
@@ -2937,17 +2929,14 @@ form:not(.stepper-on) .dq-nav [data-step=next] { display: none; }
 .lesson-note.tabwarn-note { background: var(--clr-danger-l); color: var(--clr-danger); font-weight: 600; }
 
 /* ── Banner streak harian (Level Up) & kartu Pengingat Harian (Profil) — static/js/reminder.js ── */
-.streak-banner { position: relative; display: flex; align-items: center; gap: 1rem; margin: 0 0 1.5rem; padding: 1rem 2.6rem 1rem 1rem;
-  border-radius: var(--radius-lg); border: 1.5px solid var(--clr-border); background: var(--clr-surface);
-  box-shadow: 0 6px 18px rgba(0, 0, 0, .05); animation: staggerRise .5s cubic-bezier(.2, 1.2, .4, 1) both; }
+.streak-banner { position: relative; display: flex; align-items: center; gap: 16px; margin: 0 0 24px; padding: 16px 44px 16px 16px;
+  border-radius: 16px; border: 1px solid var(--clr-border); background: var(--clr-surface);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, .04); animation: staggerRise .5s cubic-bezier(.2, 1.2, .4, 1) both; }
 .streak-banner[hidden] { display: none; }
-.streak-banner.state-nunggu { border-color: var(--clr-accent); background: linear-gradient(120deg, var(--clr-accent-l), var(--clr-surface) 70%); }
-.streak-banner.state-aman { border-color: var(--clr-growth); background: linear-gradient(120deg, var(--clr-growth-l), var(--clr-surface) 70%); }
-.streak-banner.state-baru { border-color: var(--clr-primary); background: linear-gradient(120deg, var(--clr-primary-l), var(--clr-surface) 70%); }
-.streak-banner-flame { position: relative; flex: none; width: 56px; height: 56px; border-radius: 50%; display: grid; place-items: center;
-  font-size: 1.9rem; color: #fff; background: var(--clr-accent); }
-.state-aman .streak-banner-flame { background: var(--clr-growth); }
-.state-baru .streak-banner-flame { background: var(--clr-primary); }
+.streak-banner-flame { --sb: var(--clr-accent); position: relative; flex: none; width: 52px; height: 52px; border-radius: 14px; display: grid; place-items: center;
+  font-size: 1.8rem; background: color-mix(in srgb, var(--sb) 14%, transparent); }
+.state-aman .streak-banner-flame { --sb: var(--clr-growth); }
+.state-baru .streak-banner-flame { --sb: var(--clr-primary); }
 .state-nunggu .streak-banner-flame { animation: flameFlicker 1.6s ease-in-out infinite; }
 .streak-banner-flame b { position: absolute; right: -6px; bottom: -4px; min-width: 24px; padding: 0 .3rem; border-radius: 999px;
   font: 900 .85rem/24px var(--font-head); text-align: center; color: var(--clr-text); background: var(--clr-surface); border: 2px solid currentColor; }
@@ -2955,7 +2944,7 @@ form:not(.stepper-on) .dq-nav [data-step=next] { display: none; }
 .state-aman .streak-banner-flame b { color: var(--clr-growth-d); }
 @keyframes flameFlicker { 0%, 100% { transform: scale(1) rotate(0); } 30% { transform: scale(1.07) rotate(-4deg); } 60% { transform: scale(.97) rotate(3deg); } }
 .streak-banner-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: .15rem; }
-.streak-banner-text strong { font: 800 1.08rem var(--font-head); color: var(--clr-text); }
+.streak-banner-text strong { font: 600 1.05rem var(--font-head); color: var(--clr-text); }
 .streak-banner-text span { color: var(--clr-text-sec); font-size: .9rem; }
 .streak-banner-actions { display: flex; flex-direction: column; align-items: flex-end; gap: .35rem; flex: none; }
 .streak-banner-actions .link-btn { font-size: .82rem; display: inline-flex; align-items: center; gap: .25rem; }

@@ -3,7 +3,9 @@
  *
  *  - Navigasi   : garis bawah saat halaman digulir.
  *  - Ikon       : ic() memakai sprite garis homepage (#hl-*), bukan Icon() berwarna milik aplikasi.
- *  - Archie hero: klik → melompat + tips kalkulus bergantian di gelembung.
+ *  - Archie hero: pembuka (kurva tergambar, Archie berjalan ke puncak), mata mengikuti kursor,
+ *                 berkedip, klik → lompat + tips, menyapa sendiri, bereaksi pada tombol hero.
+ *  - Zoom       : komponen membesar sedikit saat disorot dan muncul dengan zoom-in saat digulir.
  *  - Video      : tombol [data-video] membuka HomeVideo (home_video.js); label durasi dihitung
  *                 dari adegannya sehingga selalu cocok.
  *  - TrialQuiz  : kuis coba 5 soal dari GET /api/coba-soal/ (tanpa login). Penilaian di
@@ -34,19 +36,119 @@
     'Klik <b>Tonton pengenalan</b> buat tur singkat bareng aku.',
   ];
 
+  const HOVER_SAY = {
+    tour: 'Videonya cuma sebentar, yuk tonton bareng',
+    coba: '5 soal aja, gak perlu daftar',
+  };
+  const reduceMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
   function initHero() {
     const btn = $('#hero-archie');
     const bubble = $('#hero-bubble');
-    if (!btn || !bubble) return;
+    const art = $('.hp-hero-art');
+    const curve = $('#hero-curve');
+    if (!btn || !bubble || !art || !curve) return;
+
     let i = 0;
-    btn.addEventListener('click', () => {
-      bubble.innerHTML = TIPS[i++ % TIPS.length];
+    let lastTouch = 0;     // terakhir pengunjung berinteraksi dengan Archie
+    let autoCount = 0;
+
+    const say = (html, hop = true) => {
+      bubble.innerHTML = html;
       bubble.classList.remove('is-new');
-      btn.classList.remove('is-bounce');
-      void btn.offsetWidth;   // mulai ulang animasi
+      void bubble.offsetWidth;   // mulai ulang animasi
       bubble.classList.add('is-new');
-      btn.classList.add('is-bounce');
+      if (hop) {
+        btn.classList.remove('is-bounce');
+        void btn.offsetWidth;
+        btn.classList.add('is-bounce');
+      }
+    };
+    btn.addEventListener('animationend', (e) => { if (e.animationName === 'hpBounce') btn.classList.remove('is-bounce'); });
+    btn.addEventListener('click', () => { lastTouch = Date.now(); say(TIPS[i++ % TIPS.length]); });
+
+    // Bereaksi saat tombol hero disorot
+    document.querySelectorAll('.hp-cta [data-video="tour"], .hp-cta-alt').forEach((el) => {
+      const key = el.matches('.hp-cta-alt') ? 'coba' : 'tour';
+      el.addEventListener('mouseenter', () => { lastTouch = Date.now(); say(HOVER_SAY[key], false); });
     });
+
+    // Mata mengikuti kursor + berkedip
+    const svg = btn.querySelector('svg');
+    const eyes = [...svg.querySelectorAll('ellipse[cx="74"], circle[cx="71"], ellipse[cx="126"], circle[cx="123"]')];
+    eyes.forEach((el) => el.classList.add('hp-eye'));
+    let look = { x: 0, y: 0 }, blink = 1, raf = 0;
+    const paintEyes = () => { raf = 0; eyes.forEach((el) => { el.style.transform = `translate(${look.x}px, ${look.y}px) scaleY(${blink})`; }); };
+    const queue = () => { if (!raf) raf = requestAnimationFrame(paintEyes); };
+    const scene = art.querySelector('.hp-bridge');
+    window.addEventListener('pointermove', (e) => {
+      const a = art.getBoundingClientRect();   // parallax simbol: -1..1 relatif ke tengah adegan
+      art.style.setProperty('--mx', Math.max(-1, Math.min(1, (e.clientX - a.left - a.width / 2) / a.width)).toFixed(3));
+      art.style.setProperty('--my', Math.max(-1, Math.min(1, (e.clientY - a.top - a.height / 2) / a.height)).toFixed(3));
+      const r = svg.getBoundingClientRect();
+      const dx = e.clientX - (r.left + r.width / 2), dy = e.clientY - (r.top + r.height * .5);
+      const d = Math.hypot(dx, dy) || 1, k = Math.min(1, d / 240);
+      look = { x: (dx / d) * 4 * k, y: (dy / d) * 3 * k };
+      queue();
+    }, { passive: true });
+    const blinkLoop = () => {
+      setTimeout(() => {
+        blink = .1; queue();
+        setTimeout(() => { blink = 1; queue(); blinkLoop(); }, 130);
+      }, 2500 + Math.random() * 3000);
+    };
+    blinkLoop();
+
+    // Menyapa sendiri selama hero terlihat dan pengunjung belum mengajaknya bicara
+    let visible = true;
+    new IntersectionObserver(([en]) => { visible = en.isIntersecting; }).observe(art);
+    setInterval(() => {
+      if (!visible || document.hidden || autoCount >= 4 || Date.now() - lastTouch < 15000) return;
+      autoCount++;
+      say(TIPS[i++ % TIPS.length]);
+    }, 10000);
+
+    // Pembuka: kurva jembatan tergambar sekali, Archie berjalan di ujung penanya sampai puncak.
+    // Kapsul rumus (SMIL) dijeda sampai pembuka selesai; tetap dijeda (tersembunyi) jika gerak dikurangi.
+    scene.pauseAnimations();
+    if (reduceMotion()) return;
+    const L = curve.getTotalLength();
+    const place = (len) => {
+      const p = curve.getPointAtLength(len);
+      btn.style.left = `${(p.x / 520) * 100}%`;
+      btn.style.bottom = `${((400 - p.y) / 400) * 100 - 7}%`;
+    };
+    curve.style.strokeDasharray = `${L}`;
+    curve.style.strokeDashoffset = `${L}`;
+    art.classList.add('is-intro');
+    place(0);
+    const WALK = 1700, REST = 700, DELAY = 400;
+    const ease = (t) => t < .5 ? 2 * t * t : 1 - ((-2 * t + 2) ** 2) / 2;
+    let t0 = 0;
+    const step = (now) => {
+      if (!t0) t0 = now;
+      const ms = now - t0 - DELAY;
+      if (ms < 0) { requestAnimationFrame(step); return; }
+      btn.classList.add('is-walking');
+      let drawn;
+      if (ms < WALK) {
+        drawn = ease(ms / WALK) * (L / 2);
+        place(drawn);
+      } else {
+        btn.classList.remove('is-walking');
+        place(L / 2);
+        drawn = L / 2 + Math.min(1, (ms - WALK) / REST) * (L / 2);
+      }
+      curve.style.strokeDashoffset = `${L - drawn}`;
+      if (ms < WALK + REST) { requestAnimationFrame(step); return; }
+      curve.style.strokeDasharray = curve.style.strokeDashoffset = '';
+      btn.style.left = btn.style.bottom = '';
+      art.classList.remove('is-intro');
+      scene.setCurrentTime(0);
+      scene.unpauseAnimations();
+      say('Halo, aku <b>Archie</b>. Klik aku buat tips kalkulus');
+    };
+    requestAnimationFrame(step);
   }
 
   // ── Tombol video ────────────────────────────────────────────────────────────
@@ -215,8 +317,33 @@
     return { init };
   })();
 
+  // ── Zoom kecil: komponen membesar saat disorot, muncul dengan zoom-in saat digulir ──
+  const ZOOM = '.hp-eyebrow, .hp-stats li, .hp-bubble, .hp-feature, .hp-try-card, .hp-coach, .hp-steps li, .hp-faq details, .hp-final';
+  const REVEAL = '.hp-hero-copy > *, .hp-head, .hp-feature, .hp-try-side, .hp-try-card, .hp-steps li, .hp-faq details, .hp-final';
+  function initZoom() {
+    document.querySelectorAll(ZOOM).forEach((el) => el.classList.add('hp-zoom'));
+    if (reduceMotion() || !('IntersectionObserver' in window)) return;
+    const els = [...document.querySelectorAll(REVEAL)];
+    // Urutan kemunculan bertahap di dalam satu kelompok (saudara kandung)
+    els.forEach((el) => {
+      const sibs = [...el.parentElement.children].filter((c) => els.includes(c));
+      el.style.setProperty('--i', String(Math.min(sibs.indexOf(el), 6)));
+      el.classList.add('rv');
+    });
+    const io = new IntersectionObserver((entries) => entries.forEach((en) => {
+      if (!en.isIntersecting) return;
+      const el = en.target;
+      io.unobserve(el);
+      el.classList.add('is-in');
+      // Setelah muncul, lepas kelas reveal agar transisi hover (.hp-zoom) kembali normal
+      setTimeout(() => el.classList.remove('rv', 'is-in'), 700 + Number(el.style.getPropertyValue('--i')) * 70);
+    }), { threshold: .12, rootMargin: '0px 0px -40px 0px' });
+    els.forEach((el) => io.observe(el));
+  }
+
   function init() {
     initNav();
+    initZoom();
     initHero();
     initVideos();
     TrialQuiz.init();

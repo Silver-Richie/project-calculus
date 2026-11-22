@@ -14,6 +14,8 @@
  *     sesi n terbuka bila sesi n−1 lulus — sama dengan aturan server (sessions.py).
  *   - Di skill tree, setiap topik tampil sebagai node bulat pada jalur zig-zag
  *     (pathHTML) dengan 5 titik sesi; Archie berdiri di samping topik aktif.
+ *     Node disambung jalur tinta (drawInk): tinta penuh sampai topik aktif, garis pensil
+ *     putus-putus ke topik terkunci. Warna mengikuti level utama (--tone ← --lv-N).
  *   - Anti-curang: selama sesi berjalan FocusGuard (app.js) mengawasi keluar tab/jendela dan
  *     melapor ke POST /api/session/<id>/keluar-tab/. Keluar pertama = peringatan; keluar kedua,
  *     menutup/memuat ulang halaman, atau meninggalkan sesi (tutup drawer) = sesi gagal
@@ -74,12 +76,13 @@ const Practice = (() => {
 
   /* ── jalur topik di skill tree ───────────────────────────────────── */
   function pathHTML(n, level) {
+    const tone = level ? `style="--tone: var(--lv-${level.order}, var(--clr-primary))"` : '';
     return `
-      <div class="unit-banner">
+      <div class="unit-banner" ${tone}>
         ${level ? `<span class="unit-level">${Icon.level(level)} ${level.title}</span>` : ''}
         <span class="unit-title">${n.title}</span>
       </div>
-      <div class="unit-path" data-node="${n.slug}">
+      <div class="unit-path" data-node="${n.slug}" ${tone}>
         ${n.topics.map((t, i) => {
           const dx = DX[i % DX.length];
           return `
@@ -114,6 +117,47 @@ const Practice = (() => {
       if (st === 'active' && !active) active = el;
     });
     placeArchie(active);
+    document.querySelectorAll('.unit-path').forEach(watchInk);
+  }
+
+  /* ── jalur tinta antar-node ──────────────────────────────────────── */
+  const SVG_NS = 'http://www.w3.org/2000/svg';
+  const inkSeen = new WeakSet();
+  const inkRO = typeof ResizeObserver !== 'undefined' ? new ResizeObserver((es) => es.forEach((e) => drawInk(e.target))) : null;
+
+  function watchInk(path) {
+    drawInk(path);
+    if (inkRO && !inkSeen.has(path)) { inkSeen.add(path); inkRO.observe(path); }
+  }
+
+  /** Gambar kurva antar pusat tombol node; ruas menuju node terkunci jadi garis pensil. */
+  function drawInk(path) {
+    const btns = [...path.querySelectorAll('.topic-node-btn')];
+    const box = path.getBoundingClientRect();
+    if (btns.length < 2 || !box.width) return;
+    let svg = path.querySelector(':scope > .unit-ink');
+    if (!svg) {
+      svg = document.createElementNS(SVG_NS, 'svg');
+      svg.setAttribute('class', 'unit-ink');
+      svg.setAttribute('aria-hidden', 'true');
+      svg.innerHTML = '<path class="ink-done"/><path class="ink-todo"/>';
+      path.prepend(svg);
+    }
+    svg.setAttribute('viewBox', `0 0 ${box.width} ${box.height}`);
+    // Ruas mulai di bawah titik sesi node sebelumnya dan berhenti di tepi atas node berikutnya.
+    const pts = btns.map((b) => {
+      const r = b.getBoundingClientRect();
+      const dots = b.parentElement.querySelector('.topic-node-dots')?.getBoundingClientRect();
+      return { x: r.left - box.left + r.width / 2, top: r.top - box.top - 4, out: (dots && dots.height ? dots.bottom : r.bottom) - box.top + 4 };
+    });
+    let done = '', todo = '';
+    for (let i = 1; i < pts.length; i++) {
+      const x0 = pts[i - 1].x, y0 = pts[i - 1].out, x1 = pts[i].x, y1 = pts[i].top, m = (y1 - y0) / 2;
+      const seg = `M${x0} ${y0}C${x0} ${y0 + m} ${x1} ${y1 - m} ${x1} ${y1}`;
+      if (btns[i].closest('.topic-locked')) todo += seg; else done += seg;
+    }
+    svg.querySelector('.ink-done').setAttribute('d', done);
+    svg.querySelector('.ink-todo').setAttribute('d', todo);
   }
 
   // Referensi disimpan: SkillTree.render() mengganti isi #skill-tree sehingga elemen

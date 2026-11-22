@@ -29,6 +29,13 @@
   --fam-red: #DC2626;
   --fam-amber: #B45309;
   --fam-shadow: rgba(31, 27, 22, .1);
+  --wash-grass: #DDEBCB;
+  --wash-earth: #EBD9BC;
+  --wash-water: #D5E5FA;
+  --wash-leaf: #C6E2B3;
+  --wash-wood: #E6CFA8;
+  --wash-sun: #FBE3A1;
+  --wash-cloud: #FFFFFF;
   --clr-primary: var(--ink);
   --clr-primary-d: var(--ink-d);
   --clr-primary-l: var(--ink-soft);
@@ -54,6 +61,13 @@
   --fam-red: #F87171;
   --fam-amber: #FBBF24;
   --fam-shadow: rgba(0, 0, 0, .35);
+  --wash-grass: #1B2A20;
+  --wash-earth: #2E2720;
+  --wash-water: #142238;
+  --wash-leaf: #213A26;
+  --wash-wood: #3A3024;
+  --wash-sun: #E9DFB8;
+  --wash-cloud: #161A24;
   --shadow-pop: none;
 }
 .auth-login .ic { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }

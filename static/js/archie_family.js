@@ -25,7 +25,8 @@
  *  - Saat halaman dibuka, tim merakit papan jembatan yang masih bolong (skrip "rakit") sekali.
  *    Setelah itu tokoh diam; mereka hanya beraksi saat diklik atau saat form diisi.
  *  - Klik tokoh → menjalankan vibe tokoh itu secara bergantian (VIBES). Klik papan → grafik
- *    baru; pohon → apel jatuh; bendera → Archie bangga; jembatan → roller coaster.
+ *    baru; pohon → apel jatuh; bendera → Archie bangga; jembatan → roller coaster;
+ *    matahari/bulan → tukar mode terang/gelap.
  *  - Mode gelap situs (data-theme di <html>, static/js/theme.js) → Ungu tertidur, dst.
  *  - Form (event dari auth_mascot.js): look → semua menoleh ke kolom; cover → Archie &
  *    Kuning menutup mata; type → Hijau menulis rumus di papan & Kuning melompat kecil;
@@ -384,6 +385,21 @@
     const LEFT_LAND = `M${X0} 604Q-1200 594 -600 600T300 600L${LEFT_EDGE - 12} 600Q${LEFT_EDGE + 4} 601 ${LEFT_EDGE + 10} 614L${LEFT_EDGE + 26} 690Q${LEFT_EDGE + 30} 730 ${LEFT_EDGE + 22} ${YBOT}H${X0}Z`;
     const RIGHT_LAND = `M${X1} 579H900Q830 576 ${RIGHT_EDGE + 8} 578Q${RIGHT_EDGE - 6} 580 ${RIGHT_EDGE - 12} 594L${RIGHT_EDGE - 26} 680Q${RIGHT_EDGE - 30} 730 ${RIGHT_EDGE - 22} ${YBOT}H${X1}Z`;
     const strata = (x, dir) => [640, 680, 720].map((y, i) => `M${x - dir * (8 + i * 2)} ${y}l${dir * 46} ${6 + i * 2}`).join('');
+    // Dinding tebing (arsiran warna tanah) di atas daratan berumput; sungai mengisi jurang.
+    const FACE_L = `M${LEFT_EDGE - 26} 606Q${LEFT_EDGE + 2} 602 ${LEFT_EDGE + 10} 616L${LEFT_EDGE + 26} 690Q${LEFT_EDGE + 30} 730 ${LEFT_EDGE + 22} ${YBOT}L${LEFT_EDGE - 40} ${YBOT}L${LEFT_EDGE - 32} 660Z`;
+    const FACE_R = `M${RIGHT_EDGE + 16} 584Q${RIGHT_EDGE - 4} 580 ${RIGHT_EDGE - 12} 594L${RIGHT_EDGE - 26} 680Q${RIGHT_EDGE - 30} 730 ${RIGHT_EDGE - 22} ${YBOT}L${RIGHT_EDGE + 40} ${YBOT}L${RIGHT_EDGE + 34} 650Z`;
+    const RIVER = `M${LEFT_EDGE - 40} 704Q470 690 590 706T${RIGHT_EDGE + 60} 698V${YBOT}H${LEFT_EDGE - 40}Z`;
+    // Langit: matahari (mode terang) / bulan (mode gelap) dan awan, coretan pensil yang diam.
+    const rays = Array.from({ length: 8 }, (_, i) => {
+      const a = (i * Math.PI) / 4;
+      return `M${(Math.cos(a) * 30).toFixed(1)} ${(Math.sin(a) * 30).toFixed(1)}L${(Math.cos(a) * 38).toFixed(1)} ${(Math.sin(a) * 38).toFixed(1)}`;
+    }).join('');
+    const cloud = (x, y, s) => `<path class="f-cloud" transform="translate(${x} ${y}) scale(${s})" d="M0 30a22 22 0 0 1 20-28a30 30 0 0 1 56 4a20 20 0 0 1 24 24z"/>`;
+    const SKY = `<g class="fam-clouds">${cloud(140, 188, 0.75)}${cloud(320, 150, 0.6)}</g>
+      <g class="fam-sky" data-hit="sun" transform="translate(540 186)">
+        <g class="fam-sun"><circle class="f-sun" r="22"/><path class="f-pencil" d="${rays}" stroke-width="2" stroke-linecap="round"/></g>
+        <g class="fam-moon"><circle class="f-moon" r="22" mask="url(#fam-moon-cut)"/></g>
+      </g>`;
     const waves = [714, 734, 754].map((y, i) => `M${LEFT_EDGE + 36 + i * 12} ${y}q10-4 20 0${'t20 0'.repeat(16 - i)}`).join('');
     let grid = '';
     for (let x = 182; x < 350; x += 12) grid += `M${x} 262V388`;
@@ -391,13 +407,16 @@
 
     return `<defs>
         <marker id="fam-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="f-red-fill" d="M0 0L10 5L0 10Z"/></marker>
+        <mask id="fam-moon-cut"><rect x="-30" y="-30" width="60" height="60" fill="#fff"/><circle cx="11" cy="-7" r="18" fill="#000"/></mask>
         <clipPath id="fam-board-clip"><rect x="170" y="262" width="180" height="126" rx="4"/></clipPath>
       </defs>
+      ${SKY}
+      <path class="f-river" d="${RIVER}"/>
       <path class="f-water" d="${waves}"/>
       ${bridgeMarkup()}
-      <path class="f-cliff" d="${LEFT_LAND}"/>
+      <path class="f-land" d="${LEFT_LAND}"/><path class="f-earth" d="${FACE_L}"/><path class="f-cliff" d="${LEFT_LAND}"/>
       <path class="f-hair" d="${strata(LEFT_EDGE - 10, 1)}" stroke-width="1.5" stroke-linecap="round"/>
-      <path class="f-cliff" d="${RIGHT_LAND}"/>
+      <path class="f-land" d="${RIGHT_LAND}"/><path class="f-earth" d="${FACE_R}"/><path class="f-cliff" d="${RIGHT_LAND}"/>
       <path class="f-hair" d="${strata(RIGHT_EDGE + 10, -1)}" stroke-width="1.5" stroke-linecap="round"/>
       <g class="fam-tree" data-hit="tree">
         <path class="f-trunk" d="M54 640C60 560 62 470 70 400L82 400C86 470 88 560 98 640Z"/>
@@ -907,6 +926,9 @@
     } else if (kind === 'flag' && free('archie')) {
       act('archie', 'proud');
       say('archie', 'peak', 2000, { mouth: false });
+    } else if (kind === 'sun') {
+      const btn = document.getElementById('theme-toggle-btn');   // tukar tema situs (static/js/theme.js)
+      if (btn) btn.click();
     } else if (kind === 'bridge') {
       runScript('archieCoaster').then((ok) => { if (!ok) burst(toSvg(e).x, toSvg(e).y, 6); });
     }
@@ -986,7 +1008,7 @@
     } else {
       const card = document.querySelector('.auth-split .auth-card');
       const freeW = card ? Math.max(card.getBoundingClientRect().left - r.left, 360) : r.width;
-      scale = Math.min(r.height / 740, (freeW - 24) / 600, 1.5);
+      scale = Math.min(r.height / 620, (freeW - 24) / 600, 1.9);   // adegan mengisi tinggi layar (langit tidak kosong)
       centerX = freeW / 2;
       core = 300;
     }
