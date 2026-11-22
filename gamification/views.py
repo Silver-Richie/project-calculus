@@ -127,6 +127,8 @@ def leaderboard_api(request):
     Papan rank/wins juga memuat 5 hasil duel terakhir tiap baris (`recent`) dan `played` (sudah ada
     duel di cakupan ini); papan rank memuat jumlah pemain per tier (`tiers`, kolom Ketinggian).
     "kampus" butuh kampus terisi dan bukan "Umum"; "fakultas" memakai fakultas akun.
+    Akun super (superuser) tidak pernah masuk papan mana pun maupun sebaran tier; bagi akun super
+    sendiri `me` ditandai `hidden` tanpa posisi.
     """
     board = request.GET.get("board", "level")
     scope = request.GET.get("scope", "global")
@@ -134,7 +136,8 @@ def leaderboard_api(request):
             or (scope == "apex" and board != "rank"):
         return JsonResponse({"status": "error", "message": "Papan atau cakupan tidak dikenal."}, status=400)
     me, _ = UserProfile.objects.get_or_create(user=request.user)
-    qs = (UserProfile.objects.select_related("user", "faculty", "user__duel_rank").filter(user__is_active=True)
+    qs = (UserProfile.objects.select_related("user", "faculty", "user__duel_rank")
+          .filter(user__is_active=True, user__is_superuser=False)
           .annotate(rank_points=Coalesce("user__duel_rank__points", 0), rank_mmr=Coalesce("user__duel_rank__mmr", 1000),
                     rank_wins=Coalesce("user__duel_rank__wins", 0)))
     if scope == "kampus":
@@ -199,6 +202,8 @@ def leaderboard_api(request):
             start = max(0, my_index - 2)
             around = [row(p, position(p), start + j) for j, p in enumerate(ordered[start:min(my_index + 3, TOP_LIMIT)])]
         mine = row(me_row, position(me_row), my_index)
+    elif request.user.is_superuser:
+        mine = {**row(me, None), "hidden": True}
     else:
         mine = row(me, qs.filter(**{f"{key}__gt": getattr(me, key, 0) if board == "level" else 0}).count() + 1)
     if board == "level":

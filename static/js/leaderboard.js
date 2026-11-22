@@ -163,6 +163,13 @@ const Leaderboard = (() => {
 
   function meCardHTML(d) {
     const m = d.me;
+    if (m.hidden) {   // akun super: tidak masuk peringkat (views.leaderboard_api)
+      return `<section class="lbx-me">
+        <div class="lbx-me-rank"><span><small>Posisimu</small><br><b>–</b></span></div>
+        ${avatar(m, 'lg')}
+        <div class="lbx-me-info"><p><b>${esc(m.name)}</b></p><p><small>Akun super, tidak masuk papan peringkat</small></p></div>
+      </section>`;
+    }
     if (board !== 'level' && !d.played) {
       return `<section class="lbx-me lbx-tie"><div>
         <h3>Semua ${fmt(d.total)} pemain masih seri</h3>
