@@ -2168,3 +2168,51 @@ class NotificationPhase1Tests(TestCase):
         for part in ("RRULE:FREQ=DAILY", "BEGIN:VALARM", "TRIGGER:-PT0M", "T234500Z", "SUMMARY:Latihan Calculus Bridge"):
             self.assertIn(part, body)
         self.assertTrue(all(len(line.encode()) <= 75 for line in body.split("\r\n")))      # dilipat sesuai RFC 5545
+
+
+class SuperAccountTests(TestCase):
+    """Akun super (superuser): tidak masuk papan peringkat, heart tidak berkurang, command isi_akun_super."""
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_gamification", stdout=io.StringIO())
+        ft = Faculty.objects.get(slug="ft")
+        cls.boss = User.objects.create_superuser("boss", password="rahasia-123")
+        UserProfile.objects.create(user=cls.boss, xp=9999, faculty=ft)
+        cls.ani = User.objects.create_user("ani", password="rahasia-123")
+        UserProfile.objects.create(user=cls.ani, xp=100, faculty=ft)
+
+    def board(self, user, board="level"):
+        self.client.force_login(user)
+        return self.client.get(f"/api/peringkat/?board={board}&scope=global").json()
+
+    def test_hidden_from_every_board(self):
+        for board in ("level", "rank", "wins"):
+            data = self.board(self.ani, board)
+            self.assertEqual([r["username"] for r in data["rows"]], ["ani"], board)
+            self.assertEqual(data["total"], 1)
+        self.assertEqual(sum(t["count"] for t in self.board(self.ani, "rank")["tiers"]), 1)
+
+    def test_super_sees_itself_unranked(self):
+        me = self.board(self.boss)["me"]
+        self.assertTrue(me["hidden"])
+        self.assertIsNone(me["pos"])
+
+    def test_hearts_never_drop(self):
+        p = UserProfile.objects.get(user=self.boss)
+        self.assertEqual(p.lose_heart(), p.max_hearts)
+        self.assertIsNone(UserProfile.objects.get(user=self.boss).hearts_lost_at)
+        self.assertEqual(UserProfile.objects.get(user=self.ani).lose_heart(), 9)
+
+    def test_fill_command(self):
+        from .models import OwnedItem, PracticeSession, UserSessionProgress
+        from .management.commands.isi_akun_super import SUPER_GEMS, SUPER_LEVEL
+        call_command("isi_akun_super", stdout=io.StringIO())
+        call_command("isi_akun_super", "--username", "boss", stdout=io.StringIO())     # aman diulang
+        p = UserProfile.objects.get(user=self.boss)
+        self.assertEqual(leveling.level_for(p.xp), SUPER_LEVEL)
+        self.assertEqual(p.gems, SUPER_GEMS)
+        self.assertTrue(OwnedItem.objects.filter(user=self.boss).exists())
+        self.assertEqual(UserProgress.objects.filter(user=self.boss, status="completed").count(), SkillNode.objects.count())
+        self.assertEqual(UserSessionProgress.objects.filter(user=self.boss, passed=True).count(), PracticeSession.objects.count())
+        self.assertFalse(UserProgress.objects.filter(user=self.ani).exists())

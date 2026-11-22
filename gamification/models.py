@@ -450,9 +450,14 @@ class UserProfile(models.Model):
         return self.hearts
 
     def lose_heart(self, now=None):
-        """Kurangi satu nyawa (dipakai saat gagal lulus sesi). Nyawa pertama yang hilang memulai hitungan 24 jam."""
+        """
+        Kurangi satu nyawa (dipakai saat gagal lulus sesi). Nyawa pertama yang hilang memulai hitungan 24 jam.
+        Akun super (superuser, lihat command isi_akun_super) tidak pernah kehilangan nyawa.
+        """
         now = now or timezone.now()
         self.refresh_hearts(now)
+        if self.user.is_superuser:
+            return self.hearts
         if self.hearts > 0:
             self.hearts -= 1
             self.hearts_lost_at = self.hearts_lost_at or now

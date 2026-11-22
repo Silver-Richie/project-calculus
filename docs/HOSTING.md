@@ -21,6 +21,9 @@ Ganti `USERNAME` di bawah dengan username PythonAnywhere (alamat situs: `https:/
    Buat SECRET_KEY: `python -c "import secrets; print(secrets.token_urlsafe(50))"`.
 4. **Isi database** — `python manage.py migrate && python manage.py seed_gamification`
    lalu `python manage.py createsuperuser` (akun admin) dan `python manage.py collectstatic --noinput`.
+   Akun admin = akun super: tidak masuk papan peringkat dan heart-nya tidak berkurang. Isi semua poinnya
+   (Level 50, diamond, semua item toko, semua materi terbuka) dengan `python manage.py isi_akun_super`;
+   jalankan lagi setelah kurikulum mendapat topik baru.
 5. **Web app** — tab *Web* → *Add a new web app* → *Manual configuration* → Python 3.13.
    - *Virtualenv*: `/home/USERNAME/.virtualenvs/calculus`
    - *Source code*: `/home/USERNAME/project-calculus`
