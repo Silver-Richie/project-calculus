@@ -1,10 +1,13 @@
 {% extends 'base.html' %}
-{% load assets icons %}
+{% load assets %}
 {% comment %}
   HALAMAN: Homepage publik — tampilan pertama tamu (dari Google / tautan langsung), tanpa login.
-  Isi    : navigasi (Masuk / Daftar kanan atas) · hero Archie · kartu fitur + "video" animasi
+  Isi    : navigasi (Masuk / Daftar kanan atas) · hero Archie di kurva jembatan · fitur + "video" animasi
            (static/js/home_video.js) · kuis coba 5 soal (static/js/home.js, API /api/coba-soal/)
            · cara kerja · FAQ · footer.
+  Desain : arah "buku catatan kuliah" — kertas, tinta biru sebagai satu-satunya aksen, kurva tinta
+           sebagai ciri khas (garis bawah judul & penghubung langkah). Ikon garis satu warna dari
+           sprite lokal #hl-* di bawah (sprite global berwarna tidak dipakai di halaman ini).
   Pengguna yang sudah login tidak melihat halaman ini (views.landing_page → beranda aplikasi).
 {% endcomment %}
 
@@ -26,6 +29,28 @@
 {% block body_class %}home-body{% endblock %}
 
 {% block content %}
+{# Ikon garis satu warna (gaya lucide, stroke 1.5, warna = currentColor) khusus homepage #}
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <defs>
+    <symbol id="hl-play" viewBox="0 0 24 24"><path d="M7 4.5v15l12-7.5Z" fill="currentColor"/></symbol>
+    <symbol id="hl-target" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/></symbol>
+    <symbol id="hl-map" viewBox="0 0 24 24"><path d="M3 6.5 9 3.5l6 3 6-3v14l-6 3-6-3-6 3Z"/><path d="M9 3.5v14M15 6.5v14"/></symbol>
+    <symbol id="hl-graph" viewBox="0 0 24 24"><path d="M3.5 3.5v17h17"/><path d="M7 15.5c1.2-3 2.4-6.5 4.5-6.5s2 3.5 4 3.5 3-3.5 4-6.5"/></symbol>
+    <symbol id="hl-pen" viewBox="0 0 24 24"><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4Z"/><path d="m14.5 5.5 3 3"/></symbol>
+    <symbol id="hl-flame" viewBox="0 0 24 24"><path d="M12 21a6.5 6.5 0 0 0 6.5-6.5c0-4-3.5-6-4.5-10.5-2 1.5-3.5 4-3 6.5-1.2-.4-2-1.5-2.2-3C7.2 9 5.5 11.3 5.5 14.5A6.5 6.5 0 0 0 12 21Z"/></symbol>
+    <symbol id="hl-compass" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m15.5 8.5-2.2 4.8-4.8 2.2 2.2-4.8Z"/></symbol>
+    <symbol id="hl-moon" viewBox="0 0 24 24"><path d="M12 3.5a6.5 6.5 0 0 0 8.5 8.5A8.5 8.5 0 1 1 12 3.5Z"/></symbol>
+    <symbol id="hl-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.3 5.3l1.4 1.4M17.3 17.3l1.4 1.4M5.3 18.7l1.4-1.4M17.3 6.7l1.4-1.4"/></symbol>
+    <symbol id="hl-book" viewBox="0 0 24 24"><path d="M3 4.5h5.5A3.5 3.5 0 0 1 12 8v12a2.5 2.5 0 0 0-2.5-2.5H3Z"/><path d="M21 4.5h-5.5A3.5 3.5 0 0 0 12 8v12a2.5 2.5 0 0 1 2.5-2.5H21Z"/></symbol>
+    <symbol id="hl-warning" viewBox="0 0 24 24"><path d="M10.3 4 2.6 17.5A2 2 0 0 0 4.3 20.5h15.4a2 2 0 0 0 1.7-3L13.7 4a2 2 0 0 0-3.4 0Z"/><path d="M12 9.5v4M12 17h.01"/></symbol>
+    <symbol id="hl-chat" viewBox="0 0 24 24"><path d="M7.9 19.5A8.5 8.5 0 1 0 4.5 16L3 21Z"/></symbol>
+    <symbol id="hl-sliders" viewBox="0 0 24 24"><path d="M4 6h9M17 6h3M4 12h3M11 12h9M4 18h11M19 18h1"/><path d="M15 4v4M9 10v4M17 16v4"/></symbol>
+    <symbol id="hl-pause" viewBox="0 0 24 24"><path d="M8 5v14M16 5v14"/></symbol>
+    <symbol id="hl-prev" viewBox="0 0 24 24"><path d="M18 5 9 12l9 7Z"/><path d="M6 5v14"/></symbol>
+    <symbol id="hl-next" viewBox="0 0 24 24"><path d="m6 5 9 7-9 7Z"/><path d="M18 5v14"/></symbol>
+  </defs>
+</svg>
+
 <a class="hp-skip" href="#coba">Lewati ke coba soal</a>
 
 <!-- ═══ Navigasi: brand · tautan bagian · tema · Masuk / Daftar ═══ -->
@@ -40,23 +65,23 @@
     <a href="#faq">FAQ</a>
   </nav>
   <div class="hp-actions">
-    <button type="button" class="btn-theme" id="theme-toggle-btn" title="Ganti tema" aria-label="Ganti tema">{% icon "moon" %}</button>
-    <a class="btn btn-outline btn-sm" href="{% url 'gamification:auth_login' %}">Masuk</a>
+    <button type="button" class="btn-theme hp-theme" id="theme-toggle-btn" data-icon-prefix="hl-" title="Ganti tema" aria-label="Ganti tema"></button>
+    <a class="hp-login" href="{% url 'gamification:auth_login' %}">Masuk</a>
     <a class="btn btn-primary btn-sm" href="{% url 'gamification:auth_login' %}?tab=daftar">Daftar</a>
   </div>
 </header>
 
 <main>
-  <!-- ═══ Hero ═══ -->
+  <!-- ═══ Hero: teks kiri · Archie berdiri di puncak kurva jembatan (kertas berpetak) ═══ -->
   <section class="hp-hero">
     <div class="hp-hero-copy">
-      <span class="hp-eyebrow">{% icon "cap" %} Untuk mahasiswa baru FT · FMIPA · Fasilkom</span>
-      <h1>Seberangi jurang kalkulus <span>bersama Archie</span></h1>
+      <p class="hp-eyebrow"><span class="hp-eyebrow-dot" aria-hidden="true"></span>Untuk mahasiswa baru FT, FMIPA, dan Fasilkom</p>
+      <h1>Seberangi <span class="hp-ink">jurang<svg viewBox="0 0 100 14" preserveAspectRatio="none" aria-hidden="true"><path d="M2 11C26 11 32 3 50 3S74 11 98 11"/></svg></span> kalkulus bersama Archie</h1>
       <p class="hp-lead">Belajar limit, turunan, sampai integral lewat skill tree ala game, soal acak plus
         pembahasan step-by-step, dan grafik yang bisa kamu geser sendiri.</p>
       <div class="hp-cta">
-        <button type="button" class="btn btn-accent btn-lg" data-video="tour">▶ Tonton pengenalan</button>
-        <a class="btn btn-outline btn-lg" href="#coba">{% icon "target" %} Coba 5 soal dulu</a>
+        <button type="button" class="btn btn-primary btn-lg" data-video="tour"><svg class="ic"><use href="#hl-play"/></svg>Tonton pengenalan</button>
+        <a class="btn btn-outline btn-lg hp-cta-alt" href="#coba">Coba 5 soal dulu</a>
       </div>
       <ul class="hp-stats">
         <li><b>{{ level_count }}</b> level kurikulum</li>
@@ -66,25 +91,63 @@
     </div>
 
     <div class="hp-hero-art">
-      <svg class="hp-bridge" viewBox="0 0 520 220" aria-hidden="true">
-        <path class="hp-cliff" d="M0 150 Q40 140 70 160 L70 220 L0 220Z"/>
-        <path class="hp-cliff" d="M450 160 Q480 140 520 150 L520 220 L450 220Z"/>
-        <path id="hp-curve" class="hp-curve" d="M60 160 C140 160 170 40 260 40 S380 160 460 160"/>
-        <circle class="hp-dot" r="7">
-          <animateMotion dur="6s" repeatCount="indefinite" rotate="auto" keyPoints="0;1;0" keyTimes="0;.5;1" calcMode="linear">
-            <mpath href="#hp-curve"/>
-          </animateMotion>
-        </circle>
-        <text class="hp-curve-label" x="268" y="28">f′(x) = 0</text>
+      <svg class="hp-bridge" viewBox="0 0 520 400" aria-hidden="true">
+        {# Awan pensil + simbol matematika di ruang kosong #}
+        <path class="hp-cloud" d="M64 92a14 14 0 0 1 22-14a20 20 0 0 1 36 4a12 12 0 0 1 4 24H70a10 10 0 0 1-6-14Z"/>
+        <path class="hp-cloud" d="M392 128a10 10 0 0 1 16-10a14 14 0 0 1 26 3a9 9 0 0 1 3 17h-40a7 7 0 0 1-5-10Z"/>
+        {# Simbol: tiap simbol punya gerak sendiri (home.css) + bergeser mengikuti kursor (--mx/--my dari home.js) #}
+        <g class="hp-par" style="--d: 14"><text class="hp-math hp-m1" x="36" y="172">lim<tspan class="hp-math-sub" x="38" dy="18">x→0</tspan></text></g>
+        <g class="hp-par" style="--d: -18"><text class="hp-math hp-math-int hp-m2" x="456" y="204">∫</text></g>
+        <g class="hp-par" style="--d: 10"><text class="hp-math hp-m3" x="392" y="280">Δx</text></g>
+        <g class="hp-par" style="--d: -8"><text class="hp-math hp-m4" x="24" y="268">dy/dx</text></g>
+        {# Sungai di dasar jurang #}
+        <path class="hp-river" d="M100 374C150 368 200 380 260 374S372 368 420 376V400H100Z"/>
+        <path class="hp-wave" d="M150 386q10-4 20 0t20 0M300 384q10-4 20 0t20 0M232 394q8-3 16 0"/>
+        {# Tebing: muka depan (tanah) · sisi dalam (lebih gelap) · bibir atas (rumput) #}
+        <path class="hp-cliff" d="M0 328C34 326 70 330 104 336V400H0Z"/>
+        <path class="hp-cliff-side" d="M104 336L116 328V400H104Z"/>
+        <path class="hp-cliff-top" d="M0 320C36 316 76 320 116 328L104 336C70 330 34 326 0 328Z"/>
+        <path class="hp-cliff" d="M520 328C486 326 450 330 416 336V400H520Z"/>
+        <path class="hp-cliff-side" d="M416 336L404 328V400H416Z"/>
+        <path class="hp-cliff-top" d="M520 320C484 316 444 320 404 328L416 336C450 330 486 326 520 328Z"/>
+        <path class="hp-grass" d="M14 320l2-7l3 7M30 318l1-6l3 6M98 325l2-6l2 6M424 325l2-6l2 6M488 318l1-6l3 6M502 320l2-7l3 7"/>
+        {# Jembatan: kurva tergambar sekali saat halaman dibuka (home.js), Archie berjalan di ujung penanya #}
+        <path class="hp-curve" id="hero-curve" d="M80 327C156 327 178 196 260 196S364 327 440 327"/>
+        {# Transisi SMA → kuliah: arus titik di tali + kapsul rumus yang meluncur dari kiri ke kanan dan
+           berubah jadi turunannya saat melewati Archie di puncak (SMIL; dijeda sampai pembuka selesai) #}
+        <g class="hp-transit">
+          <path class="hp-flow" d="M80 327C156 327 178 196 260 196S364 327 440 327"/>
+          <g class="hp-rider" opacity="0">
+            <animateMotion dur="7.5s" begin="0s" repeatCount="indefinite"><mpath href="#hero-curve"/></animateMotion>
+            <animate attributeName="opacity" values="0;1;1;0" keyTimes="0;.08;.92;1" dur="7.5s" begin="0s" repeatCount="indefinite"/>
+            <rect x="-24" y="-30" width="48" height="24" rx="12"/>
+            <text y="-13">x²<animate attributeName="opacity" values="1;1;0;0" keyTimes="0;.47;.53;1" dur="7.5s" begin="0s" repeatCount="indefinite"/></text>
+            <text class="is-after" y="-13" opacity="0">2x<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;.47;.53;1" dur="7.5s" begin="0s" repeatCount="indefinite"/></text>
+          </g>
+          <g class="hp-rider" opacity="0">
+            <animateMotion dur="7.5s" begin="2.5s" repeatCount="indefinite"><mpath href="#hero-curve"/></animateMotion>
+            <animate attributeName="opacity" values="0;1;1;0" keyTimes="0;.08;.92;1" dur="7.5s" begin="2.5s" repeatCount="indefinite"/>
+            <rect x="-24" y="-30" width="48" height="24" rx="12"/>
+            <text y="-13">sin x<animate attributeName="opacity" values="1;1;0;0" keyTimes="0;.47;.53;1" dur="7.5s" begin="2.5s" repeatCount="indefinite"/></text>
+            <text class="is-after" y="-13" opacity="0">cos x<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;.47;.53;1" dur="7.5s" begin="2.5s" repeatCount="indefinite"/></text>
+          </g>
+          <g class="hp-rider" opacity="0">
+            <animateMotion dur="7.5s" begin="5s" repeatCount="indefinite"><mpath href="#hero-curve"/></animateMotion>
+            <animate attributeName="opacity" values="0;1;1;0" keyTimes="0;.08;.92;1" dur="7.5s" begin="5s" repeatCount="indefinite"/>
+            <rect x="-24" y="-30" width="48" height="24" rx="12"/>
+            <text y="-13">x³<animate attributeName="opacity" values="1;1;0;0" keyTimes="0;.47;.53;1" dur="7.5s" begin="5s" repeatCount="indefinite"/></text>
+            <text class="is-after" y="-13" opacity="0">3x²<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;.47;.53;1" dur="7.5s" begin="5s" repeatCount="indefinite"/></text>
+          </g>
+        </g>
+        <g class="hp-peakmark">
+          <path class="hp-tangent" d="M188 196H332"/>
+          <circle class="hp-peak" cx="260" cy="196" r="5"/>
+          <text class="hp-curve-label" x="344" y="200">f′(x) = 0</text>
+        </g>
       </svg>
-      <span class="hp-glyph" style="--x:6%;--y:12%;--d:0s">∫</span>
-      <span class="hp-glyph" style="--x:90%;--y:34%;--d:.8s">dx</span>
-      <span class="hp-glyph" style="--x:82%;--y:64%;--d:1.6s">lim</span>
-      <span class="hp-glyph" style="--x:2%;--y:62%;--d:2.4s">π</span>
-      <span class="hp-glyph" style="--x:34%;--y:86%;--d:3.2s">∞</span>
-      <div class="hp-bubble" id="hero-bubble" aria-live="polite">Halo! Aku <b>Archie</b>. Klik aku!</div>
+      <div class="hp-bubble" id="hero-bubble" aria-live="polite">Halo, aku <b>Archie</b>. Klik aku buat tips kalkulus</div>
       <button type="button" class="hp-archie" id="hero-archie" aria-label="Klik Archie untuk tips kalkulus">
-        {% include 'components/mascot.html' with svg_class="mascot-idle" size=230 %}
+        {% include 'components/mascot.html' with size=200 %}
       </button>
     </div>
   </section>
@@ -92,46 +155,46 @@
   <!-- ═══ Fitur + video animasi ═══ -->
   <section class="hp-section" id="fitur">
     <div class="hp-head">
-      <span class="hp-kicker">Fitur</span>
-      <h2>Semua yang kamu butuhin buat naklukin kalkulus</h2>
-      <p>Klik <b>▶ Tonton</b> di tiap kartu buat lihat video singkat bareng Archie.</p>
+      <p class="hp-kicker">Fitur</p>
+      <h2>Dari peta level sampai kanvas coretan</h2>
+      <p>Tiap fitur punya video singkat bareng Archie</p>
     </div>
     <div class="hp-features">
-      <article class="hp-feature" style="--c:var(--clr-primary)">
-        <span class="hp-feature-icon">{% icon "map" %}</span>
+      <article class="hp-feature" style="--tone: var(--t-blue)">
+        <svg class="ic hp-feature-icon"><use href="#hl-map"/></svg>
         <h3>Skill Tree 4 Level</h3>
         <p>Dari PreCalculus sampai Kalkulus Tingkat Lanjut. Beresin satu node buat buka jalan berikutnya.</p>
-        <button type="button" class="hp-play" data-video="peta">▶ Tonton <small>13 dtk</small></button>
+        <button type="button" class="hp-play" data-video="peta"><svg class="ic"><use href="#hl-play"/></svg>Tonton <small>13 dtk</small></button>
       </article>
-      <article class="hp-feature" style="--c:var(--clr-accent)">
-        <span class="hp-feature-icon">{% icon "target" %}</span>
+      <article class="hp-feature" style="--tone: var(--t-coral)">
+        <svg class="ic hp-feature-icon"><use href="#hl-target"/></svg>
         <h3>Latihan &amp; Pembahasan</h3>
         <p>Soal diacak khusus buat kamu, hint bertahap, dan pembahasan step-by-step. Ada Mode Latihan juga.</p>
-        <button type="button" class="hp-play" data-video="latihan">▶ Tonton <small>18 dtk</small></button>
+        <button type="button" class="hp-play" data-video="latihan"><svg class="ic"><use href="#hl-play"/></svg>Tonton <small>18 dtk</small></button>
       </article>
-      <article class="hp-feature" style="--c:var(--clr-growth)">
-        <span class="hp-feature-icon">{% icon "graph" %}</span>
+      <article class="hp-feature" style="--tone: var(--t-green)">
+        <svg class="ic hp-feature-icon"><use href="#hl-graph"/></svg>
         <h3>Grafik Interaktif</h3>
         <p>Geser slider, terus lihat garis singgung, luas, atau kurvanya berubah langsung di depan mata.</p>
-        <button type="button" class="hp-play" data-video="grafik">▶ Tonton <small>15 dtk</small></button>
+        <button type="button" class="hp-play" data-video="grafik"><svg class="ic"><use href="#hl-play"/></svg>Tonton <small>15 dtk</small></button>
       </article>
-      <article class="hp-feature" style="--c:#8B5CF6">
-        <span class="hp-feature-icon">{% icon "pen" %}</span>
+      <article class="hp-feature" style="--tone: var(--t-amber)">
+        <svg class="ic hp-feature-icon"><use href="#hl-pen"/></svg>
         <h3>Kanvas Coretan</h3>
         <p>Hitung langsung di samping soal pakai mouse, jari, atau stylus. Coretan otomatis tersimpan di tiap soal.</p>
-        <button type="button" class="hp-play" data-video="papan">▶ Tonton <small>13 dtk</small></button>
+        <button type="button" class="hp-play" data-video="papan"><svg class="ic"><use href="#hl-play"/></svg>Tonton <small>13 dtk</small></button>
       </article>
-      <article class="hp-feature" style="--c:var(--clr-danger)">
-        <span class="hp-feature-icon">{% icon "flame" %}</span>
+      <article class="hp-feature" style="--tone: var(--t-orange)">
+        <svg class="ic hp-feature-icon"><use href="#hl-flame"/></svg>
         <h3>XP, Streak &amp; Heart</h3>
         <p>Kumpulin XP, jaga streak harian, hemat heart, terus naik di leaderboard.</p>
-        <button type="button" class="hp-play" data-video="gamifikasi">▶ Tonton <small>13 dtk</small></button>
+        <button type="button" class="hp-play" data-video="gamifikasi"><svg class="ic"><use href="#hl-play"/></svg>Tonton <small>13 dtk</small></button>
       </article>
-      <article class="hp-feature" style="--c:var(--clr-gold)">
-        <span class="hp-feature-icon">{% icon "compass" %}</span>
+      <article class="hp-feature" style="--tone: var(--t-sky)">
+        <svg class="ic hp-feature-icon"><use href="#hl-compass"/></svg>
         <h3>Jalur Fakultas &amp; Tes Diagnostik</h3>
         <p>Pilih FT, FMIPA, atau Fasilkom, terus ikut tes diagnostik 10 soal buat tahu kamu mulai dari mana.</p>
-        <button type="button" class="hp-play" data-video="diagnostik">▶ Tonton <small>13 dtk</small></button>
+        <button type="button" class="hp-play" data-video="diagnostik"><svg class="ic"><use href="#hl-play"/></svg>Tonton <small>13 dtk</small></button>
       </article>
     </div>
   </section>
@@ -139,15 +202,15 @@
   <!-- ═══ Coba fitur: kuis 5 soal tanpa login ═══ -->
   <section class="hp-section hp-try" id="coba">
     <div class="hp-try-side">
-      <span class="hp-kicker">Coba sekarang</span>
+      <p class="hp-kicker">Coba sekarang</p>
       <h2>5 soal, gak perlu daftar</h2>
       <p>3 soal <b>Kalkulus Dasar</b> dan 2 soal <b>Kalkulus Tingkat Menengah</b> (Mudah–Sedang), diacak
         dari bank soal yang sama dengan aplikasinya. Hasilnya gak disimpan.</p>
       <div class="hp-coach">
         <div class="hp-coach-archie" id="coach-archie">
-          {% include 'components/mascot.html' with svg_class="mascot-idle" size=92 %}
+          {% include 'components/mascot.html' with size=72 %}
         </div>
-        <p class="hp-coach-say" id="coach-say" aria-live="polite">Siap? Aku temenin dari sini!</p>
+        <p class="hp-coach-say" id="coach-say" aria-live="polite">Siap? Aku temenin dari sini</p>
       </div>
     </div>
     <div class="hp-try-card" id="trial-root" data-api="{% url 'gamification:trial_quiz_api' %}"
@@ -156,35 +219,40 @@
     </div>
   </section>
 
-  <!-- ═══ Cara kerja ═══ -->
+  <!-- ═══ Cara kerja: tiga langkah dihubungkan kurva tinta ═══ -->
   <section class="hp-section" id="cara">
     <div class="hp-head">
-      <span class="hp-kicker">Cara kerja</span>
+      <p class="hp-kicker">Cara kerja</p>
       <h2>Mulai dalam 3 langkah</h2>
     </div>
+    <div class="hp-steps-wrap">
+    <svg class="hp-steps-ink" viewBox="0 0 200 24" preserveAspectRatio="none" aria-hidden="true">
+      <path d="M0 12C25 0 75 0 100 12S175 24 200 12"/>
+    </svg>
     <ol class="hp-steps">
       <li>
-        <span class="hp-step-num">1</span>
+        <span class="hp-step-num" style="--tone: var(--t-blue)">1</span>
         <h3>Daftar</h3>
         <p>Pakai akun Google, atau bikin username dan password sendiri.</p>
       </li>
       <li>
-        <span class="hp-step-num">2</span>
+        <span class="hp-step-num" style="--tone: var(--t-coral)">2</span>
         <h3>Pilih fakultas &amp; tes diagnostik</h3>
         <p>Pilih FT, FMIPA, atau Fasilkom. Tes diagnostik 10 soal (opsional) ngasih rekomendasi kamu mulai dari mana.</p>
       </li>
       <li>
-        <span class="hp-step-num">3</span>
+        <span class="hp-step-num" style="--tone: var(--t-green)">3</span>
         <h3>Belajar &amp; naik level</h3>
         <p>Baca materi, kerjain 5 sesi tiap topik, kumpulin XP, terus buka node berikutnya.</p>
       </li>
     </ol>
+    </div>
   </section>
 
   <!-- ═══ FAQ ═══ -->
   <section class="hp-section" id="faq">
     <div class="hp-head">
-      <span class="hp-kicker">FAQ</span>
+      <p class="hp-kicker">FAQ</p>
       <h2>Pertanyaan yang sering muncul</h2>
     </div>
     <div class="hp-faq">
@@ -221,18 +289,18 @@
 
   <!-- ═══ Ajakan akhir ═══ -->
   <section class="hp-final">
-    {% include 'components/mascot.html' with svg_class="mascot-idle" size=110 %}
+    {% include 'components/mascot.html' with size=88 %}
     <div>
       <h2>Siap menyeberang?</h2>
       <p>Bikin akun buat nyimpen progres dan buka seluruh skill tree.</p>
     </div>
-    <a class="btn btn-growth btn-lg" href="{% url 'gamification:auth_login' %}?tab=daftar">Daftar sekarang ➔</a>
+    <a class="btn btn-primary btn-lg" href="{% url 'gamification:auth_login' %}?tab=daftar">Daftar sekarang</a>
   </section>
 </main>
 
 <footer class="hp-footer">
   <a href="{% url 'gamification:home' %}" class="hp-brand"><span class="hp-brand-icon">∫</span>Calculus<span>Bridge</span></a>
-  <p>Jembatan kalkulus untuk mahasiswa baru FT, FMIPA, dan Fasilkom.</p>
+  <p>Jembatan kalkulus untuk mahasiswa baru FT, FMIPA, dan Fasilkom</p>
   <nav aria-label="Tautan footer">
     <a href="#fitur">Fitur</a><a href="#coba">Coba Soal</a><a href="#faq">FAQ</a>
     <a href="{% url 'gamification:auth_login' %}">Masuk</a><a href="{% url 'gamification:auth_login' %}?tab=daftar">Daftar</a>
@@ -251,11 +319,11 @@
     <div class="vp-screen" id="vp-screen">
       <div class="vp-canvas" id="vp-canvas"></div>
       <div class="vp-end" id="vp-end" hidden>
-        <p>Selesai! Mau lanjut ke mana?</p>
+        <p>Selesai. Mau lanjut ke mana?</p>
         <div>
-          <a class="btn btn-accent" href="#coba" data-vp-close>{% icon "target" %} Coba 5 soal</a>
-          <a class="btn btn-primary" href="{% url 'gamification:auth_login' %}?tab=daftar">Daftar</a>
-          <button type="button" class="btn btn-outline" id="vp-replay">↺ Putar ulang</button>
+          <a class="btn btn-primary" href="#coba" data-vp-close>Coba 5 soal</a>
+          <a class="btn btn-outline" href="{% url 'gamification:auth_login' %}?tab=daftar">Daftar</a>
+          <button type="button" class="btn btn-outline" id="vp-replay">Putar ulang</button>
         </div>
       </div>
     </div>
@@ -264,9 +332,9 @@
       <p id="vp-cap" aria-live="polite"></p>
     </div>
     <div class="vp-controls">
-      <button type="button" class="vp-btn" id="vp-play" aria-label="Jeda">{% icon "pause" %}</button>
-      <button type="button" class="vp-btn" id="vp-prev" aria-label="Adegan sebelumnya">{% icon "prev" %}</button>
-      <button type="button" class="vp-btn" id="vp-next" aria-label="Adegan berikutnya">{% icon "next" %}</button>
+      <button type="button" class="vp-btn" id="vp-play" aria-label="Jeda"><svg class="ic"><use href="#hl-pause"/></svg></button>
+      <button type="button" class="vp-btn" id="vp-prev" aria-label="Adegan sebelumnya"><svg class="ic"><use href="#hl-prev"/></svg></button>
+      <button type="button" class="vp-btn" id="vp-next" aria-label="Adegan berikutnya"><svg class="ic"><use href="#hl-next"/></svg></button>
       <div class="vp-track" id="vp-track"></div>
       <span class="vp-time" id="vp-time">0:00</span>
     </div>

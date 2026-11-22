@@ -25,18 +25,18 @@
   <div class="sidebar-divider"></div>
 
   <p class="sidebar-label">Menu</p>
-  <div class="sidebar-item" onclick="Nav.go('levelup')">{% icon "tree" %} Skill Tree</div>
-  <div class="sidebar-item" onclick="Nav.go('lesson')">{% icon "book" %} Kurikulum</div>
-  <div class="sidebar-item" onclick="Nav.go('free')">{% icon "target" %} Mode Latihan</div>
-  <div class="sidebar-item" onclick="Nav.go('ranked')">{% icon "swords" %} Ranked</div>
-  <div class="sidebar-item" onclick="Nav.go('rank')">{% icon "podium" %} Leaderboard</div>
-  <div class="sidebar-item" onclick="Nav.go('shop')">{% icon "bag" %} Item Shop</div>
-  <div class="sidebar-item" onclick="Nav.go('user')">{% icon "user" %} Profil</div>
+  <div class="sidebar-item active" data-page="levelup" onclick="Nav.go('levelup')">{% icon "tree" %} Skill Tree</div>
+  <div class="sidebar-item" data-page="lesson" onclick="Nav.go('lesson')">{% icon "book" %} Kurikulum</div>
+  <div class="sidebar-item" data-page="free" onclick="Nav.go('free')">{% icon "target" %} Mode Latihan</div>
+  <div class="sidebar-item" data-page="ranked" onclick="Nav.go('ranked')">{% icon "swords" %} Ranked</div>
+  <div class="sidebar-item" data-page="rank" onclick="Nav.go('rank')">{% icon "podium" %} Leaderboard</div>
+  <div class="sidebar-item" data-page="shop" onclick="Nav.go('shop')">{% icon "bag" %} Item Shop</div>
+  <div class="sidebar-item" data-page="user" onclick="Nav.go('user')">{% icon "user" %} Profil</div>
 
   <div class="sidebar-divider"></div>
 
   <!-- Diagnostic trigger -->
-  <div class="sidebar-item" onclick="window.location.href='{% url 'gamification:auth_diagnostic_offer' %}'" style="color:#F97316;">
+  <div class="sidebar-item" onclick="window.location.href='{% url 'gamification:auth_diagnostic_offer' %}'">
     {% icon "flask" %} Tes Diagnostik
   </div>
 

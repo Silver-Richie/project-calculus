@@ -152,7 +152,15 @@ const State = (() => {
 
   function setText(id, val) {
     const el = document.getElementById(id);
-    if (el) el.textContent = val;
+    if (!el) return;
+    const changed = el.textContent !== String(val) && el.dataset.shown;
+    el.textContent = val;
+    el.dataset.shown = '1';
+    if (changed && id.startsWith('hud-')) {
+      el.classList.remove('hud-bump');
+      void el.offsetWidth;   // mulai ulang animasi
+      el.classList.add('hud-bump');
+    }
   }
 
   function updateHUD() {
@@ -295,10 +303,10 @@ const Nav = (() => {
       pages.forEach(p => {
         const sec = document.getElementById(`page-${p}`);
         const btn = document.getElementById(`bnav-${p}`);
-        const sbr = null; // sidebar items don't have ids for pages
         if (sec) sec.classList.toggle('active', p === page);
         if (btn) btn.classList.toggle('active', p === page);
       });
+      document.querySelectorAll('.sidebar-item[data-page]').forEach((el) => el.classList.toggle('active', el.dataset.page === page));
       if (page === 'free' && typeof FreePractice !== 'undefined') FreePractice.render();
       if (page === 'rank' && typeof Leaderboard !== 'undefined') Leaderboard.load();
       if (page === 'ranked' && typeof Ranked !== 'undefined') Ranked.render();
@@ -313,12 +321,12 @@ const Nav = (() => {
 const Mascot = (() => {
   const moods = ['idle', 'celebrate', 'thinking', 'comfort'];
   const quotes = [
-    "Halo! Aku Archie, partner kamu buat naklukin kalkulus!",
-    "Fun fact: notasi dy/dx itu dari Leibniz, kalau Newton pakai titik ẏ!",
+    "Halo, aku Archie, partner kamu buat naklukin kalkulus.",
+    "Fun fact: notasi dy/dx itu dari Leibniz, kalau Newton pakai titik ẏ.",
     "Limit itu kayak ngedeketin gebetan: sedekat mungkin, tapi gak pernah nyentuh.",
-    "Turunan itu speedometer: laju perubahan di satu momen!",
+    "Turunan itu speedometer: laju perubahan di satu momen.",
     "Integral itu ngitung luas di bawah kurva dengan ngejumlahin potongan-potongan kecil.",
-    "Salah itu normal. Otakmu lagi bikin koneksi baru!",
+    "Salah itu normal. Otakmu lagi bikin koneksi baru.",
     "Satu kuis sehari, lama-lama kalkulus jadi temen.",
   ];
 
@@ -713,7 +721,7 @@ const QuizEngine = (() => {
     if (!container) return;
     SFX.fanfare();
     Confetti.burst();
-    Mascot.setMood('celebrate', `${Icon('trophy')} Mantap! Level ini udah kamu taklukin!`);
+    Mascot.setMood('celebrate', `${Icon('trophy')} Mantap, level ini udah kamu taklukin.`);
     finishNode();
     const next = Curriculum.nextOf(nodeSlug);
     container.innerHTML = `
@@ -796,7 +804,7 @@ const QuizEngine = (() => {
     finish() {
       finishNode();
       SFX.fanfare();
-      Mascot.setMood('celebrate', `${Icon('book')} Materi selesai! Tahap berikutnya udah kebuka.`);
+      Mascot.setMood('celebrate', `${Icon('book')} Materi selesai. Tahap berikutnya udah kebuka.`);
       Drawer.close();
       Nav.go('levelup');
     },
@@ -897,7 +905,7 @@ const Drawer = (() => {
 
       if (status === 'locked' && !opts.browse) {
         SFX.wrong();
-        Mascot.setMood('comfort', `${Icon('lock')} Beresin tahap sebelumnya dulu buat buka ini!`);
+        Mascot.setMood('comfort', `${Icon('lock')} Beresin tahap sebelumnya dulu buat buka ini.`);
         const el = document.getElementById(`node-${slug}`);
         if (el) { el.classList.add('node-shake'); setTimeout(() => el.classList.remove('node-shake'), 500); }
         return;
@@ -919,7 +927,7 @@ const Drawer = (() => {
       if (startBtn) startBtn.hidden = isRef;
       this.switchTab('materi');
       show();
-      Mascot.setMood('wave', `Masuk ke <strong>${node.title}</strong>! Baca materinya dulu, ya.`);
+      Mascot.setMood('wave', `Masuk ke <strong>${node.title}</strong>. Baca materinya dulu, ya.`);
     },
 
     /** Bank Soal: buka satu soal beserta pembahasannya. */

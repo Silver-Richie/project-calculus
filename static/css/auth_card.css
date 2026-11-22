@@ -1,84 +1,212 @@
 /* ════════════════════════════════════════════════════════════════
-   Halaman Masuk/Daftar: tata letak, kartu kaca (glassmorphism), input berikon
-   dengan glow, maskot kartu, dan versi malam. Adegan latar ada di archie_family.css.
-   Pasangan JS: static/js/auth_mascot.js (reaksi maskot terhadap form).
+   Halaman Masuk/Daftar (templates/auth/login.html) — gaya buku catatan, sejalan dengan homepage.
+   Token  : palet kertas & tinta didefinisikan ulang di .auth-login (body), terang & gelap.
+            Satu aksen (tinta biru), spasi kelipatan 4px, bobot 400/500/600.
+   Kartu  : kertas datar dengan garis tipis; tanpa kaca, glow, atau bayangan 3D.
+   Adegan : archie_family.css. Reaksi maskot kartu: static/js/auth_mascot.js.
 
    Mekanisme klik: pembungkus halaman dibuat pointer-events:none supaya klik di area
-   kosong tembus ke adegan latar; kartu, logo, dan pesan tetap bisa diklik.
+   kosong tembus ke adegan latar; kartu, logo, tombol tema, dan pesan tetap bisa diklik.
    ════════════════════════════════════════════════════════════════ */
+
+/* ── Token halaman ─────────────────────────────────────────────── */
+.auth-body.auth-login {
+  --clr-bg: #F7F4EE;
+  --clr-surface: #FDFBF7;
+  --clr-cream: #EFE9DF;
+  --clr-border: rgba(31, 27, 22, .1);
+  --clr-text: #1F1B16;
+  --clr-text-sec: #5E554A;
+  --clr-muted: #7B7266;
+  --ink: #2563EB;
+  --ink-d: #1D4ED8;
+  --ink-text: #1D4ED8;
+  --ink-soft: rgba(37, 99, 235, .1);
+  --grid-line: rgba(31, 27, 22, .06);
+  --grid-line-strong: rgba(31, 27, 22, .09);
+  --fam-pencil: #6B6258;
+  --fam-hair: rgba(31, 27, 22, .18);
+  --fam-red: #DC2626;
+  --fam-amber: #B45309;
+  --fam-shadow: rgba(31, 27, 22, .1);
+  --wash-grass: #DDEBCB;
+  --wash-earth: #EBD9BC;
+  --wash-water: #D5E5FA;
+  --wash-leaf: #C6E2B3;
+  --wash-wood: #E6CFA8;
+  --wash-sun: #FBE3A1;
+  --wash-cloud: #FFFFFF;
+  --clr-primary: var(--ink);
+  --clr-primary-d: var(--ink-d);
+  --clr-primary-l: var(--ink-soft);
+  --shadow-pop: 0 8px 24px rgba(31, 27, 22, .07);
+  --ease: cubic-bezier(.22, 1, .36, 1);
+  background: var(--clr-bg);
+  color: var(--clr-text);
+}
+[data-theme="dark"] .auth-body.auth-login {
+  --clr-bg: #0B0D14;
+  --clr-surface: #11141C;
+  --clr-cream: #1A1E28;
+  --clr-border: rgba(238, 240, 245, .09);
+  --clr-text: #EEF0F5;
+  --clr-text-sec: #A3A9B8;
+  --clr-muted: #7A8296;
+  --ink-text: #7EA6F8;
+  --ink-soft: rgba(126, 166, 248, .12);
+  --grid-line: rgba(238, 240, 245, .05);
+  --grid-line-strong: rgba(238, 240, 245, .08);
+  --fam-pencil: #8F96A6;
+  --fam-hair: rgba(238, 240, 245, .16);
+  --fam-red: #F87171;
+  --fam-amber: #FBBF24;
+  --fam-shadow: rgba(0, 0, 0, .35);
+  --wash-grass: #1B2A20;
+  --wash-earth: #2E2720;
+  --wash-water: #142238;
+  --wash-leaf: #213A26;
+  --wash-wood: #3A3024;
+  --wash-sun: #E9DFB8;
+  --wash-cloud: #161A24;
+  --shadow-pop: none;
+}
+.auth-login .ic { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
 
 /* ── Tata letak: ≥ 768px kartu di kolom kanan, kolom kiri untuk adegan ── */
 .auth-main:has(.auth-split) { max-width: 1180px; }
 .auth-split {
   display: grid;
   grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
-  gap: 1.5rem;
+  gap: 24px;
   align-items: start;
 }
 .auth-shell:has(.family-stage),
 .auth-shell:has(.family-stage) .auth-main,
 .auth-shell:has(.family-stage) .auth-split { pointer-events: none; }
-.auth-shell:has(.family-stage) :is(.family-stage, .auth-card, .auth-brand, .auth-messages) { pointer-events: auto; }
+.auth-shell:has(.family-stage) :is(.family-stage, .auth-card, .auth-brand, .auth-messages, .auth-theme) { pointer-events: auto; }
 .auth-shell:has(.family-stage) :is(.auth-brand, .auth-messages) { position: relative; z-index: 1; }
-.auth-shell:has(.family-stage) .auth-brand {
-  background: rgba(255, 255, 255, .85);
-  padding: .35rem .8rem .35rem .4rem;
-  border-radius: var(--radius-full);
-  box-shadow: var(--shadow-card);
-}
 
-/* ── Kartu kaca ─────────────────────────────────────────────────── */
+/* ── Logo & tombol tema (sama seperti navigasi homepage) ───────── */
+.auth-login .auth-shell { padding: 16px 16px 40px; gap: 20px; }
+.auth-login .auth-brand {
+  height: 48px; gap: 8px;
+  font-weight: 600; font-size: 18px; color: var(--clr-text);
+}
+.auth-login .auth-brand span:last-child { color: var(--ink-text); }
+.auth-login .auth-brand .hud-brand-icon {
+  width: 28px; height: 28px; border-radius: 8px;
+  display: grid; place-items: center;
+  background: var(--ink); color: #fff; font-weight: 500; font-size: 17px; box-shadow: none;
+}
+.auth-theme {
+  position: absolute; top: 22px; right: 24px; z-index: 2;
+  width: 36px; height: 36px; display: grid; place-items: center;
+  background: var(--clr-surface); border: 1px solid var(--clr-border); border-radius: 10px;
+  color: var(--clr-text-sec); cursor: pointer;
+  transition: background-color .15s var(--ease), color .15s var(--ease);
+}
+.auth-theme:hover { background: var(--clr-cream); color: var(--clr-text); }
+.auth-theme:focus-visible { outline: 2px solid var(--ink-text); outline-offset: 2px; }
+
+/* ── Kartu ─────────────────────────────────────────────────────── */
 .auth-split .auth-card {
   grid-column: 2;
   min-width: 0;   /* jangan melebar mengikuti isi terpanjang (HP) */
   max-width: none;
   margin: 0;
+  padding: 32px;
   position: relative;
   z-index: 1;
   color: var(--clr-text);
-  background: rgba(255, 255, 255, .85);
-  -webkit-backdrop-filter: blur(12px);
-  backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, .65);
-  border-radius: 24px;
-  box-shadow: 0 18px 50px rgba(15, 23, 42, .18), inset 0 1px 0 rgba(255, 255, 255, .6);
-  transition: background-color .8s ease, border-color .8s ease;
+  background: var(--clr-surface);
+  border: 1px solid var(--clr-border);
+  border-radius: 16px;
+  box-shadow: var(--shadow-pop);
+  transition: border-color .4s var(--ease), box-shadow .4s var(--ease);
 }
+/* Mantra Ungu (∫ & ∞) mengenai kartu: tepi kartu tertulis tinta sesaat. */
+.auth-gate .auth-split .auth-card { border-color: var(--ink); box-shadow: 0 0 0 3px var(--ink-soft), var(--shadow-pop); }
 
-/* Mantra Ungu (∫ & ∞) mengenai kartu = "gerbang level berikutnya" berpendar emas sesaat. */
-.auth-split .auth-card { transition: background-color .8s ease, border-color .8s ease, box-shadow .5s ease; }
-.auth-gate .auth-split .auth-card {
-  border-color: rgba(251, 191, 36, .9);
-  box-shadow: 0 0 0 3px rgba(251, 191, 36, .55), 0 0 48px rgba(251, 191, 36, .6), 0 18px 50px rgba(15, 23, 42, .18);
+.auth-login .auth-card-head { gap: 16px; margin-bottom: 24px; }
+.auth-login .auth-title { font-size: 24px; font-weight: 500; line-height: 1.25; letter-spacing: -.01em; }
+.auth-login .auth-sub { font-size: 14px; line-height: 1.5; margin-top: 4px; }
+
+/* Tab Masuk / Daftar: kontrol bersegmen */
+.auth-login .auth-tabs { background: var(--clr-cream); border-radius: 10px; padding: 4px; margin-bottom: 20px; }
+.auth-login .auth-tab {
+  height: 36px; padding: 0 16px; border-radius: 8px;
+  font-weight: 500; font-size: 14px; color: var(--clr-text-sec);
+  transition: background-color .15s var(--ease), color .15s var(--ease);
 }
+.auth-login .auth-tab:hover { color: var(--clr-text); }
+.auth-login .auth-tab.active { background: var(--clr-surface); color: var(--clr-text); box-shadow: 0 0 0 1px var(--clr-border); }
+.auth-login .auth-tab:focus-visible { outline: 2px solid var(--ink-text); outline-offset: 2px; }
+.auth-login .auth-pane.active { animation: none; }
+.auth-login .auth-form { gap: 16px; }
 
-/* ── Input berikon + glow biru saat fokus ───────────────────────── */
+/* ── Kolom isian ───────────────────────────────────────────────── */
+.auth-login .auth-field { gap: 6px; }
+.auth-login .auth-field label { font-size: 13px; font-weight: 500; }
 .auth-input { position: relative; }
 .auth-input-icon {
   position: absolute;
-  left: .9rem;
+  left: 14px;
   top: 50%;
   transform: translateY(-50%);
   width: 18px;
   height: 18px;
+  stroke-width: 1.5;
   color: var(--clr-muted);
   pointer-events: none;
-  transition: color .2s;
+  transition: color .15s var(--ease);
 }
-.auth-input input { width: 100%; padding-left: 2.7rem; }
-.auth-input:focus-within .auth-input-icon { color: #0EA5E9; }
-.auth-split .auth-field input { background: rgba(255, 255, 255, .7); transition: border-color .2s, box-shadow .25s, background-color .2s; }
-.auth-split .auth-field input:focus {
-  border-color: #38BDF8;
-  background: #fff;
-  box-shadow: 0 0 0 4px rgba(56, 189, 248, .22), 0 0 22px rgba(56, 189, 248, .45);
+.auth-input input { width: 100%; padding-left: 44px; }
+.auth-input:focus-within .auth-input-icon { color: var(--ink-text); }
+.auth-login .auth-field input {
+  height: 44px; padding-block: 0;
+  border: 1px solid var(--clr-border); border-radius: 10px;
+  background: var(--clr-bg); color: var(--clr-text);
+  transition: border-color .15s var(--ease), box-shadow .15s var(--ease), background-color .15s var(--ease);
+}
+.auth-login .auth-field input::placeholder { color: var(--clr-muted); }
+.auth-login .auth-field input:focus { border-color: var(--ink); background: var(--clr-surface); box-shadow: 0 0 0 3px var(--ink-soft); }
+.auth-login .auth-field.has-error input { border-color: var(--fam-red); }
+.auth-login .auth-error { font-size: 13px; color: var(--fam-red); }
+.auth-login .auth-help { font-size: 13px; margin-top: 0; }
+
+/* ── Tombol (datar, satu aksen) ────────────────────────────────── */
+.auth-login .btn {
+  gap: 8px; height: 48px; padding: 0 20px; border-radius: 10px;
+  font-weight: 600; font-size: 16px; box-shadow: none;
+  transition: background-color .15s var(--ease), border-color .15s var(--ease), transform .12s var(--ease);
+}
+.auth-login .btn:hover { transform: none; }
+.auth-login .btn:active { transform: scale(.98); box-shadow: none; }
+.auth-login .btn:focus-visible { outline: 2px solid var(--ink-text); outline-offset: 2px; }
+.auth-login .btn-primary { background: var(--ink); color: #fff; }
+.auth-login .btn-primary:hover { background: var(--ink-d); }
+.auth-login .auth-submit { margin-top: 4px; }
+.auth-login .auth-google { background: var(--clr-surface); color: var(--clr-text); border: 1px solid var(--clr-border); }
+.auth-login .auth-google:hover:not(:disabled) { background: var(--clr-cream); border-color: var(--clr-border); }
+.auth-login .auth-google:disabled { opacity: .55; cursor: not-allowed; }
+
+.auth-google-block { display: flex; flex-direction: column; gap: 12px; margin-bottom: 16px; }
+.auth-google-block .auth-submit { margin-top: 0; }
+.auth-google-note { font-size: 12px; color: var(--clr-muted); text-align: center; margin-top: -4px; }
+.auth-login .auth-or { font-size: 13px; font-weight: 400; letter-spacing: 0; color: var(--clr-muted); gap: 12px; }
+
+.auth-login .auth-switch { font-size: 14px; }
+.auth-login .link-btn {
+  color: var(--ink-text); font-weight: 600;
+  text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px;
 }
 
-/* ── Tombol Google di atas form ─────────────────────────────────── */
-.auth-google-block { display: flex; flex-direction: column; gap: .85rem; margin-bottom: .85rem; }
-.auth-google-block .auth-submit { margin-top: 0; }
-.auth-google-note { font-size: .75rem; color: var(--clr-muted); text-align: center; margin-top: -.45rem; }
-.auth-split .auth-or { text-transform: lowercase; letter-spacing: .02em; font-size: .82rem; }
+/* Pesan (mis. "Kamu sudah keluar") */
+.auth-login .auth-alert {
+  border-radius: 10px; padding: 12px 16px; font-size: 14px;
+  background: var(--clr-surface); border: 1px solid var(--clr-border); color: var(--clr-text);
+}
+.auth-login .auth-alert-error { border-color: color-mix(in srgb, var(--fam-red) 40%, transparent); color: var(--fam-red); }
 
 /* ── Maskot kartu (templates/auth/_mascot_card.html) ────────────── */
 .mascot-card { flex-shrink: 0; overflow: visible; }
@@ -96,36 +224,15 @@
   75% { transform: scale(1.05, .95); }
 }
 
-/* ── Malam: kartu kaca gelap kebiruan (body.auth-night dari archie_family.js) ── */
-.auth-night .auth-split .auth-card {
-  --clr-text: #E2E8F0;
-  --clr-text-sec: #CBD5E1;
-  --clr-muted: #94A3B8;
-  --clr-border: rgba(148, 163, 184, .35);
-  --clr-cream: rgba(30, 41, 59, .85);
-  --clr-surface: #1E293B;
-  --clr-primary: #7DD3FC;
-  background: rgba(15, 23, 42, .72);
-  border-color: rgba(148, 163, 184, .25);
-  box-shadow: 0 18px 50px rgba(2, 6, 23, .45), inset 0 1px 0 rgba(255, 255, 255, .08);
-}
-.auth-night .auth-split .auth-field input { background: rgba(15, 23, 42, .55); color: #E2E8F0; }
-.auth-night .auth-split .auth-field input:focus { background: rgba(15, 23, 42, .85); }
-.auth-night .auth-split .auth-google { background: #fff; color: #1E1B16; }
-.auth-night .auth-split .btn-primary { --clr-primary: #2563EB; }
-.auth-night .auth-shell .auth-brand { background: rgba(15, 23, 42, .75); color: #E2E8F0; }
-.auth-body.auth-night { background: #0F172A; }   /* HP: latar di sekitar banner & kartu ikut gelap */
-
 /* ── HP (< 768px): 1 kolom; adegan menjadi banner di atas kartu ─── */
 @media (max-width: 767px) {
   .auth-split { grid-template-columns: minmax(0, 1fr); }
-  .auth-split .auth-card { grid-column: auto; width: 100%; max-width: 520px; margin: 0 auto; padding: 1.35rem; }
+  .auth-split .auth-card { grid-column: auto; width: 100%; max-width: 520px; margin: 0 auto; padding: 20px; }
   .auth-card-head .mascot-card { width: 64px; height: 64px; }
+  .auth-login .auth-title { font-size: 20px; }
+  .auth-theme { top: 22px; right: 16px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .mascot-card *, .auth-split .auth-field input { animation: none !important; transition: none !important; }
+  .mascot-card *, .auth-login .auth-field input { animation: none !important; transition: none !important; }
 }
-
-/* Saat halaman dibuka, siang/malam langsung diterapkan tanpa transisi (lihat archie_family.js). */
-.auth-instant .auth-card, .auth-instant .auth-card *, .auth-instant .family-stage * { transition: none !important; }

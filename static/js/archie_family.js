@@ -15,19 +15,24 @@
  *   kuning         Cheerleader/Pemburu  — menangkap apel gravitasi Newton dengan jaring
  *                                          (lintasan + panah kecepatan) ↔ menyeberang & tos
  *
+ * Gaya: buku catatan kuliah — kertas berpetak, tebing & jembatan digambar dengan tinta/pensil.
+ * Warna lingkungan diatur lewat kelas CSS (archie_family.css) sehingga ikut mode gelap situs;
+ * warna tokoh tetap (merekalah bagian berwarna dari halaman).
+ *
  * Mekanisme:
  *  - Satu skrip = satu adegan di SCRIPTS dengan daftar tokoh yang dipakainya. runScript()
  *    mengunci tokoh itu (busy) agar dua adegan tidak berebut tokoh yang sama.
- *  - Sutradara (director) mengundi skrip yang tokohnya bebas, tanpa mengulang yang terakhir.
- *    Pertama kali, tim merakit papan jembatan yang masih bolong (skrip "rakit").
+ *  - Saat halaman dibuka, tim merakit papan jembatan yang masih bolong (skrip "rakit") sekali.
+ *    Setelah itu tokoh diam; mereka hanya beraksi saat diklik atau saat form diisi.
  *  - Klik tokoh → menjalankan vibe tokoh itu secara bergantian (VIBES). Klik papan → grafik
- *    baru; pohon → apel jatuh; matahari/bulan → siang/malam; bendera → Archie bangga;
- *    jembatan → roller coaster; item berkilau → dikumpulkan ke penghitung (HUD).
+ *    baru; pohon → apel jatuh; bendera → Archie bangga; jembatan → roller coaster;
+ *    matahari/bulan → tukar mode terang/gelap.
+ *  - Mode gelap situs (data-theme di <html>, static/js/theme.js) → Ungu tertidur, dst.
  *  - Form (event dari auth_mascot.js): look → semua menoleh ke kolom; cover → Archie &
  *    Kuning menutup mata; type → Hijau menulis rumus di papan & Kuning melompat kecil;
  *    cheer → semua melompat.
  *  - Tata letak: latar penuh layar (≥ 768px) atau banner di atas kartu (HP); lihat fit().
- *  - Hemat: berhenti saat tab tersembunyi; prefers-reduced-motion mematikan adegan otomatis.
+ *  - prefers-reduced-motion: tanpa intro, jembatan langsung utuh.
  */
 (() => {
   'use strict';
@@ -136,7 +141,7 @@
 
   // Di belakang badan (piringan sihir Ungu) dan di depan badan (kereta roller coaster Archie).
   const BACK = {
-    ungu: `<g class="fam-disc"><ellipse class="fam-disc-glow" cx="100" cy="184" rx="96" ry="24" fill="url(#fam-magic)"/>
+    ungu: `<g class="fam-disc">
       <ellipse cx="100" cy="181" rx="78" ry="15" fill="#4C1D95" stroke="#A78BFA" stroke-width="3"/>
       <ellipse class="fam-disc-ring" cx="100" cy="181" rx="62" ry="10" fill="none" stroke="#FDE047" stroke-width="2.5"/></g>`,
   };
@@ -266,6 +271,7 @@
   };
 
   // ── Papan tulis ────────────────────────────────────────────────
+  // Warna goresan lewat kelas (t-ink | t-red | t-pencil | t-amber), didefinisikan di archie_family.css.
   const OX = 260, OY = 328, SX = 23, SY = 17;
   const px = (x) => OX + x * SX;
   const py = (y) => OY - y * SY;
@@ -281,230 +287,160 @@
     }
     return d;
   }
-  const chalk = (d, color = '#F8FAFC') => `<path class="chalk" d="${d}" stroke="${color}" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>`;
-  const dot = (x, y, color = '#FDE047', cls = 'chalk-dot') => `<circle class="${cls}" cx="${px(x)}" cy="${py(y)}" r="4.5" fill="${color}"/>`;
-  const AXES = `<path d="M172 ${OY}H348M${OX} 264V386" stroke="#F8FAFC" stroke-width="1.5" opacity=".35"/>`;
+  const chalk = (d, tone = 'ink') => `<path class="chalk t-${tone}" d="${d}" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>`;
+  const dot = (x, y, tone = 'red', extra = '') => `<circle class="chalk-dot f-${tone}${extra}" cx="${px(x)}" cy="${py(y)}" r="4"/>`;
+  const AXES = `<path class="chalk-axis" d="M172 ${OY}H348M${OX} 264V386"/>`;
   const wave = (x) => 1.1 + 0.35 * x + 0.5 * Math.sin(1.4 * x);
   const BOARD = {
     // Mengukur kemiringan garis singgung: segitiga naik/jalan + busur sudut (jangka).
     measure: () => {
       const f = (x) => (x * x) / 3 - 1;
       const a = 1.5, m = (2 * a) / 3;
-      return chalk(curve(f)) + chalk(curve((x) => f(a) + m * (x - a), 0, 3.4), '#F9A8D4')
-        + chalk(`M${px(a)} ${py(f(a))}H${px(a + 1.2)}V${py(f(a) + m * 1.2)}`, '#FDE047')
-        + chalk(`M${px(a) + 16} ${py(f(a))}A16 16 0 0 0 ${(px(a) + 16 * Math.cos(Math.atan(m * SY / SX))).toFixed(1)} ${(py(f(a)) - 16 * Math.sin(Math.atan(m * SY / SX))).toFixed(1)}`, '#67E8F9')
+      return chalk(curve(f)) + chalk(curve((x) => f(a) + m * (x - a), 0, 3.4), 'red')
+        + chalk(`M${px(a)} ${py(f(a))}H${px(a + 1.2)}V${py(f(a) + m * 1.2)}`, 'amber')
+        + chalk(`M${px(a) + 16} ${py(f(a))}A16 16 0 0 0 ${(px(a) + 16 * Math.cos(Math.atan(m * SY / SX))).toFixed(1)} ${(py(f(a)) - 16 * Math.sin(Math.atan(m * SY / SX))).toFixed(1)}`, 'pencil')
         + dot(a, f(a));
     },
-    // Titik potong parabola & garis — disorot berdenyut saat "Eureka!".
+    // Titik potong parabola & garis — disorot berdenyut saat "Eureka".
     intersect: () => {
       const f = (x) => (x * x) / 2 - 1.5;
       const g = (x) => 0.5 * x + 0.3;
       const r1 = (0.5 + Math.sqrt(0.25 + 3.6)) / 1, r2 = (0.5 - Math.sqrt(0.25 + 3.6)) / 1;   // akar x²/2 − x/2 − 1,8 = 0
-      return chalk(curve(f)) + chalk(curve(g), '#86EFAC')
-        + dot(r1, g(r1), '#FDE047', 'chalk-dot chalk-hit') + dot(r2, g(r2), '#FDE047', 'chalk-dot chalk-hit');
+      return chalk(curve(f)) + chalk(curve(g), 'pencil')
+        + dot(r1, g(r1), 'red', ' chalk-hit') + dot(r2, g(r2), 'red', ' chalk-hit');
     },
     parabola: () => chalk(curve((x) => (x * x) / 3 - 1)),
-    sine: () => chalk(curve((x) => 1.6 * Math.sin(1.7 * x)), '#67E8F9'),
-    area: () => `<path class="chalk-dot" d="${curve(wave, -2, 2.2)}L${px(2.2)} ${OY}L${px(-2)} ${OY}Z" fill="#FDE047" opacity=".35"/>${chalk(curve(wave))}`,
+    sine: () => chalk(curve((x) => 1.6 * Math.sin(1.7 * x))),
+    area: () => `<path class="chalk-dot chalk-fill" d="${curve(wave, -2, 2.2)}L${px(2.2)} ${OY}L${px(-2)} ${OY}Z"/>${chalk(curve(wave))}`,
     riemann: () => Array.from({ length: 6 }, (_, i) => {
       const x = -2 + 0.7 * i;
       const h = wave(x + 0.35);
-      return `<rect class="chalk-bar" x="${px(x)}" y="${py(h)}" width="${0.7 * SX}" height="${h * SY}" fill="#FDE047" opacity=".45" stroke="#FDE047"/>`;
+      return `<rect class="chalk-bar" x="${px(x)}" y="${py(h)}" width="${0.7 * SX}" height="${h * SY}"/>`;
     }).join('') + chalk(curve(wave)),
     limit: () => {
       const f = (x) => (2.4 * Math.sin(1.8 * x)) / (1.8 * x);
       return chalk(curve(f, -3.8, -0.06)) + chalk(curve(f, 0.06, 3.8))
-        + `<circle class="chalk-dot" cx="${OX}" cy="${py(2.4)}" r="4.5" fill="#14532D" stroke="#FDE047" stroke-width="2.5"/>`;
+        + `<circle class="chalk-dot chalk-hole" cx="${OX}" cy="${py(2.4)}" r="4.5"/>`;
     },
     cubic: () => {
       const f = (x) => (x ** 3 - 4 * x) / 2.2;
       const e = 2 / Math.sqrt(3);
-      return chalk(curve(f, -2.6, 2.6), '#86EFAC') + dot(-e, f(-e)) + dot(e, f(e), '#F9A8D4');
+      return chalk(curve(f, -2.6, 2.6)) + dot(-e, f(-e)) + dot(e, f(e), 'amber');
     },
-    circle: () => `${chalk('M216 324a44 44 0 1 0 88 0a44 44 0 1 0 -88 0')}
-      <path d="M260 324h44" stroke="#F9A8D4" stroke-width="3" stroke-linecap="round"><animateTransform attributeName="transform" type="rotate" from="0 260 324" to="360 260 324" dur="4s" repeatCount="indefinite"/></path>`,
+    circle: () => chalk('M216 324a44 44 0 1 0 88 0a44 44 0 1 0 -88 0') + chalk('M260 324h44', 'red') + '<circle class="chalk-dot f-red" cx="260" cy="324" r="4"/>',
   };
   const BOARD_ICON = { measure: 'slope', intersect: 'eureka', parabola: 'tangent', sine: 'sine', area: 'area', riemann: 'riemann', limit: 'limit', cubic: 'stonks', circle: 'pie' };
   // Rumus yang ditulis Hijau saat pengguna mengetik (bukan teks yang diketik pengguna).
   const FORMULAS = ["f'(x) = 0", '∫ x² dx = x³/3 + C', 'lim sin x / x = 1', 'd/dx eˣ = eˣ', 'Σ 1/n² = π²/6', 'dy/dx = 2x'];
 
-  // ── Item koleksi ───────────────────────────────────────────────
-  const ITEM_KINDS = {
-    apel: { label: 'Apel emas Newton', svg: `<circle r="10" fill="url(#fam-gold)" stroke="#B45309" stroke-width="2"/><path d="M0 -10q1-5 4-6" stroke="#78350F" stroke-width="2" fill="none"/>
-      <path d="M2 -12q7-6 11 0q-6 4-11 0z" fill="#22C55E"/><circle cx="-3" cy="-3" r="2.5" fill="#fff" opacity=".7"/>` },
-    bintang: { label: 'Bintang titik ekstremum', svg: `<path d="M0-12l3.5 7.5 8 1-6 5.5 1.6 8L0 6l-7.1 4 1.6-8-6-5.5 8-1z" fill="url(#fam-gold)" stroke="#B45309" stroke-width="1.8" stroke-linejoin="round"/>
-      <path d="M-5 3q5-8 10 0" stroke="#fff" stroke-width="1.6" fill="none" opacity=".85"/>` },
-    dx: { label: 'Kristal dx', svg: `<path d="M0-13L10 0 0 13-10 0Z" fill="#67E8F9" stroke="#0E7490" stroke-width="2" stroke-linejoin="round"/>
-      <path d="M0-13L4 0 0 13" stroke="#fff" stroke-width="1" opacity=".6" fill="none"/>
-      <text y="3.5" text-anchor="middle" font-size="8" font-weight="800" fill="#0E7490" font-family="system-ui,sans-serif">dx</text>` },
-  };
-  const MAX_ITEMS = 5;
-
   // ── Adegan ─────────────────────────────────────────────────────
+  // Kelas f-* (archie_family.css) memberi warna tinta/pensil/kertas yang ikut mode gelap.
   const APPLES = [[32, 322], [98, 292], [122, 352], [66, 372], [88, 330]];
-  const APPLE = '<circle r="9" fill="#EF4444" stroke="#B91C1C" stroke-width="2"/><path d="M0,-9q1,-5 4,-6" stroke="#78350F" stroke-width="2" fill="none"/><circle cx="-3" cy="-3" r="2" fill="#fff" opacity=".6"/>';
+  const APPLE = '<circle class="f-apple" r="9"/><path class="f-stem" d="M0,-9q1,-5 4,-6" fill="none" stroke-width="2" stroke-linecap="round"/>';
+  const CROWN = [[32, 335, 52], [120, 340, 50], [76, 292, 66], [74, 368, 48]]
+    .map(([x, y, r]) => `<circle cx="${x}" cy="${y}" r="${r}"/>`).join('');
 
-  // Langit, bukit, dan tebing diperluas ke kiri/kanan/bawah agar bisa jadi latar layar penuh.
+  // Tebing diperluas ke kiri/kanan/bawah agar bisa jadi latar layar penuh.
   const X0 = -2400;
   const X1 = 3000;
   const YBOT = 2400;
   const LEFT_EDGE = 372;    // tebing masalah berakhir
   const RIGHT_EDGE = 790;   // tebing solusi dimulai
-  const onLand = (x) => x < LEFT_EDGE - 30 || x > RIGHT_EDGE + 30;
-
-  function hills(y, amp, step, fill) {
-    let d = `M${X0} ${y}`;
-    for (let x = X0, i = 0; x < X1; x += step, i++) d += `Q${x + step / 2} ${y + (i % 2 ? amp : -amp)} ${x + step} ${y}`;
-    return `<path d="${d}V${YBOT}H${X0}Z" fill="${fill}"/>`;
-  }
-  function hillY(y, amp, step, x) {
-    const i = Math.floor((x - X0) / step);
-    const t = (x - X0) / step - i;
-    return y + 2 * t * (1 - t) * (i % 2 ? amp : -amp);
-  }
-  const scatter = (n, x0, x1, y0, y1, fn) => Array.from({ length: n }, (_, i) => {
-    const x = x0 + ((x1 - x0) * (i + rand(0.15, 0.85))) / n;
-    return fn(x, rand(y0, y1), i);
-  }).join('');
-
-  const farTree = (x) => (x > 140 && x < 380 ? '' : `<g transform="translate(${x.toFixed(0)} ${(hillY(512, 26, 240, x) + 6).toFixed(0)}) scale(${rand(0.5, 0.9).toFixed(2)})">
-    <rect x="-3" y="-6" width="6" height="16" fill="#7C9A6B"/><circle cy="-18" r="16" fill="#6CC08B"/><circle cx="-9" cy="-10" r="11" fill="#5DB37E"/><circle cx="9" cy="-11" r="12" fill="#5DB37E"/></g>`);
-  const bush = (x) => (!onLand(x) || (x > -80 && x < 400) ? '' : `<g transform="translate(${x.toFixed(0)} ${x < LEFT_EDGE ? 614 : 592})"><g class="fam-bush" style="animation-delay:${rand(0, 3).toFixed(2)}s">
-    <circle cx="-22" cy="-14" r="20" fill="#22C55E"/><circle cx="20" cy="-14" r="22" fill="#22C55E"/><circle cy="-26" r="26" fill="#34D399"/>
-    <circle cx="-6" cy="-30" r="3.5" fill="#F9A8D4"/><circle cx="14" cy="-20" r="3.5" fill="#FDE047"/></g></g>`);
-  const grass = (x, y) => (!onLand(x) ? '' : `<g transform="translate(${x.toFixed(0)} ${y.toFixed(0)})"><path class="fam-grass" style="animation-delay:${rand(0, 2.5).toFixed(2)}s"
-    d="M-4 0q-1-7-7-11M-2 0q-1-10 1-15M1 0q1-8 5-13M3 0q3-5 9-7" stroke="${pick(['#16A34A', '#22A55A', '#15803D'])}" stroke-width="1.8" fill="none" stroke-linecap="round"/></g>`);
-  const FLOWER_COLORS = ['#F472B6', '#FDE047', '#F87171', '#A78BFA', '#FFFFFF', '#FB923C'];
-  const flower = (x, y, col = pick(FLOWER_COLORS)) => (!onLand(x) ? '' : `<g transform="translate(${x.toFixed(0)} ${y.toFixed(0)})"><g class="fam-flower" style="animation-delay:${rand(0, 2).toFixed(2)}s">
-    <path d="M0 0V-16" stroke="#15803D" stroke-width="2.5"/><g transform="translate(0 -18)" fill="${col}">
-    <circle cx="-4" r="4"/><circle cx="4" r="4"/><circle cy="-4" r="4"/><circle cy="4" r="4"/><circle r="2.6" fill="#F59E0B"/></g></g></g>`);
-  const birds = (y, dur, delay) => `<g class="fam-bird" style="animation-duration:${dur}s;animation-delay:${delay}s">
-    ${[[0, 0], [26, -10], [30, 14]].map(([bx, by]) => `<g transform="translate(${bx} ${y + by})"><path class="fam-bird-wing"
-      d="M-9 0q4.5-6 9 0q4.5-6 9 0" stroke="#334155" stroke-width="2.2" fill="none" stroke-linecap="round" style="animation-delay:${rand(0, 0.5).toFixed(2)}s"/></g>`).join('')}</g>`;
 
   function bridgeMarkup() {
-    const sample = (off, step = 6) => {
+    const sample = (off, a = BX0 - 4, b = BX1 + 4, step = 6) => {
       let d = '';
-      for (let x = BX0 - 4; x <= BX1 + 4; x += step) d += `${d ? 'L' : 'M'}${x} ${(bridgeY(x) + off).toFixed(1)}`;
+      for (let x = a; x <= b; x += step) d += `${d ? 'L' : 'M'}${x} ${(bridgeY(x) + off).toFixed(1)}`;
       return d;
     };
-    const pillars = [440, 560, 700].map((x) => `<path d="M${x} ${bridgeY(x) + 6}V780" stroke="#78350F" stroke-width="8" stroke-linecap="round"/>`).join('');
+    const pillars = [440, 560, 700].map((x) => `<path class="f-pencil" d="M${x} ${bridgeY(x) + 6}V780" stroke-width="3" stroke-linecap="round"/>`).join('');
     const posts = [];
     const planks = [];
     for (let x = BX0 + 4, i = 0; x <= BX1 - 4; x += 11, i++) {
       const gap = x >= GAP[0] && x <= GAP[1];
-      planks.push(`<rect class="fam-plank${gap ? ' missing' : ''}" x="-5" y="-3" width="10" height="7" rx="1.5" fill="#B45309" stroke="#78350F" stroke-width="1.2"
+      planks.push(`<rect class="fam-plank f-plank${gap ? ' missing' : ''}" x="-4" y="-5" width="8" height="10" rx="1.5"
         transform="translate(${x} ${bridgeY(x).toFixed(1)}) rotate(${slopeDeg(x).toFixed(1)})"/>`);
-      if (i % 4 === 0) posts.push(`<path d="M${x} ${bridgeY(x).toFixed(1)}V${(bridgeY(x) - 26).toFixed(1)}" stroke="#92400E" stroke-width="3" stroke-linecap="round"/>`);
+      if (i % 4 === 0) posts.push(`<path d="M${x} ${bridgeY(x).toFixed(1)}V${(bridgeY(x) - 26).toFixed(1)}"/>`);
     }
+    // Dek = kurva tinta (ciri khas yang sama dengan homepage); bagian bolong ikut hilang sampai dirakit.
     return `<g class="fam-bridge" data-hit="bridge">
-      ${pillars}<path d="M440 650L560 700M560 650L440 700M560 660L700 700M700 660L560 700" stroke="#92400E" stroke-width="3" opacity=".8"/>
-      <path d="${sample(5)}" stroke="#78350F" stroke-width="4" fill="none"/>
-      ${planks.join('')}${posts.join('')}
-      <path d="${sample(-26)}" stroke="#92400E" stroke-width="3" fill="none" stroke-linecap="round"/>
-      <path class="fam-peakline" d="M${PEAK_X - 62} ${PEAK_Y.toFixed(1)}H${PEAK_X + 62}" stroke="#FBBF24" stroke-width="3" stroke-dasharray="6 6"/>
+      ${pillars}<path class="f-hair" d="M440 650L560 700M560 650L440 700M560 660L700 700M700 660L560 700" stroke-width="1.5"/>
+      ${planks.join('')}
+      <g class="f-pencil" stroke-width="1.5" stroke-linecap="round">${posts.join('')}</g>
+      <path class="f-pencil" d="${sample(-26)}" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+      <path class="f-deck" d="${sample(0, BX0 - 4, GAP[0] - 6)}"/>
+      <path class="fam-plank f-deck missing" d="${sample(0, GAP[0] - 8, GAP[1] + 10)}"/>
+      <path class="f-deck" d="${sample(0, GAP[1] + 4, BX1 + 4)}"/>
+      <g class="fam-peakline">
+        <path class="f-tangent" d="M${PEAK_X - 62} ${PEAK_Y.toFixed(1)}H${PEAK_X + 62}"/>
+        <text class="f-label" x="${PEAK_X - 70}" y="${(PEAK_Y + 5).toFixed(1)}" text-anchor="end">f′(x) = 0</text>
+      </g>
     </g>
     <g class="fam-flag" data-hit="flag" transform="translate(${FLAG_X} ${deckY(FLAG_X).toFixed(1)})"><g class="fam-flag-in">
-      <path d="M0 0V-104" stroke="#78350F" stroke-width="4" stroke-linecap="round"/>
-      <path class="fam-flag-cloth" d="M2 -102L50 -88L2 -72Z" fill="#EF4444" stroke="#B91C1C" stroke-width="2" stroke-linejoin="round"/>
-      ${star4(17, -87, 6, 0, '#FDE047')}</g></g>`;
+      <path class="f-pencil" d="M0 0V-104" stroke-width="3" stroke-linecap="round"/>
+      <path class="fam-flag-cloth f-flag" d="M2 -102L50 -88L2 -72Z"/></g></g>`;
   }
 
   function sceneMarkup() {
-    const stars = Array.from({ length: 110 }, () =>
-      `<circle class="fam-star" cx="${rand(X0, X1).toFixed(0)}" cy="${rand(-900, 300).toFixed(0)}" r="${rand(1, 2.4).toFixed(1)}" style="animation-delay:${rand(0, 3).toFixed(2)}s"/>`).join('');
-    const rays = Array.from({ length: 12 }, (_, i) => {
-      const a = (i * Math.PI) / 6;
-      return `<path d="M${(Math.cos(a) * 41).toFixed(1)} ${(Math.sin(a) * 41).toFixed(1)}L${(Math.cos(a) * 52).toFixed(1)} ${(Math.sin(a) * 52).toFixed(1)}"/>`;
-    }).join('');
-    const fireflies = Array.from({ length: 30 }, () =>
-      `<circle class="fam-firefly" cx="${rand(-1500, 2100).toFixed(0)}" cy="${rand(430, 660).toFixed(0)}" r="2.6" style="animation-delay:${rand(0, 3).toFixed(2)}s;--fx:${rand(-22, 22).toFixed(0)}px"/>`).join('');
-    const cloud = (y, s, dur, delay) => `<g class="fam-cloud" style="animation-duration:${dur}s;animation-delay:${delay}s">
-      <path transform="translate(0 ${y}) scale(${s})" d="M0 30a22 22 0 0 1 20-28a30 30 0 0 1 56 4a20 20 0 0 1 24 24z" fill="#fff" opacity=".92"/></g>`;
-    const clouds = [[60, 1, 170], [150, 0.7, 240], [30, 0.55, 200], [-120, 1.3, 260], [-40, 0.8, 190], [220, 0.6, 280],
-      [-220, 1.1, 230], [100, 0.9, 210], [-160, 0.7, 250], [190, 1.2, 300], [-60, 0.6, 180]]
-      .map(([y, s, dur]) => cloud(y, s, dur, -rand(0, dur).toFixed(0))).join('');
     const LEFT_LAND = `M${X0} 604Q-1200 594 -600 600T300 600L${LEFT_EDGE - 12} 600Q${LEFT_EDGE + 4} 601 ${LEFT_EDGE + 10} 614L${LEFT_EDGE + 26} 690Q${LEFT_EDGE + 30} 730 ${LEFT_EDGE + 22} ${YBOT}H${X0}Z`;
     const RIGHT_LAND = `M${X1} 579H900Q830 576 ${RIGHT_EDGE + 8} 578Q${RIGHT_EDGE - 6} 580 ${RIGHT_EDGE - 12} 594L${RIGHT_EDGE - 26} 680Q${RIGHT_EDGE - 30} 730 ${RIGHT_EDGE - 22} ${YBOT}H${X1}Z`;
     const strata = (x, dir) => [640, 680, 720].map((y, i) => `M${x - dir * (8 + i * 2)} ${y}l${dir * 46} ${6 + i * 2}`).join('');
+    // Dinding tebing (arsiran warna tanah) di atas daratan berumput; sungai mengisi jurang.
+    const FACE_L = `M${LEFT_EDGE - 26} 606Q${LEFT_EDGE + 2} 602 ${LEFT_EDGE + 10} 616L${LEFT_EDGE + 26} 690Q${LEFT_EDGE + 30} 730 ${LEFT_EDGE + 22} ${YBOT}L${LEFT_EDGE - 40} ${YBOT}L${LEFT_EDGE - 32} 660Z`;
+    const FACE_R = `M${RIGHT_EDGE + 16} 584Q${RIGHT_EDGE - 4} 580 ${RIGHT_EDGE - 12} 594L${RIGHT_EDGE - 26} 680Q${RIGHT_EDGE - 30} 730 ${RIGHT_EDGE - 22} ${YBOT}L${RIGHT_EDGE + 40} ${YBOT}L${RIGHT_EDGE + 34} 650Z`;
+    const RIVER = `M${LEFT_EDGE - 40} 704Q470 690 590 706T${RIGHT_EDGE + 60} 698V${YBOT}H${LEFT_EDGE - 40}Z`;
+    // Langit: matahari (mode terang) / bulan (mode gelap) dan awan, coretan pensil yang diam.
+    const rays = Array.from({ length: 8 }, (_, i) => {
+      const a = (i * Math.PI) / 4;
+      return `M${(Math.cos(a) * 30).toFixed(1)} ${(Math.sin(a) * 30).toFixed(1)}L${(Math.cos(a) * 38).toFixed(1)} ${(Math.sin(a) * 38).toFixed(1)}`;
+    }).join('');
+    const cloud = (x, y, s) => `<path class="f-cloud" transform="translate(${x} ${y}) scale(${s})" d="M0 30a22 22 0 0 1 20-28a30 30 0 0 1 56 4a20 20 0 0 1 24 24z"/>`;
+    const SKY = `<g class="fam-clouds">${cloud(140, 188, 0.75)}${cloud(320, 150, 0.6)}</g>
+      <g class="fam-sky" data-hit="sun" transform="translate(540 186)">
+        <g class="fam-sun"><circle class="f-sun" r="22"/><path class="f-pencil" d="${rays}" stroke-width="2" stroke-linecap="round"/></g>
+        <g class="fam-moon"><circle class="f-moon" r="22" mask="url(#fam-moon-cut)"/></g>
+      </g>`;
+    const waves = [714, 734, 754].map((y, i) => `M${LEFT_EDGE + 36 + i * 12} ${y}q10-4 20 0${'t20 0'.repeat(16 - i)}`).join('');
+    let grid = '';
+    for (let x = 182; x < 350; x += 12) grid += `M${x} 262V388`;
+    for (let y = 274; y < 388; y += 12) grid += `M170 ${y}H350`;
 
     return `<defs>
-        <linearGradient id="fam-day" gradientUnits="userSpaceOnUse" x1="0" y1="-500" x2="0" y2="560"><stop offset="0" stop-color="#38BDF8"/><stop offset=".55" stop-color="#7DD3FC"/><stop offset="1" stop-color="#E0F2FE"/></linearGradient>
-        <linearGradient id="fam-night" gradientUnits="userSpaceOnUse" x1="0" y1="-500" x2="0" y2="560"><stop offset="0" stop-color="#020617"/><stop offset=".5" stop-color="#0F172A"/><stop offset="1" stop-color="#3730A3"/></linearGradient>
-        <linearGradient id="fam-gold" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FEF3C7"/><stop offset=".5" stop-color="#FCD34D"/><stop offset="1" stop-color="#F59E0B"/></linearGradient>
-        <linearGradient id="fam-river" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#7DD3FC"/><stop offset="1" stop-color="#0284C7"/></linearGradient>
-        <radialGradient id="fam-magic"><stop offset="0" stop-color="#E9D5FF" stop-opacity=".95"/><stop offset=".6" stop-color="#A78BFA" stop-opacity=".45"/><stop offset="1" stop-color="#A78BFA" stop-opacity="0"/></radialGradient>
-        <marker id="fam-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10Z" fill="#F97316"/></marker>
+        <marker id="fam-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="f-red-fill" d="M0 0L10 5L0 10Z"/></marker>
+        <mask id="fam-moon-cut"><rect x="-30" y="-30" width="60" height="60" fill="#fff"/><circle cx="11" cy="-7" r="18" fill="#000"/></mask>
         <clipPath id="fam-board-clip"><rect x="170" y="262" width="180" height="126" rx="4"/></clipPath>
-        <clipPath id="fam-land"><path d="${LEFT_LAND}"/><path d="${RIGHT_LAND}"/></clipPath>
       </defs>
-      <rect x="${X0}" y="-2000" width="${X1 - X0}" height="${YBOT + 2000}" fill="url(#fam-day)"/>
-      <rect class="fam-night-sky" x="${X0}" y="-2000" width="${X1 - X0}" height="${YBOT + 2000}" fill="url(#fam-night)"/>
-      <g class="fam-stars" fill="#fff">${stars}</g>
-      <g class="fam-sun" data-hit="sun" transform="translate(560 110)"><g class="fam-sun-in">
-        <g class="fam-rays" stroke="#FBBF24" stroke-width="5" stroke-linecap="round">${rays}</g>
-        <circle r="32" fill="#FDE047" stroke="#F59E0B" stroke-width="3"/>
-        <circle cx="-10" cy="-4" r="3" fill="#92400E"/><circle cx="10" cy="-4" r="3" fill="#92400E"/>
-        <path d="M-9 8q9 8 18 0" stroke="#92400E" stroke-width="3" fill="none" stroke-linecap="round"/></g></g>
-      <g class="fam-moon" data-hit="sun" transform="translate(560 110)">
-        <path d="M8,-30A30,30 0 1,0 8,30A22,22 0 1,1 8,-30Z" fill="#FEF3C7" stroke="#FCD34D" stroke-width="2"/>
-        <path d="M-14 -4q4 3 8 0" stroke="#92400E" stroke-width="2.5" fill="none" stroke-linecap="round"/></g>
-      ${clouds}
-      ${birds(40, 70, -20)}${birds(-60, 95, -70)}
-      ${hills(478, 34, 600, '#CDEFE3')}
-      ${hills(512, 26, 240, '#BBF7D0')}
-      ${scatter(46, X0 + 100, X1 - 100, 500, 518, farTree)}
-      <path d="M${LEFT_EDGE - 40} 560Q560 640 ${RIGHT_EDGE + 40} 556V800H${LEFT_EDGE - 40}Z" fill="#7CC79A"/>
-      <path d="M${LEFT_EDGE - 40} 704Q470 690 590 706T${RIGHT_EDGE + 60} 698V800H${LEFT_EDGE - 40}Z" fill="url(#fam-river)"/>
-      <g class="fam-shimmer" stroke="#fff" stroke-width="2" fill="none" stroke-linecap="round" opacity=".7">
-        <path d="M420 716q10-4 20 0t20 0"/><path d="M560 724q10-4 20 0t20 0"/><path d="M680 714q10-4 20 0t20 0"/></g>
+      ${SKY}
+      <path class="f-river" d="${RIVER}"/>
+      <path class="f-water" d="${waves}"/>
       ${bridgeMarkup()}
-      <path d="${LEFT_LAND}" fill="#86EFAC"/>
-      <path d="M${LEFT_EDGE - 26} 606Q${LEFT_EDGE + 2} 602 ${LEFT_EDGE + 10} 616L${LEFT_EDGE + 26} 690Q${LEFT_EDGE + 30} 730 ${LEFT_EDGE + 22} 800L${LEFT_EDGE - 40} 800L${LEFT_EDGE - 32} 660Z" fill="#C08A50"/>
-      <path d="${strata(LEFT_EDGE - 10, 1)}" stroke="#A16A33" stroke-width="3" stroke-linecap="round"/>
-      <path d="${RIGHT_LAND}" fill="#86EFAC"/>
-      <path d="M${RIGHT_EDGE + 16} 584Q${RIGHT_EDGE - 4} 580 ${RIGHT_EDGE - 12} 594L${RIGHT_EDGE - 26} 680Q${RIGHT_EDGE - 30} 730 ${RIGHT_EDGE - 22} 800L${RIGHT_EDGE + 40} 800L${RIGHT_EDGE + 34} 650Z" fill="#C08A50"/>
-      <path d="${strata(RIGHT_EDGE + 10, -1)}" stroke="#A16A33" stroke-width="3" stroke-linecap="round"/>
-      <g clip-path="url(#fam-land)">${hills(652, 16, 400, '#4ADE80')}</g>
+      <path class="f-land" d="${LEFT_LAND}"/><path class="f-earth" d="${FACE_L}"/><path class="f-cliff" d="${LEFT_LAND}"/>
+      <path class="f-hair" d="${strata(LEFT_EDGE - 10, 1)}" stroke-width="1.5" stroke-linecap="round"/>
+      <path class="f-land" d="${RIGHT_LAND}"/><path class="f-earth" d="${FACE_R}"/><path class="f-cliff" d="${RIGHT_LAND}"/>
+      <path class="f-hair" d="${strata(RIGHT_EDGE + 10, -1)}" stroke-width="1.5" stroke-linecap="round"/>
       <g class="fam-tree" data-hit="tree">
-        <path d="M54 640C60 560 62 470 70 400L82 400C86 470 88 560 98 640Z" fill="#92400E" stroke="#78350F" stroke-width="3"/>
-        <path d="M74 450Q50 430 40 410M80 430Q100 410 116 404" stroke="#78350F" stroke-width="6" fill="none" stroke-linecap="round"/>
-        <g class="fam-crown"><circle cx="32" cy="335" r="52" fill="#22C55E"/><circle cx="120" cy="340" r="50" fill="#22C55E"/>
-          <circle cx="76" cy="292" r="66" fill="#4ADE80"/><circle cx="74" cy="368" r="48" fill="#16A34A"/>
+        <path class="f-trunk" d="M54 640C60 560 62 470 70 400L82 400C86 470 88 560 98 640Z"/>
+        <path class="f-pencil" d="M74 450Q50 430 40 410M80 430Q100 410 116 404" stroke-width="3" fill="none" stroke-linecap="round"/>
+        <g class="fam-crown"><g class="f-crown-out">${CROWN}</g><g class="f-crown">${CROWN}</g>
           ${APPLES.map(([x, y]) => `<g transform="translate(${x} ${y})">${APPLE}</g>`).join('')}</g>
       </g>
       <g class="fam-board" data-hit="board">
-        <path d="M196 254L172 612M324 254L348 612" stroke="#92400E" stroke-width="8" stroke-linecap="round"/>
-        <path d="M260 240V604" stroke="#78350F" stroke-width="6" stroke-linecap="round"/>
-        <rect x="160" y="252" width="200" height="146" rx="8" fill="#A16207" stroke="#78350F" stroke-width="4"/>
-        <rect x="170" y="262" width="180" height="126" rx="4" fill="#14532D"/>
+        <path class="f-pencil" d="M196 254L172 612M324 254L348 612" stroke-width="3" stroke-linecap="round"/>
+        <rect class="f-board" x="160" y="252" width="200" height="146" rx="8"/>
+        <path class="f-grid" d="${grid}"/>
         <g clip-path="url(#fam-board-clip)"><g class="fam-plot"></g></g>
-        <rect x="176" y="398" width="168" height="8" rx="3" fill="#78350F"/>
-        <rect x="296" y="391" width="13" height="7" rx="2" fill="#F8FAFC"/><rect x="314" y="390" width="16" height="8" rx="2" fill="#FDE047"/>
+        <rect class="f-tray" x="176" y="398" width="168" height="6" rx="3"/>
+        <rect class="f-pen-ink" x="292" y="391" width="18" height="6" rx="2"/><rect class="f-pen-red" x="314" y="391" width="18" height="6" rx="2"/>
       </g>
-      ${scatter(14, -2000, 2600, 0, 0, bush)}
-      ${scatter(200, -2000, 2600, 640, 718, grass)}
-      ${scatter(70, -1800, 2400, 650, 716, (x, y) => flower(x, y))}
-      ${[[20, 690], [200, 704], [350, 686], [-60, 700]].map(([x, y], i) => flower(x, y, FLOWER_COLORS[i])).join('')}
-      <rect class="fam-tint" x="${X0}" y="-2000" width="${X1 - X0}" height="${YBOT + 2000}" fill="#1E1B4B" pointer-events="none"/>
-      <g class="fam-items"></g>
       ${ORDER.map(axolotl).join('')}
-      <g class="fam-fireflies" fill="#FDE047" pointer-events="none">${fireflies}</g>
-      <g class="fam-butterfly" data-hit="butterfly"><circle r="16" fill="transparent"/>
-        <g class="fam-wing fam-wing-l"><ellipse cx="-7" cy="-4" rx="8" ry="6" fill="#F472B6"/><ellipse cx="-5" cy="5" rx="5" ry="4" fill="#FB923C"/></g>
-        <g class="fam-wing fam-wing-r"><ellipse cx="7" cy="-4" rx="8" ry="6" fill="#F472B6"/><ellipse cx="5" cy="5" rx="5" ry="4" fill="#FB923C"/></g>
-        <rect x="-1.5" y="-8" width="3" height="16" rx="1.5" fill="${INK}"/>
-        <path d="M-1 -8q-3-5-6-6M1 -8q3-5 6-6" stroke="${INK}" stroke-width="1.2" fill="none"/></g>
       <g class="fam-fx" pointer-events="none"></g>
       ${ORDER.map(bubble).join('')}`;
   }
 
   // ── Keadaan ────────────────────────────────────────────────────
-  let svg, plot, fx, tree, itemsLayer, hud, stageEl;
+  let svg, plot, fx, tree, stageEl;
   const st = {};
   const pointer = { x: 0, y: 0, t: -1e9 };
-  const bf = { x: 200, y: 190, t: 0, speed: 1, land: null, node: null };
-  const counts = { apel: 0, bintang: 0, dx: 0 };
   let boardKind = 'measure';
   let writing = null;        // { f, c, lines } saat Hijau menulis rumus (pengguna mengetik)
   let writeTimer = 0;
@@ -628,13 +564,13 @@
   }
 
   // ── Efek ───────────────────────────────────────────────────────
+  // Coretan kecil yang terpercik saat ada aksi: tanda tinta, bukan konfeti berwarna-warni.
   const BITS = [
-    '<circle r="5" fill="#F472B6"/>', '<path d="M0-6L6 5H-6Z" fill="#FBBF24"/>',
-    '<path d="M-7 0q3.5-7 7 0t7 0" stroke="#2563EB" stroke-width="2.5" fill="none" stroke-linecap="round"/>',
-    '<path d="M-5 0h10M0-5v10" stroke="#16A34A" stroke-width="3" stroke-linecap="round"/>',
-    '<rect x="-4" y="-4" width="8" height="8" rx="2" fill="#38BDF8"/>',
+    '<path class="f-ink-stroke" d="M-7 0q3.5-7 7 0t7 0" stroke-width="2" fill="none" stroke-linecap="round"/>',
+    '<path class="f-ink-stroke" d="M-4 0h8M0-4v8" stroke-width="2" stroke-linecap="round"/>',
+    '<circle class="f-ink-fill" r="2.5"/>',
+    '<path class="f-red-stroke" d="M-4 1l3 3 6-7" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>',
   ];
-  const GOLD = [star4(0, 0, 6, 0, '#FDE047'), '<circle r="3.5" fill="#FBBF24"/>', star4(0, 0, 4, 0, '#FEF3C7')];
 
   function burst(x, y, n = 9, bits = BITS) {
     for (let i = 0; i < n; i++) {
@@ -677,10 +613,9 @@
     }, (t) => t).then(() => ({ apple, trail }));
   }
 
-  /** Simbol ∫ / ∞ berpendar emas (untuk mantra Ungu). */
+  /** Simbol ∫ / ∞ ditulis dengan tinta (untuk mantra Ungu). */
   function glyph(d) {
-    const g = make('g', { class: 'fam-glyph' }, `<path d="${d}" stroke="#FEF08A" stroke-width="12" fill="none" stroke-linecap="round" opacity=".55"/>
-      <path d="${d}" stroke="#F59E0B" stroke-width="5" fill="none" stroke-linecap="round"/>`);
+    const g = make('g', { class: 'fam-glyph' }, `<path class="f-ink-stroke" d="${d}" stroke-width="4" fill="none" stroke-linecap="round"/>`);
     fx.appendChild(g);
     return g;
   }
@@ -706,7 +641,7 @@
         await say('archie', 'question', 1500);
         act('hijau', 'wave');
         await sleep(300);
-        const plank = make('rect', { x: -16, y: -4, width: 32, height: 8, rx: 2, fill: '#B45309', stroke: '#78350F', 'stroke-width': 1.5 });
+        const plank = make('rect', { class: 'f-plank', x: -16, y: -4, width: 32, height: 8, rx: 2 });
         fx.appendChild(plank);
         const [x0, y0] = [st.hijau.x + 40, st.hijau.y - 90];
         const [x1, y1] = [gx, bridgeY(gx)];
@@ -719,7 +654,7 @@
         svg.querySelectorAll('.fam-plank.missing').forEach((p, i) => setTimeout(() => p.classList.remove('missing'), i * 90));
         act('archie', 'hammer');
         say('archie', 'hammer', 1600);
-        for (let i = 0; i < 3; i++) { burst(x1 + rand(-14, 14), y1, 5, GOLD); await sleep(300); }
+        for (let i = 0; i < 3; i++) { burst(x1 + rand(-14, 14), y1, 5); await sleep(300); }
         bridgeDone = true;
         cheerOthers(['archie'], ['sparkle', 'heart']);
         await say('hijau', 'sparkle', 1500);
@@ -743,7 +678,7 @@
         }
         setMouth('archie', 'grin');
         setFlag(true);
-        burst(FLAG_X + 20, deckY(FLAG_X) - 96, 10, GOLD);
+        burst(FLAG_X + 20, deckY(FLAG_X) - 96, 10);
         act('archie', 'proud');
         await say('archie', 'peak', 2400, { mouth: false });
         cheerOthers(['archie']);
@@ -801,7 +736,7 @@
         await sleep(700);
         setMouth('hijau', 'grin');
         act('hijau', 'jump');
-        burst(st.hijau.x, st.hijau.y - 120, 8, GOLD);
+        burst(st.hijau.x, st.hijau.y - 120, 8);
         await say('hijau', 'eureka', 2400, { mouth: false });
         cheerOthers(['hijau']);
         setMouth('hijau', 'smile');
@@ -825,7 +760,7 @@
             const x = cx() + Math.cos(ang + off) * 52;
             const y = cy() + Math.sin(ang + off) * 18;
             g.setAttribute('transform', `translate(${x.toFixed(1)} ${y.toFixed(1)}) scale(${(0.6 + 0.4 * t).toFixed(2)})`);
-            if (t - sparkAt > 0.12) burst(x, y, 2, GOLD);
+            if (t - sparkAt > 0.12) burst(x, y, 2);
           });
           if (t - sparkAt > 0.12) sparkAt = t;
         }, (t) => t);
@@ -839,7 +774,7 @@
             g.setAttribute('transform', `translate(${x.toFixed(1)} ${y.toFixed(1)}) scale(${(1 + t * 0.5).toFixed(2)})`);
           });
         }, easeIn);
-        burst(gate.x, gate.y, 14, GOLD);
+        burst(gate.x, gate.y, 14);
         [a, b].forEach((g) => fadeOut(g));
         document.body.classList.add('auth-gate');   // kartu berpendar (auth_card.css)
         setTimeout(() => document.body.classList.remove('auth-gate'), 1400);
@@ -896,7 +831,7 @@
           cheerOthers(['kuning'], ['laugh']);
         } else {
           act('kuning', 'netcatch');
-          burst(catchX, hy + netDY, 8, GOLD);
+          burst(catchX, hy + netDY, 8);
           apple.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 300, delay: 300, fill: 'forwards' }).finished.then(() => apple.remove());
           setMouth('kuning', 'grin');
           await sleep(500);
@@ -923,7 +858,7 @@
         act('kuning', 'jump');
         act('archie', 'jump');
         await sleep(260);
-        burst((st.kuning.x + st.archie.x) / 2, st.archie.y - 70, 10, GOLD);
+        burst((st.kuning.x + st.archie.x) / 2, st.archie.y - 70, 10);
         say('archie', 'sparkle', 1400);
         await say('kuning', 'laugh', 1400);
         await alongBridge('kuning', BX0 + 4, 1200);
@@ -953,32 +888,6 @@
     return true;
   }
 
-  // Tingkah iseng di sela adegan.
-  const ANTICS = {
-    async butterflyVisit() {
-      const id = pick(ORDER.filter(free));
-      if (!id) return;
-      bf.land = id;
-      lookAt(id, bf, 4000);
-      await sleep(2000);
-      act(id, 'wiggle');
-      await say(id, pick(['heart', 'sparkle', 'laugh']));
-      bf.land = null;
-      bf.speed = 3;
-    },
-    async yawn() {
-      const id = pick(ORDER.filter(free));
-      if (!id) return;
-      setMouth(id, 'o');
-      await act(id, 'stretch');
-      setMouth(id, 'smile');
-    },
-    async dance() {
-      ORDER.filter(free).forEach((id) => act(id, 'wiggle'));
-      await sleep(1200);
-    },
-  };
-
   function poke(id) {
     const s = st[id];
     if (s.sleeping) { wake(id); act(id, 'startle'); say(id, 'exclaim', 1400); return; }
@@ -991,67 +900,6 @@
     });
   }
 
-  // ── Item koleksi ───────────────────────────────────────────────
-  function buildHud() {
-    hud = document.createElement('div');
-    hud.className = 'fam-hud';
-    hud.innerHTML = Object.entries(ITEM_KINDS).map(([k, it]) => `<span class="fam-hud-chip" data-chip="${k}" title="${it.label}">
-      <svg viewBox="-16 -16 32 32" width="22" height="22" aria-hidden="true">${it.svg}</svg><b aria-label="${it.label}">0</b></span>`).join('');
-    stageEl.appendChild(hud);
-  }
-
-  function spawnItem() {
-    if (itemsLayer.childElementCount >= MAX_ITEMS) return;
-    const vb = svg.viewBox.baseVal;
-    const card = document.querySelector('.auth-split .auth-card');
-    const right = card && !BANNER.matches ? toSvg({ clientX: card.getBoundingClientRect().left, clientY: 0 }).x : vb.x + vb.width;
-    const x0 = vb.x + 30;
-    const x1 = Math.min(right, vb.x + vb.width) - 30;
-    const y0 = Math.max(vb.y + 90, 150);
-    for (let tries = 0; tries < 12; tries++) {
-      const x = rand(x0, x1);
-      const y = rand(y0, 690);
-      const nearChar = ORDER.some((id) => Math.hypot(st[id].x - x, st[id].y - 70 - y) < 80);
-      const onBoard = x > 150 && x < 370 && y > 240 && y < 410;
-      if (nearChar || onBoard) continue;
-      const kind = pick(Object.keys(ITEM_KINDS));
-      const g = make('g', { class: 'fam-item', 'data-item': kind, transform: `translate(${x.toFixed(0)} ${y.toFixed(0)})` },
-        `<g class="fam-item-in" style="--d:${rand(0, 2).toFixed(2)}s"><circle class="fam-item-glow" r="17" fill="#FEF08A" opacity=".35"/>${ITEM_KINDS[kind].svg}</g>`);
-      g.dataset.x = x;
-      g.dataset.y = y;
-      itemsLayer.appendChild(g);
-      g.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 500 });
-      return;
-    }
-  }
-
-  function collect(item) {
-    if (item.dataset.taken) return;
-    item.dataset.taken = '1';
-    const kind = item.dataset.item;
-    const x = +item.dataset.x;
-    const y = +item.dataset.y;
-    const chip = hud.querySelector(`[data-chip="${kind}"]`);
-    const r = chip.getBoundingClientRect();
-    const target = toSvg({ clientX: r.left + 14, clientY: r.top + r.height / 2 });
-    burst(x, y, 8, GOLD);
-    item.animate([
-      { transform: `translate(${x}px, ${y}px) scale(1)` },
-      { transform: `translate(${x}px, ${y - 30}px) scale(1.4)`, offset: 0.25 },
-      { transform: `translate(${target.x}px, ${target.y}px) scale(.4)`, opacity: 0.6 },
-    ], { duration: 750, easing: 'cubic-bezier(.4,0,.6,1)', fill: 'forwards' }).finished.then(() => {
-      item.remove();
-      counts[kind] += 1;
-      chip.querySelector('b').textContent = counts[kind];
-      chip.classList.remove('pop');
-      void chip.offsetWidth;
-      chip.classList.add('pop');
-      setTimeout(spawnItem, rand(2500, 5000));
-    });
-    const fan = pick(ORDER.filter(free));
-    if (fan) { act(fan, 'jump'); say(fan, pick(['sparkle', 'heart']), 1300); }
-  }
-
   // ── Interaksi ──────────────────────────────────────────────────
   function toSvg(e) {
     const pt = svg.createSVGPoint();
@@ -1061,8 +909,6 @@
   }
 
   function onClick(e) {
-    const item = e.target.closest('.fam-item');
-    if (item) { collect(item); return; }
     const ch = e.target.closest('.fam-char');
     if (ch) { poke(ch.dataset.char); return; }
     const hit = e.target.closest('[data-hit]');
@@ -1077,73 +923,43 @@
         const [ax, ay] = pick(APPLES);
         dropApple(ax, ay, ax + 20, 640, 800).then(({ apple, trail }) => { fadeOut(trail, 300); fadeOut(apple, 1200); });
       });
-    } else if (kind === 'sun') {
-      toggleNight();
     } else if (kind === 'flag' && free('archie')) {
       act('archie', 'proud');
       say('archie', 'peak', 2000, { mouth: false });
+    } else if (kind === 'sun') {
+      const btn = document.getElementById('theme-toggle-btn');   // tukar tema situs (static/js/theme.js)
+      if (btn) btn.click();
     } else if (kind === 'bridge') {
       runScript('archieCoaster').then((ok) => { if (!ok) burst(toSvg(e).x, toSvg(e).y, 6); });
-    } else if (kind === 'butterfly') {
-      bf.land = null;
-      bf.speed = 5;
-      burst(bf.x, bf.y, 6);
-      if (free('kuning')) { lookAt('kuning', bf, 2500); act('kuning', 'jump'); }
-    } else {
-      const p = toSvg(e);
-      burst(p.x, p.y);
     }
   }
 
-  function setNight(on) {
-    night = on;
-    svg.classList.toggle('is-night', on);
-    document.body.classList.toggle('auth-night', on);   // kartu form ikut versi malam (auth_card.css)
-  }
+  // ── Mode gelap situs → malam di adegan ─────────────────────────
+  // Warna kertas/tinta berganti lewat CSS; di sini hanya reaksi tokoh saat tema ditukar.
+  const isDark = () => document.documentElement.dataset.theme === 'dark';
 
-  function toggleNight() {
-    setNight(!night);
+  function onThemeChange() {
+    if (isDark() === night) return;
+    night = isDark();
     if (night) {
       if (free('ungu')) { sleepOn('ungu'); say('ungu', 'zzz', 2600, { mouth: false }); }
-      if (free('kuning')) { act('kuning', 'jump'); say('kuning', 'sparkle'); }
     } else {
-      ORDER.forEach((id) => { if (st[id].sleeping) wake(id); if (free(id)) act(id, 'jump'); });
-      if (free('archie')) say('archie', 'sparkle');
+      ORDER.forEach((id) => { if (st[id].sleeping) wake(id); });
+      if (free('archie')) { act('archie', 'jump'); say('archie', 'sparkle'); }
     }
   }
 
-  // ── Loop animasi: mata mengikuti sasaran, kupu-kupu terbang ─────
+  // ── Loop animasi: mata mengikuti kursor / sasaran ──────────────
   function targetFor(id, now) {
     const s = st[id];
     if (now - pointer.t < 2200) return pointer;
     if (s.look && s.look.until > now) return s.look.ref;
-    if (id === 'kuning') return bf;
     return null;
-  }
-
-  function moveButterfly() {
-    bf.t += 0.006 * bf.speed;
-    bf.speed += (1 - bf.speed) * 0.01;
-    let tx;
-    let ty;
-    if (bf.land) {
-      tx = st[bf.land].x;
-      ty = st[bf.land].y + (48 - 172) * CHARS[bf.land].s + 4;
-    } else {
-      const t = bf.t;
-      const d = 1 + Math.sin(t) ** 2;   // lemniskat Bernoulli (lintasan angka 8)
-      tx = 200 + (95 * Math.cos(t)) / d;
-      ty = 190 + (60 * Math.sin(t) * Math.cos(t)) / d - 18 * Math.sin(t * 3.1);
-    }
-    bf.x += (tx - bf.x) * 0.05;
-    bf.y += (ty - bf.y) * 0.05;
-    bf.node.setAttribute('transform', `translate(${bf.x.toFixed(1)} ${bf.y.toFixed(1)}) scale(1.3)`);
   }
 
   function tick(now) {
     requestAnimationFrame(tick);
     if (!visible()) return;
-    if (!REDUCED) moveButterfly();
     for (const id of ORDER) {
       const s = st[id];
       const t = targetFor(id, now);
@@ -1173,27 +989,6 @@
     }, rand(2200, 5500));
   }
 
-  /** Sutradara: rakit jembatan dulu, lalu undi adegan yang tokohnya bebas (tanpa mengulang). */
-  async function director() {
-    let last = null;
-    let lastAntic = null;
-    await sleep(1500);
-    await runScript('rakit');
-    for (;;) {
-      if (!visible()) { await sleep(1000); continue; }
-      const names = Object.keys(SCRIPTS).filter((n) => n !== last && SCRIPTS[n].chars.every(free) && (!SCRIPTS[n].when || SCRIPTS[n].when()));
-      if (!names.length) { await sleep(800); continue; }
-      last = pick(names);
-      await runScript(last);
-      await sleep(rand(1800, 3600));
-      if (Math.random() < 0.45) {
-        lastAntic = pick(Object.keys(ANTICS), lastAntic);
-        await ANTICS[lastAntic]();
-        await sleep(rand(1200, 2400));
-      }
-    }
-  }
-
   /**
    * Sesuaikan viewBox dengan ukuran tempatnya.
    *  - Layar lebar: inti adegan (x 0–600) di tengah area kiri yang tidak tertutup kartu;
@@ -1213,7 +1008,7 @@
     } else {
       const card = document.querySelector('.auth-split .auth-card');
       const freeW = card ? Math.max(card.getBoundingClientRect().left - r.left, 360) : r.width;
-      scale = Math.min(r.height / 740, (freeW - 24) / 600, 1.5);
+      scale = Math.min(r.height / 620, (freeW - 24) / 600, 1.9);   // adegan mengisi tinggi layar (langit tidak kosong)
       centerX = freeW / 2;
       core = 300;
     }
@@ -1251,7 +1046,6 @@
     svg = make('svg', { class: 'fam', viewBox: '0 0 600 720', preserveAspectRatio: 'xMinYMin meet', role: 'group', 'aria-label': stageEl.getAttribute('aria-label') });
     svg.innerHTML = sceneMarkup();
     stageEl.replaceChildren(svg);
-    buildHud();
     fit();
     window.addEventListener('resize', fit);
     BANNER.addEventListener('change', fit);
@@ -1259,8 +1053,6 @@
     plot = svg.querySelector('.fam-plot');
     fx = svg.querySelector('.fam-fx');
     tree = svg.querySelector('.fam-tree');
-    itemsLayer = svg.querySelector('.fam-items');
-    bf.node = svg.querySelector('.fam-butterfly');
     ORDER.forEach((id) => {
       const el = svg.querySelector(`[data-char="${id}"]`);
       st[id] = {
@@ -1291,17 +1083,14 @@
     });
     svg.addEventListener('pointerleave', () => { pointer.t = -1e9; });
 
-    // Siang/malam awal mengikuti jam lokal, diterapkan tanpa transisi (kelas auth-instant).
-    const hour = new Date().getHours();
-    document.body.classList.add('auth-instant');
-    setNight(hour >= 18 || hour < 6);
-    void document.body.offsetWidth;
-    requestAnimationFrame(() => document.body.classList.remove('auth-instant'));
+    // Siang/malam mengikuti mode gelap situs; tokoh bereaksi saat tema ditukar.
+    night = isDark();
+    new MutationObserver(onThemeChange).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
     board('measure');
-    for (let i = 0; i < MAX_ITEMS; i++) setTimeout(spawnItem, 600 + i * 700);
     requestAnimationFrame(tick);
+    // Intro sekali: tim merakit papan jembatan yang bolong. Setelah itu hanya bereaksi.
     if (REDUCED) { bridgeDone = true; svg.querySelectorAll('.fam-plank.missing').forEach((p) => p.classList.remove('missing')); }
-    else director();
+    else sleep(1200).then(() => runScript('rakit'));
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
