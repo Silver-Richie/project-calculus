@@ -47,9 +47,11 @@
   --radius-lg: 22px;
   --radius-full: 9999px;
 
-  /* Type */
-  --font-head: 'Space Grotesk', sans-serif;
-  --font-body: 'Plus Jakarta Sans', sans-serif;
+  /* Type — Calibri asli di Windows/Office; Carlito (kembaran open-source, metrik identik, Google Fonts) di Mac/iOS/Android.
+     KaTeX tetap memakai font KaTeX_* sendiri karena .katex menetapkan font-family-nya langsung. */
+  --font-sans: 'Calibri', 'Carlito', sans-serif;
+  --font-head: var(--font-sans);
+  --font-body: var(--font-sans);
 
   /* Shadows */
   --shadow-card: 0 2px 12px rgba(30, 27, 22, .08);
@@ -2758,7 +2760,7 @@ form:not(.stepper-on) .dq-nav [data-step=next] { display: none; }
 .duel-side { display: flex; flex-direction: column; min-width: 0; }
 .duel-side.opp { text-align: right; align-items: flex-end; }
 .duel-side b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; font-size: .9rem; }
-.duel-pts { font: 800 1.5rem var(--font-head); color: var(--clr-primary); }
+.duel-pts { font: 800 1.5rem var(--font-head); font-variant-numeric: tabular-nums; color: var(--clr-primary); }
 .duel-side.opp .duel-pts { color: var(--clr-accent); }
 .duel-opp-status { color: var(--clr-growth); font-size: .75rem; font-weight: 700; min-height: 1em; }
 .duel-dots { display: flex; gap: .35rem; }
