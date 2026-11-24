@@ -53,7 +53,7 @@
 }
 .ranked-stars .rs { font-size: 1.55rem; line-height: 1; color: rgba(255, 255, 255, .22); }
 .ranked-stars .rs.on { color: #FACC15; text-shadow: 0 0 10px rgba(250, 204, 21, .7); }
-.ranked-apex-stars { font: 800 1.3rem var(--font-head); color: #FACC15; }
+.ranked-apex-stars { font: 800 1.3rem var(--font-head); font-variant-numeric: tabular-nums; color: #FACC15; }
 .ranked-next { margin-top: .45rem; color: #CBD5E1; font-size: .82rem; }
 
 .ranked-stats {
@@ -62,7 +62,7 @@
   background: rgba(15, 23, 42, .55); border: 1px solid rgba(255, 255, 255, .12); backdrop-filter: blur(4px);
 }
 .ranked-stat { display: flex; flex-direction: column; align-items: center; text-align: center; }
-.ranked-stat b { font: 800 1.25rem var(--font-head); color: #fff; white-space: nowrap; }
+.ranked-stat b { font: 800 1.25rem var(--font-head); font-variant-numeric: tabular-nums; color: #fff; white-space: nowrap; }
 .ranked-stat small { font-size: .7rem; color: #CBD5E1; line-height: 1.2; }
 .ranked-shield { grid-column: 1 / -1; display: grid; gap: .35rem; font-size: .8rem; color: #CBD5E1; }
 .ranked-shield b { color: #fff; margin-left: .25rem; }
