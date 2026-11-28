@@ -593,7 +593,8 @@ const Lessons = (() => {
       const slug = topic?.slug;
       if (!slug) return;
       Nav.go('levelup');
-      Practice.openFromTree(slug);
+      // langsung ke drawer latihan (bukan modal pilihan riwayat): dari slide Rangkuman niatnya jelas berlatih
+      Practice.openTopicFromTree(slug);
     },
     /** Tab halaman Pelajaran: 'kelas' (slide) | 'arsip' (bank soal & referensi). */
     tab(name) {

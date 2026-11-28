@@ -8,6 +8,7 @@ from . import auth_views
 from .views import (
     landing_page, get_curriculum_api, get_diagnostic_api, submit_diagnostic_api, set_faculty_api,
     session_api, submit_session_api, leave_session_api, complete_node_api,
+    save_attempt_history_api, topic_history_api, attempt_history_api,
     free_practice_catalog_api, free_practice_start_api, trial_quiz_api,
     set_campus_api, set_avatar_api, leaderboard_api, shop_api, shop_buy_api, shop_equip_api,
     ranked_start_api, ranked_question_api, ranked_answer_api, ranked_leave_api, ranked_forfeit_api,
@@ -58,5 +59,8 @@ urlpatterns = [
     path('api/session/<int:session_id>/', session_api, name='session_api'),
     path('api/session/<int:session_id>/submit/', submit_session_api, name='submit_session_api'),
     path('api/session/<int:session_id>/keluar-tab/', leave_session_api, name='leave_session_api'),
+    path('api/session/<int:session_id>/riwayat/', save_attempt_history_api, name='save_attempt_history_api'),
+    path('api/riwayat/topik/<slug:slug>/', topic_history_api, name='topic_history_api'),
+    path('api/riwayat/<int:record_id>/', attempt_history_api, name='attempt_history_api'),
     path('api/progress/node/', complete_node_api, name='complete_node_api'),
 ]
