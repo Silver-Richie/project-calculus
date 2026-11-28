@@ -10,17 +10,18 @@ from datetime import timedelta
 from channels.db import database_sync_to_async
 from channels.routing import URLRouter
 from channels.testing import WebsocketCommunicator
+from django.conf import settings
 from django.contrib.auth.models import User
 from django.core.management import call_command
 from django.test import TestCase, TransactionTestCase, Client
 from django.utils import timezone
 
-from . import consumers, content, duel, generators, leveling, ranking, sessions
+from . import consumers, content, duel, generators, history, leveling, ranking, sessions
 from .content import bank
 from .routing import websocket_urlpatterns
 from .models import (
-    DuelAnswer, DuelMatch, DuelQueue, Faculty, SourceDocument, SkillNode, LessonSection, PlayerRank, Question, Topic,
-    UserProfile, UserProgress, rank_of,
+    DuelAnswer, DuelMatch, DuelQueue, Faculty, SourceDocument, SkillNode, LessonSection, LevelAttemptRecord,
+    PlayerRank, PracticeSession, Question, QuestionAttemptDetail, Topic, UserProfile, UserProgress, rank_of,
 )
 
 
@@ -623,6 +624,193 @@ class PracticeSessionApiTests(TestCase):
         res = self.client.post("/api/progress/node/", data=json.dumps({"slug": "kd-turunan"}), content_type="application/json")
         self.assertEqual(res.status_code, 200)
         self.assertEqual(UserProgress.objects.get(user=self.user, node__slug="kd-turunan").status, "completed")
+
+
+class LevelHistoryArchiveTests(TestCase):
+    """Riwayat Pengerjaan & Arsip Coret-coretan: satu baris per percobaan, retensi 30 hari."""
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_gamification", stdout=io.StringIO())
+        cls.s1 = PracticeSession.objects.get(topic__slug="pre-bilangan-real", number=1)
+        cls.topic = cls.s1.topic
+
+    def setUp(self):
+        self.user = User.objects.create_user("sinta", password="rahasia-123")
+        self.client = Client()
+        self.client.force_login(self.user)
+
+    # ── alat bantu ────────────────────────────────────────────────────────
+    def _strokes(self, n=3):
+        return {"v": 1, "space": "norm",
+                "strokes": [{"tool": "pen", "color": "#1E1B16", "size": 0.01,
+                             "pts": [[0.1 * i, 0.2, 0.5], [0.1 * i + 0.05, 0.3, 0.5]]} for i in range(n)]}
+
+    def _play(self, correct=True, strokes=True, duration=120):
+        """Kerjakan satu percobaan sesi lalu simpan riwayatnya seperti yang dilakukan browser."""
+        data = self.client.get(f"/api/session/{self.s1.id}/").json()
+        answers = [{"id": q["id"], "option": next(o["id"] for o in q["options"] if o["is_correct"] == correct)}
+                   for q in data["questions"]]
+        result = self.client.post(f"/api/session/{self.s1.id}/submit/",
+                                  data=json.dumps({"attempt": data["attempt"], "answers": answers}),
+                                  content_type="application/json").json()
+        items = [{"id": q["id"], "prompt": q["prompt"],
+                  "user_answer": next(o["text"] for o in q["options"] if o["is_correct"] == correct),
+                  "correct_answer": next(o["text"] for o in q["options"] if o["is_correct"]),
+                  "strokes": self._strokes() if strokes else {}} for q in data["questions"]]
+        saved = self.client.post(f"/api/session/{self.s1.id}/riwayat/",
+                                 data=json.dumps({"attempt": data["attempt"], "duration": duration,
+                                                  "results": result["results"], "items": items}),
+                                 content_type="application/json")
+        self.assertEqual(saved.status_code, 200, saved.content)
+        return result, saved.json()
+
+    def _list(self):
+        res = self.client.get(f"/api/riwayat/topik/{self.topic.slug}/")
+        self.assertEqual(res.status_code, 200, res.content)
+        return res.json()
+
+    # ── penyimpanan ───────────────────────────────────────────────────────
+    def test_attempt_saved_with_scores_and_duration(self):
+        result, saved = self._play()
+        self.assertEqual(saved["saved"], 10)
+        card = self._list()["attempts"][0]
+        self.assertEqual(card["score_correct"], result["score"])
+        self.assertEqual(card["score_wrong"], result["total"] - result["score"])
+        self.assertEqual(card["total"], 10)
+        self.assertEqual(card["duration_seconds"], 120)
+        self.assertEqual(card["stars_earned"], 0)       # Mode Level Up belum punya sistem bintang
+        self.assertTrue(card["passed"])
+        self.assertEqual(card["scratchpads"], 10)
+
+    def test_each_replay_is_a_separate_record(self):
+        for _ in range(3):
+            self._play(correct=False)
+        cards = self._list()["attempts"]
+        self.assertEqual(len(cards), 3)
+        self.assertEqual([c["attempt_no"] for c in cards], [3, 2, 1])    # terbaru dulu
+        self.assertEqual(LevelAttemptRecord.objects.filter(user=self.user).count(), 3)
+
+    def test_wrong_attempt_recorded_as_all_wrong(self):
+        self._play(correct=False)
+        card = self._list()["attempts"][0]
+        self.assertEqual((card["score_correct"], card["score_wrong"]), (0, 10))
+        self.assertFalse(card["passed"])
+
+    # ── rincian & coretan ─────────────────────────────────────────────────
+    def test_detail_keeps_strokes_answers_and_key(self):
+        self._play()
+        record = self._list()["attempts"][0]["id"]
+        detail = self.client.get(f"/api/riwayat/{record}/").json()
+        self.assertEqual(len(detail["questions"]), 10)
+        q = detail["questions"][0]
+        self.assertTrue(q["prompt"])
+        self.assertTrue(q["is_correct"])
+        self.assertEqual(q["user_answer"], q["correct_answer"])
+        self.assertEqual(q["scratchpad"]["space"], "norm")
+        self.assertEqual(len(q["scratchpad"]["strokes"]), 3)
+        self.assertEqual(q["scratchpad"]["strokes"][0]["pts"][0], [0.1 * 0, 0.2, 0.5])
+
+    def test_detail_of_other_user_is_not_served(self):
+        self._play()
+        record = self._list()["attempts"][0]["id"]
+        other = Client()
+        other.force_login(User.objects.create_user("tono", password="rahasia-123"))
+        self.assertEqual(other.get(f"/api/riwayat/{record}/").status_code, 404)
+
+    def test_history_requires_login(self):
+        self.assertEqual(Client().get(f"/api/riwayat/topik/{self.topic.slug}/").status_code, 302)
+
+    def test_correctness_comes_from_server_not_browser(self):
+        """Soal yang tidak ada di hasil penilaian server (mis. id karangan) tidak ikut tersimpan."""
+        data = self.client.get(f"/api/session/{self.s1.id}/").json()
+        result = self.client.post(f"/api/session/{self.s1.id}/submit/",
+                                  data=json.dumps({"attempt": data["attempt"], "answers": []}),
+                                  content_type="application/json").json()
+        items = [{"id": "g:palsu:1", "prompt": "soal karangan", "strokes": self._strokes()}]
+        items += [{"id": q["id"], "prompt": q["prompt"], "strokes": {}} for q in data["questions"][:2]]
+        saved = self.client.post(f"/api/session/{self.s1.id}/riwayat/",
+                                 data=json.dumps({"attempt": data["attempt"],
+                                                  "results": result["results"], "items": items}),
+                                 content_type="application/json").json()
+        self.assertEqual(saved["saved"], 2)
+        detail = self.client.get(f"/api/riwayat/{saved['record']}/").json()
+        self.assertNotIn("g:palsu:1", [q["prompt"] for q in detail["questions"]])
+        self.assertEqual([q["is_correct"] for q in detail["questions"]], [False, False])
+
+    def test_oversized_strokes_are_dropped_not_stored(self):
+        big = {"v": 1, "space": "world",
+               "strokes": [{"tool": "pen", "color": "#000", "size": 2,
+                            "pts": [[i, i, 0.5] for i in range(4000)]}]}
+        self.assertGreater(len(json.dumps(big)), history.MAX_STROKE_BYTES)
+        self.assertEqual(history.fit_strokes(big), {"v": 1, "space": "world", "strokes": [], "trimmed": True})
+
+    def test_stroke_payload_without_strokes_is_stored_empty(self):
+        self.assertEqual(history.fit_strokes({"v": 1, "space": "norm", "strokes": []}), {})
+        self.assertEqual(history.fit_strokes(None), {})
+
+    def test_attempt_stroke_budget_limits_total_payload(self):
+        """Satu percobaan tidak boleh mengirim coretan tanpa batas: sisa soal disimpan tanpa coretan."""
+        data = self.client.get(f"/api/session/{self.s1.id}/").json()
+        result = self.client.post(f"/api/session/{self.s1.id}/submit/",
+                                  data=json.dumps({"attempt": data["attempt"], "answers": []}),
+                                  content_type="application/json").json()
+        heavy = {"v": 1, "space": "norm",
+                 "strokes": [{"tool": "pen", "color": "#000", "size": .01,
+                              "pts": [[i / 2000, .5, .5] for i in range(2000)]}]}
+        items = [{"id": q["id"], "prompt": q["prompt"], "strokes": heavy} for q in data["questions"]]
+        saved = self.client.post(f"/api/session/{self.s1.id}/riwayat/",
+                                 data=json.dumps({"attempt": data["attempt"],
+                                                  "results": result["results"], "items": items}),
+                                 content_type="application/json").json()
+        detail = self.client.get(f"/api/riwayat/{saved['record']}/").json()
+        kept = [q for q in detail["questions"] if q["scratchpad"].get("strokes")]
+        trimmed = [q for q in detail["questions"] if q["scratchpad"].get("trimmed")]
+        self.assertTrue(kept)
+        self.assertTrue(trimmed)
+        self.assertEqual(len(kept) + len(trimmed), 10)
+        total = sum(len(json.dumps(q["scratchpad"], separators=(",", ":"))) for q in detail["questions"])
+        self.assertLessEqual(total, history.MAX_ATTEMPT_BYTES + 1_000)
+
+    # ── retensi 30 hari ───────────────────────────────────────────────────
+    def test_records_older_than_thirty_days_are_deleted(self):
+        self._play()
+        old = LevelAttemptRecord.objects.get(user=self.user)
+        LevelAttemptRecord.objects.filter(pk=old.pk).update(
+            created_at=timezone.now() - timedelta(days=history.HISTORY_DAYS, hours=1))
+        self.assertEqual(self._list()["attempts"], [])
+        self.assertFalse(LevelAttemptRecord.objects.filter(pk=old.pk).exists())
+        self.assertFalse(QuestionAttemptDetail.objects.filter(record_id=old.pk).exists())
+
+    def test_records_within_thirty_days_are_kept(self):
+        self._play()
+        rec = LevelAttemptRecord.objects.get(user=self.user)
+        LevelAttemptRecord.objects.filter(pk=rec.pk).update(
+            created_at=timezone.now() - timedelta(days=history.HISTORY_DAYS - 1))
+        self.assertEqual(len(self._list()["attempts"]), 1)
+
+    def test_pruning_only_touches_its_own_user(self):
+        self._play()
+        other = User.objects.create_user("tono", password="rahasia-123")
+        theirs = LevelAttemptRecord.objects.create(user=other, session=self.s1, attempt=0)
+        LevelAttemptRecord.objects.filter(pk=theirs.pk).update(
+            created_at=timezone.now() - timedelta(days=history.HISTORY_DAYS + 1))
+        history.prune(self.user)
+        self.assertTrue(LevelAttemptRecord.objects.filter(pk=theirs.pk).exists())
+        history.prune(other)
+        self.assertFalse(LevelAttemptRecord.objects.filter(pk=theirs.pk).exists())
+
+    def test_frontend_assets_are_wired(self):
+        """Viewer riwayat (history.js/history.css) harus ikut dimuat base.html."""
+        base = (settings.BASE_DIR / "templates" / "base.html").read_text()
+        self.assertIn("css/history.css", base)
+        self.assertIn("js/history.js", base)
+
+    def test_saving_a_new_attempt_also_prunes(self):
+        self._play()
+        LevelAttemptRecord.objects.update(created_at=timezone.now() - timedelta(days=history.HISTORY_DAYS + 2))
+        self._play(correct=False)
+        self.assertEqual(LevelAttemptRecord.objects.filter(user=self.user).count(), 1)
 
 
 class FacultyFixedQuestionTests(TestCase):

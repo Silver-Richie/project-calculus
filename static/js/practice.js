@@ -269,7 +269,8 @@ const Practice = (() => {
       if (data.status === 'no_hearts') { showNoHearts(data.hearts); return; }
       if (!res.ok) throw new Error(data.message || `HTTP ${res.status}`);
       stopWatching();
-      running = { session: data.session, attempt: data.attempt, tabLeaves: data.tab_leaves, maxTabLeaves: data.max_tab_leaves };
+      running = { session: data.session, attempt: data.attempt, tabLeaves: data.tab_leaves, maxTabLeaves: data.max_tab_leaves,
+        startedAt: Date.now() };
       running.unwatch = FocusGuard.watch({ leave: () => reportLeave(false), unload: () => reportLeave(true) });
       QuizEngine.start(node.slug, data.questions, 'session');
       Mascot.setMood('thinking', data.tab_leaves
@@ -322,6 +323,31 @@ const Practice = (() => {
     return r;
   }
 
+  /**
+   * Simpan percobaan yang baru dinilai ke Riwayat Pengerjaan (arsip 30 hari, history.js).
+   * Benar/salah tetap dari `results` penilaian server; di sini cuma cuplikan soal,
+   * jawaban, dan coretan papan tulis tiap soal. Riwayat bersifat pelengkap, jadi
+   * kegagalan menyimpan sengaja didiamkan agar tidak mengganggu skor/XP.
+   */
+  async function archive(r, run) {
+    const items = QuizEngine.history().map((h) => ({
+      id: h.q.id,
+      prompt: h.q.prompt,
+      user_answer: h.q.options[h.chosen]?.text || '',
+      correct_answer: h.q.options.find((o) => o.is_correct)?.text || '',
+      strokes: h.strokes || null,
+    }));
+    if (!items.length) return;
+    try {
+      await postJSON(`/api/session/${run.session.id}/riwayat/`, {
+        attempt: run.attempt,
+        duration: Math.round((Date.now() - (run.startedAt || Date.now())) / 1000),
+        results: r.results || [],
+        items,
+      });
+    } catch (_) { /* arsip riwayat gagal: skor & XP tetap tersimpan */ }
+  }
+
   async function finish(answers) {
     if (!isRunning()) return;
     stopWatching();
@@ -336,7 +362,9 @@ const Practice = (() => {
         <p>${err.message}</p><button class="btn btn-primary" onclick="Practice.renderSessions()">Kembali</button></div>`;
       return;
     }
+    const run = running;
     showResult(r);
+    archive(r, run);
   }
 
   /** Hasil sesi (dari submit, atau dari sesi yang digagalkan karena keluar tab: `failNote`). */
@@ -381,8 +409,24 @@ const Practice = (() => {
   return {
     pathHTML,
     refreshPath,
-    /** Klik node topik di skill tree: buka drawer materi + latihan topik itu. */
+    /**
+     * Klik node topik di skill tree. Topik yang sudah tuntas memunculkan pilihan
+     * "Coba Ulang Level" atau "Lihat Riwayat Pengerjaan" (history.js); topik lain
+     * langsung membuka drawer materi + latihan seperti biasa.
+     */
     openFromTree(slug) {
+      const found = Curriculum.topic(slug);
+      if (!found) return;
+      if (topicDone(found.topic) && found.topic.sessions.length && typeof LevelHistory !== 'undefined') {
+        SFX.click();
+        LevelHistory.offer(slug, found.topic.title);
+        return;
+      }
+      this.openTopicFromTree(slug);
+    },
+
+    /** Buka drawer topik dari skill tree (jalur langsung, tanpa modal pilihan). */
+    openTopicFromTree(slug) {
       const found = Curriculum.topic(slug);
       if (!found) return;
       if (topicStatus(found.topic) === 'locked') {

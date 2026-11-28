@@ -16,7 +16,7 @@ from django.templatetags.static import static
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_POST
 
-from . import avatar, campus, free_practice, generators, ranked_duel, ranking, reminders, services, sessions, shop
+from . import avatar, campus, free_practice, generators, history, ranked_duel, ranking, reminders, services, sessions, shop
 from .leveling import level_for, level_info
 from .models import Faculty, MainLevel, PracticeSession, SkillNode, Topic, UserProfile
 
@@ -346,6 +346,45 @@ def leave_session_api(request, session_id):
     except PermissionError as err:
         return JsonResponse({"status": "locked", "message": str(err)}, status=403)
     return JsonResponse(result)
+
+
+# ── Riwayat Pengerjaan & Arsip Coret-coretan (gamification/history.py) ──────
+@login_required
+@require_POST
+def save_attempt_history_api(request, session_id):
+    """
+    POST /api/session/<id>/riwayat/ — simpan percobaan yang baru dinilai ke riwayat.
+
+    Body: {"attempt": 0, "duration": 180, "results": [{"id", "correct"}],
+           "items": [{"id", "prompt", "user_answer", "correct_answer", "strokes"}]}
+    Benar/salah diambil dari `results` hasil penilaian server yang dikirim balik browser;
+    id yang tidak ada di situ diabaikan, jadi riwayat tidak bisa diisi soal karangan.
+    """
+    session = get_object_or_404(PracticeSession.objects.select_related("topic"), pk=session_id)
+    body = _json_body(request)
+    record = history.save_attempt(
+        request.user, session, int(body.get("attempt", 0)),
+        body.get("results") or [], body.get("items") or [], body.get("duration", 0),
+    )
+    return JsonResponse({"status": "success", "record": record.id, "saved": record.details.count()})
+
+
+@login_required
+@require_GET
+def topic_history_api(request, slug):
+    """GET /api/riwayat/topik/<slug>/ — daftar percobaan user pada satu topik, terbaru dulu."""
+    topic = get_object_or_404(Topic, slug=slug)
+    return JsonResponse({"status": "success", **history.topic_history(request.user, topic)})
+
+
+@login_required
+@require_GET
+def attempt_history_api(request, record_id):
+    """GET /api/riwayat/<id>/ — rincian satu percobaan beserta coretan papan tulisnya."""
+    data = history.attempt_detail(request.user, record_id)
+    if data is None:
+        return JsonResponse({"status": "error", "message": "Riwayat tidak ditemukan."}, status=404)
+    return JsonResponse({"status": "success", **data})
 
 
 @login_required

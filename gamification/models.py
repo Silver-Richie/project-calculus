@@ -5,6 +5,7 @@ Defines schemas for Faculties, Learning Tree Nodes, Question Bank,
 User Gamification Profiles, and Skill Progress Records.
 """
 
+import math
 import uuid
 from datetime import timedelta
 
@@ -781,3 +782,74 @@ class UserSessionProgress(models.Model):
 
     def __str__(self):
         return f"{self.user.username} · {self.session} · {self.best_score}"
+
+
+class LevelAttemptRecord(models.Model):
+    """
+    Satu percobaan sesi latihan yang sudah selesai dinilai, disimpan untuk Riwayat Pengerjaan.
+
+    Mechanism: berbeda dari UserSessionProgress (yang hanya menyimpan skor terbaik/terakhir),
+    setiap percobaan dicatat sebagai baris sendiri lengkap dengan `created_at`, jadi mengulang
+    sesi yang sama tiga kali memberi tiga riwayat terpisah. Rincian per soal (soal, jawaban,
+    dan coretan papan tulis) ada di QuestionAttemptDetail.
+
+    Retensi: record lebih tua dari HISTORY_DAYS (gamification/history.py) dihapus lewat
+    query ringan setiap kali user menyelesaikan sesi atau membuka riwayatnya, jadi tidak
+    perlu cron job di server.
+
+    `stars_earned` belum dipakai (Mode Level Up tidak punya sistem bintang); kartu riwayat
+    menampilkan skor benar/salah dan status lulus yang dihitung dari pass_ratio sesi.
+    """
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
+                             related_name="level_attempts")
+    session = models.ForeignKey(PracticeSession, on_delete=models.CASCADE, related_name="attempt_records")
+    attempt = models.PositiveIntegerField(default=0, help_text="Nomor percobaan (seed soal) saat sesi dikerjakan")
+    created_at = models.DateTimeField(auto_now_add=True)
+    score_correct = models.PositiveSmallIntegerField(default=0)
+    score_wrong = models.PositiveSmallIntegerField(default=0)
+    stars_earned = models.PositiveSmallIntegerField(default=0)
+    duration_seconds = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering = ['-created_at', '-id']
+        indexes = [models.Index(fields=['user', 'created_at'])]
+
+    def __str__(self):
+        return f"{self.user.username} · {self.session} · {self.score_correct}/{self.total}"
+
+    @property
+    def total(self):
+        return self.score_correct + self.score_wrong
+
+    @property
+    def passed(self):
+        return self.score_correct >= math.ceil(self.session.pass_ratio * self.session.question_count)
+
+
+class QuestionAttemptDetail(models.Model):
+    """
+    Rincian satu soal di dalam sebuah LevelAttemptRecord.
+
+    Soal sesi tidak tersimpan di database (diundi ulang dari seed), jadi yang disimpan di sini
+    adalah cuplikan teksnya (`prompt`) beserta `question_ref` ("g:<generator>:<seed>" atau
+    "q:<kode>") supaya tetap bisa dilacak.
+
+    `scratchpad_strokes` = coretan papan tulis soal itu dalam bentuk vektor:
+    {"v": 1, "space": "norm"|"world", "strokes": [...]}. Vektor (bukan gambar) agar hemat
+    tempat dan tetap tajam saat di-zoom di viewer riwayat. Lihat history.fit_strokes untuk
+    batas ukurannya.
+    """
+    record = models.ForeignKey(LevelAttemptRecord, on_delete=models.CASCADE, related_name="details")
+    number = models.PositiveSmallIntegerField(default=1, help_text="Nomor soal dalam sesi (1..n)")
+    question_ref = models.CharField(max_length=120, blank=True)
+    prompt = models.TextField(blank=True)
+    user_answer = models.TextField(blank=True)
+    correct_answer = models.TextField(blank=True)
+    is_correct = models.BooleanField(default=False)
+    scratchpad_strokes = models.JSONField(default=dict, blank=True)
+
+    class Meta:
+        ordering = ['record', 'number']
+
+    def __str__(self):
+        return f"{self.record_id} · soal {self.number} · {'benar' if self.is_correct else 'salah'}"

@@ -432,6 +432,27 @@ const QuizBoard = {
   hide() {
     document.getElementById('lesson-drawer')?.classList.remove('quiz-mode');
   },
+
+  /**
+   * Coretan papan soal yang sedang tampil, untuk Arsip Coret-coretan (history.js).
+   * Vektor, bukan gambar: titik dibulatkan 4 desimal agar payload-nya ringan.
+   * `space` menandai satuan titik — 'norm' (pecahan lebar papan, papan tulis biasa)
+   * atau 'world' (piksel kanvas, papan tulis pan/zoom) — supaya viewer riwayat tetap
+   * menggambar benar walau versi papan tulisnya berganti.
+   */
+  strokes() {
+    const board = document.getElementById('quiz-board')?._wb;
+    const list = board?.state?.strokes || [];
+    if (!list.length) return null;
+    return {
+      v: 1,
+      space: board.view ? 'world' : 'norm',
+      strokes: list.map((s) => ({
+        tool: s.tool, color: s.color, size: s.size, pressure: !!s.pressure,
+        pts: s.pts.map((p) => p.map((n) => Math.round(n * 1e4) / 1e4)),
+      })),
+    };
+  },
 };
 
 /* ════════════════════════════════════════════════════════════════
@@ -756,7 +777,8 @@ const QuizEngine = (() => {
       const correct = q.options.findIndex((o) => o.is_correct);
       answered = true;
       if (mode === 'session') answers.push({ id: q.id, option: q.options[sel].id });
-      if (mode !== 'practice') history.push({ q, chosen: sel });
+      // Mode sesi: coretan papan tulis soal ini ikut dicatat untuk Riwayat Pengerjaan (history.js).
+      if (mode !== 'practice') history.push({ q, chosen: sel, strokes: mode === 'session' ? QuizBoard.strokes() : null });
       if (mode === 'free') answers.push({ id: q.id, topic: q.topic, correct: sel === correct });
       btn.disabled = true;
       const hintBtn = document.getElementById('btn-hint');
