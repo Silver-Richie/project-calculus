@@ -1,0 +1,9 @@
+{% comment %}
+  KOMPONEN: Tur panduan kontekstual (spotlight ala Duolingo) — dijalankan static/js/tour.js.
+  Tiap halaman (home, quiz, ranked, shop, leaderboard, lesson) dipandu sekali bila slug-nya belum ada di
+  server_profile.completed_tutorials (gamification/tutorials.py); semua bisa diulang dari Profil.
+  Template di bawah hanya bahan: Archie dikloning ke kotak dialog tiap langkah.
+{% endcomment %}
+<template id="tour-archie">
+  {% include 'components/mascot.html' with svg_class="tour-archie-svg mascot-idle" size=64 %}
+</template>

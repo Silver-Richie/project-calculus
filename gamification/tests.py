@@ -2168,3 +2168,82 @@ class NotificationPhase1Tests(TestCase):
         for part in ("RRULE:FREQ=DAILY", "BEGIN:VALARM", "TRIGGER:-PT0M", "T234500Z", "SUMMARY:Latihan Calculus Bridge"):
             self.assertIn(part, body)
         self.assertTrue(all(len(line.encode()) <= 75 for line in body.split("\r\n")))      # dilipat sesuai RFC 5545
+
+
+import importlib  # noqa: E402
+import re  # noqa: E402
+from django.apps import apps as django_apps  # noqa: E402
+
+
+class OnboardingTutorialTests(TestCase):
+    """Tur kontekstual: akun baru mulai [] (semua tur muncul), akun lama (saat migrasi) berisi semua slug; disimpan per halaman."""
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_gamification", stdout=io.StringIO())
+        cls.ft = Faculty.objects.get(slug="ft")
+
+    def make(self, name, **profile):
+        user = User.objects.create_user(name, password="rahasia-123")
+        UserProfile.objects.create(user=user, faculty=self.ft, **profile)
+        return user
+
+    def home(self, user):
+        self.client.force_login(user)
+        return self.client.get("/")
+
+    def done(self, page):
+        return self.client.post("/api/tutorial/selesai/", data=json.dumps({"page": page}), content_type="application/json")
+
+    def test_new_user_starts_with_no_completed_tours(self):
+        user = self.make("baru")
+        self.assertEqual(UserProfile.objects.get(user=user).completed_tutorials, [])
+        page = self.home(user)
+        self.assertEqual(page.context["server_profile"]["completed_tutorials"], [])
+        self.assertContains(page, 'id="tour-archie"')
+        self.assertContains(page, "data-tour-replay")
+
+    def test_existing_users_get_every_tour_marked_by_migration(self):
+        from . import tutorials
+        old_a, old_b = self.make("lama", xp=0), self.make("veteran", xp=500)
+        migration = importlib.import_module("gamification.migrations.0015_contextual_tutorials")
+        migration.mark_existing_users_done(django_apps, None)
+        for user in (old_a, old_b):
+            self.assertEqual(set(self.home(user).context["server_profile"]["completed_tutorials"]), set(tutorials.PAGES))
+        self.assertEqual(self.home(self.make("sesudah_rilis")).context["server_profile"]["completed_tutorials"], [])
+
+    def test_done_per_page_reset_and_validation(self):
+        user = self.make("per_halaman")
+        self.client.force_login(user)
+        self.assertEqual(self.done("ranked").json()["completed_tutorials"], ["ranked"])
+        self.assertEqual(self.done("quiz").json()["completed_tutorials"], ["ranked", "quiz"])
+        self.assertEqual(self.done("ranked").json()["completed_tutorials"], ["ranked", "quiz"])          # tidak dobel
+        self.assertEqual(self.done("rahasia").status_code, 400)                                         # slug tak dikenal
+        self.assertEqual(self.client.get("/api/tutorial/selesai/").status_code, 405)
+        self.assertEqual(self.client.post("/api/tutorial/ulang/").json()["completed_tutorials"], [])     # Ulangi Panduan
+        self.assertEqual(UserProfile.objects.get(user=user).completed_tutorials, [])
+        self.client.logout()
+        self.assertEqual(self.done("home").status_code, 302)                                            # harus login
+
+    def test_tour_slugs_consistent_between_server_migration_and_js(self):
+        from . import tutorials
+        migration = importlib.import_module("gamification.migrations.0015_contextual_tutorials")
+        js = finders.find("js/tour.js")
+        keys = re.findall(r"^    ([a-z]+): \(", open(js, encoding="utf-8").read(), re.M)
+        self.assertEqual(set(keys), set(tutorials.PAGES))
+        self.assertEqual(set(migration.ALL_TOURS), set(tutorials.PAGES))
+
+    def test_tour_targets_exist_on_each_page(self):
+        page = self.home(self.make("target")).content.decode()
+        markers = {
+            "home": ['id="skill-tree"', 'id="hud-xp"', 'id="hud-hearts-pill"', 'id="hud-streak"', 'id="streak-banner"',
+                     'data-tour="ranked"', 'id="sidebar-fasilkom"', 'id="hud-faculty-badge"'],
+            "quiz": ['id="quiz-container"', 'id="quiz-board"'],
+            "ranked": ['class="ranked-emblem-wrap"', 'class="ranked-shield"'],
+            "shop": ['class="shop-balance"'],
+            "leaderboard": ['class="lbx-seg"', 'class="lbx-scopes"'],
+            "lesson": ['class="lesson-tabs"', 'id="lp-outline-body"'],
+        }
+        for tour, needles in markers.items():
+            for needle in needles:
+                self.assertIn(needle, page, f"{tour}: {needle}")
