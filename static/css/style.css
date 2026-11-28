@@ -1072,6 +1072,29 @@ img {
   margin-bottom: 1.25rem;
 }
 
+/* Progress bar + penghitung benar/salah sesi berjalan (QuizEngine.tallyHTML) */
+.quiz-progress-row { display: flex; align-items: center; gap: .6rem; margin-bottom: 1.25rem; }
+.quiz-progress-row .quiz-progress-bar { flex: 1; min-width: 0; margin-bottom: 0; }
+.quiz-tally { display: flex; gap: .35rem; flex: none; }
+.qt {
+  display: inline-flex; align-items: center; gap: .22rem;
+  padding: .18rem .5rem .18rem .4rem; border-radius: var(--radius-full);
+  font: 800 .82rem var(--font-head); font-variant-numeric: tabular-nums; line-height: 1;
+  border: 1.5px solid transparent;
+}
+.qt .ic { width: 14px; height: 14px; }
+/* Warna ikut --clr-growth/--clr-danger yang sudah punya nilai terang sendiri di mode gelap. */
+.qt-ok { color: var(--clr-growth); background: var(--clr-growth-l); border-color: var(--clr-growth); }
+.qt-bad { color: var(--clr-danger); background: var(--clr-danger-l); border-color: var(--clr-danger); }
+.qt.bump { animation: qtBump .35s cubic-bezier(.3, 1.6, .5, 1); }
+@keyframes qtBump { 40% { transform: scale(1.22); } }
+
+@media (max-width: 480px) {
+  .quiz-progress-row { gap: .45rem; }
+  .qt { padding: .15rem .4rem .15rem .32rem; font-size: .76rem; }
+  .qt .ic { width: 12px; height: 12px; }
+}
+
 .quiz-progress-fill {
   height: 100%;
   background: linear-gradient(90deg, var(--clr-primary), var(--clr-growth));
@@ -2801,6 +2824,9 @@ form:not(.stepper-on) .dq-nav [data-step=next] { display: none; }
   .duel-pts { font-size: 1.25rem; }
   .duel-dots i { width: 9px; height: 9px; }
   .duel-result h2 { font-size: 1.8rem; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .qt.bump { animation: none; }
 }
 @media (prefers-reduced-motion: reduce) {
   .duel-radar span, .duel-card, .duel-vs-mark, .duel-stars.up { animation: none; }

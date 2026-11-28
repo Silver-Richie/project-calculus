@@ -625,6 +625,22 @@ class PracticeSessionApiTests(TestCase):
         self.assertEqual(UserProgress.objects.get(user=self.user, node__slug="kd-turunan").status, "completed")
 
 
+    def test_score_matches_number_of_correct_answers(self):
+        """Penghitung benar/salah di layar memakai is_correct yang sama dengan penilaian server,
+        jadi angkanya harus sama persis dengan skor di ringkasan akhir sesi."""
+        data = self._open(self.s1).json()
+        answers, benar = [], 0
+        for i, q in enumerate(data["questions"]):
+            tepat = i % 3 != 0                      # campur benar dan salah
+            answers.append({"id": q["id"], "option": next(o["id"] for o in q["options"] if o["is_correct"] == tepat)})
+            benar += tepat
+        r = self._submit(self.s1, data["attempt"], answers).json()
+        self.assertTrue(0 < benar < len(data["questions"]), benar)
+        self.assertEqual(r["score"], benar)
+        self.assertEqual(r["total"], len(data["questions"]))
+        self.assertEqual(r["total"] - r["score"], len(data["questions"]) - benar)
+
+
 class FacultyFixedQuestionTests(TestCase):
     """Soal tetap milik fakultas (mis. FT-S1) hanya diundi untuk user fakultas itu."""
 

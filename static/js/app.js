@@ -609,7 +609,29 @@ const QuizEngine = (() => {
   let answered = false;
   let mode = 'level';      // 'level' | 'practice' | 'session'
   let answers = [];        // mode session: [{ id, option }] dikirim ke server di akhir sesi
+  let tally = { ok: 0, bad: 0 };   // penghitung benar/salah sesi berjalan (semua mode kecuali 'practice')
   let history = [];        // semua mode kecuali 'practice': [{ q, chosen }] untuk tab Pembahasan
+
+  /**
+   * Pil penghitung benar/salah di samping progress bar. Warnanya mengikuti titik hasil
+   * di papan skor Ranked (.duel-dots i.ok/.bad): hijau --clr-growth, merah --clr-danger.
+   */
+  function tallyHTML() {
+    return `<div class="quiz-tally" id="quiz-tally">
+        <span class="qt qt-ok" title="Jawaban benar" aria-label="${tally.ok} benar">${Icon('check')}<b>${tally.ok}</b></span>
+        <span class="qt qt-bad" title="Jawaban salah" aria-label="${tally.bad} salah">${Icon('x')}<b>${tally.bad}</b></span>
+      </div>`;
+  }
+
+  /** Tambah satu ke penghitung dan perbarui pilnya langsung, tanpa menunggu soal berikutnya. */
+  function countAnswer(isCorrect) {
+    if (mode === 'practice') return;
+    tally[isCorrect ? 'ok' : 'bad']++;
+    const box = document.getElementById('quiz-tally');
+    if (!box) return;
+    box.outerHTML = tallyHTML();
+    document.getElementById('quiz-tally')?.querySelector(isCorrect ? '.qt-ok' : '.qt-bad')?.classList.add('bump');
+  }
 
   /** Hint = langkah pembahasan kecuali langkah terakhir (agar jawaban tidak langsung bocor). */
   function hintsOf(q) {
@@ -665,7 +687,10 @@ const QuizEngine = (() => {
 
     container.innerHTML = `
       <div class="quiz-wrap">
-        ${mode !== 'practice' ? `<div class="quiz-progress-bar"><div class="quiz-progress-fill" style="width:${progress}%"></div></div>` : ''}
+        ${mode !== 'practice' ? `<div class="quiz-progress-row">
+          <div class="quiz-progress-bar"><div class="quiz-progress-fill" style="width:${progress}%"></div></div>
+          ${tallyHTML()}
+        </div>` : ''}
         <div class="quiz-meta">
           <span class="quiz-num">${mode !== 'practice' ? `Soal ${idx + 1} dari ${questions.length} · ` : ''}${q.code}</span>
           <span class="quiz-diff-badge diff-${q.difficulty}">${q.difficulty_label || DIFF_LABEL[q.difficulty] || q.difficulty}</span>
@@ -736,6 +761,7 @@ const QuizEngine = (() => {
       idx = 0;
       answers = [];
       history = [];
+      tally = { ok: 0, bad: 0 };      // level/sesi/latihan baru selalu mulai dari 0 benar, 0 salah
       render();
     },
 
@@ -758,6 +784,7 @@ const QuizEngine = (() => {
       if (mode === 'session') answers.push({ id: q.id, option: q.options[sel].id });
       if (mode !== 'practice') history.push({ q, chosen: sel });
       if (mode === 'free') answers.push({ id: q.id, topic: q.topic, correct: sel === correct });
+      countAnswer(sel === correct);
       btn.disabled = true;
       const hintBtn = document.getElementById('btn-hint');
       if (hintBtn) hintBtn.disabled = true;
