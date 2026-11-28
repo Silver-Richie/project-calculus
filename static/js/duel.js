@@ -32,7 +32,10 @@ const Duel = (() => {
         <span class="duel-brand">${Icon('swords')} Ranked Duel</span>
         <button type="button" class="btn-close duel-x" aria-label="Tutup duel">×</button>
       </div>
-      <div class="duel-body" aria-live="polite"></div>`;
+      <div class="duel-split">
+        <div class="duel-body" aria-live="polite"></div>
+        <aside class="duel-board" aria-label="Papan tulis"></aside>
+      </div>`;
     document.body.appendChild(el);
     el.querySelector('.duel-x').addEventListener('click', close);
     el.addEventListener('keydown', (e) => { if (e.key === 'Escape') close(); });
@@ -40,6 +43,18 @@ const Duel = (() => {
   }
 
   const body = (html) => { $('.duel-body').innerHTML = html; };
+
+  /**
+   * Papan tulis duel. Dipasang sekali di luar .duel-body supaya coretan tidak ikut
+   * terhapus tiap soal dirender ulang; tiap soal punya papannya sendiri lewat load(kunci).
+   * Hanya tampil selama soal berjalan, bukan di layar cari lawan / VS / hasil.
+   */
+  function showBoard(on, key) {
+    if (!el) return;
+    el.classList.toggle('with-board', on);
+    if (!on || typeof Whiteboard === 'undefined') return;
+    Whiteboard.mount($('.duel-board'))?.load(key);
+  }
 
   function open() {
     mount();
@@ -52,6 +67,7 @@ const Duel = (() => {
   // ── Cari lawan ────────────────────────────────────────────────────────────
   async function start() {
     clearTimeout(nextTimer);
+    showBoard(false);
     state = { phase: 'searching' };
     body(`<div class="duel-center">
       <div class="duel-radar"><span></span><span></span>${Icon('swords')}</div>
@@ -128,6 +144,7 @@ const Duel = (() => {
     state.answered = false;
     state.oppDone = q.opponent_done;
     clearTimeout(state.oppTimer);
+    showBoard(true, `duel:${state.id}:${q.index}`);
     body(`${scoreboard()}
       <div class="duel-timer-row"><div class="duel-timer"><div class="duel-timer-fill"></div></div><b class="duel-sec" aria-label="Sisa detik"></b></div>
       <div class="duel-q">
@@ -391,6 +408,7 @@ const Duel = (() => {
     clearTimeout(nextTimer);
     clearTimeout(state.oppTimer);
     stopWatching();
+    showBoard(false);
     state.phase = 'done';
     const word = { win: 'VICTORY', lose: 'DEFEAT', draw: 'DRAW' }[res.verdict];
     const total = state.total || 10;
@@ -430,6 +448,7 @@ const Duel = (() => {
       try { await api(`${state.id}/menyerah/`); } catch (_) { /* duel lama otomatis dianggap menyerah saat mulai duel baru */ }
     }
     state.phase = 'closed';
+    showBoard(false);
     stopWatching();
     cancelAnimationFrame(timerRaf);
     clearTimeout(nextTimer);
