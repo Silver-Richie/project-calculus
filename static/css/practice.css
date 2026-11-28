@@ -90,6 +90,8 @@
 .session-icon { font-size: 1.5rem; }
 .session-info { flex: 1; display: flex; flex-direction: column; gap: .15rem; min-width: 0; }
 .session-info small { color: var(--clr-text-sec); font-size: .78rem; }
+/* Tombol "Riwayat" dipasang belakangan oleh Practice.markHistory; slot kosong jangan makan gap. */
+.session-hist:empty { display: none; }
 .session-result.pass h3 { color: var(--clr-growth-d); }
 .session-result.fail h3 { color: var(--clr-accent-d); }
 .session-result .offer-actions { display: flex; flex-wrap: wrap; gap: .5rem; justify-content: center; margin-top: 1rem; }

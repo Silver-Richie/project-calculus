@@ -648,6 +648,7 @@ class LevelHistoryArchiveTests(TestCase):
     def setUpTestData(cls):
         call_command("seed_gamification", stdout=io.StringIO())
         cls.s1 = PracticeSession.objects.get(topic__slug="pre-bilangan-real", number=1)
+        cls.s2 = PracticeSession.objects.get(topic__slug="pre-bilangan-real", number=2)
         cls.topic = cls.s1.topic
 
     def setUp(self):
@@ -661,19 +662,20 @@ class LevelHistoryArchiveTests(TestCase):
                 "strokes": [{"tool": "pen", "color": "#1E1B16", "size": 0.01,
                              "pts": [[0.1 * i, 0.2, 0.5], [0.1 * i + 0.05, 0.3, 0.5]]} for i in range(n)]}
 
-    def _play(self, correct=True, strokes=True, duration=120):
+    def _play(self, correct=True, strokes=True, duration=120, session=None):
         """Kerjakan satu percobaan sesi lalu simpan riwayatnya seperti yang dilakukan browser."""
-        data = self.client.get(f"/api/session/{self.s1.id}/").json()
+        session = session or self.s1
+        data = self.client.get(f"/api/session/{session.id}/").json()
         answers = [{"id": q["id"], "option": next(o["id"] for o in q["options"] if o["is_correct"] == correct)}
                    for q in data["questions"]]
-        result = self.client.post(f"/api/session/{self.s1.id}/submit/",
+        result = self.client.post(f"/api/session/{session.id}/submit/",
                                   data=json.dumps({"attempt": data["attempt"], "answers": answers}),
                                   content_type="application/json").json()
         items = [{"id": q["id"], "prompt": q["prompt"],
                   "user_answer": next(o["text"] for o in q["options"] if o["is_correct"] == correct),
                   "correct_answer": next(o["text"] for o in q["options"] if o["is_correct"]),
                   "strokes": self._strokes() if strokes else {}} for q in data["questions"]]
-        saved = self.client.post(f"/api/session/{self.s1.id}/riwayat/",
+        saved = self.client.post(f"/api/session/{session.id}/riwayat/",
                                  data=json.dumps({"attempt": data["attempt"], "duration": duration,
                                                   "results": result["results"], "items": items}),
                                  content_type="application/json")
@@ -814,6 +816,16 @@ class LevelHistoryArchiveTests(TestCase):
         self.assertTrue(LevelAttemptRecord.objects.filter(pk=theirs.pk).exists())
         history.prune(other)
         self.assertFalse(LevelAttemptRecord.objects.filter(pk=theirs.pk).exists())
+
+    def test_attempts_are_labelled_per_session(self):
+        """Tombol "Riwayat" di baris sesi menyaring daftar pakai session_number, dan penomoran
+        percobaan dihitung per sesi — bukan per topik."""
+        self._play()                      # Sesi I lulus → Sesi II terbuka
+        self._play(correct=False)
+        self._play(session=self.s2)
+        cards = self._list()["attempts"]
+        self.assertEqual([(c["session_number"], c["attempt_no"]) for c in cards], [(2, 1), (1, 2), (1, 1)])
+        self.assertEqual(len([c for c in cards if c["session_number"] == 1]), 2)
 
     def test_frontend_assets_are_wired(self):
         """Viewer riwayat (history.js/history.css) harus ikut dimuat base.html."""
