@@ -311,8 +311,12 @@ const LevelHistory = (() => {
       el.querySelector('[data-hist=replay]').focus();
     },
 
-    /** Daftar percobaan pada satu topik, terbaru dulu. */
-    async open(slug, title) {
+    /**
+     * Daftar percobaan pada satu topik, terbaru dulu.
+     * `sesi` (nomor sesi) membatasi daftar ke satu sesi saja — dipakai tombol "Riwayat"
+     * di baris sesi, supaya riwayat bisa dibuka sebelum topiknya tuntas.
+     */
+    async open(slug, title, sesi) {
       const box = overlay(`<div class="hist-body"></div>`, true).querySelector('.hist-body');
       loading(box);
       let data;
@@ -322,15 +326,17 @@ const LevelHistory = (() => {
         box.innerHTML = `<p class="loading-text">Riwayat gagal dimuat: ${esc(err.message)}</p>`;
         return;
       }
+      const attempts = sesi ? data.attempts.filter((a) => a.session_number === sesi) : data.attempts;
+      const sesiTitle = sesi ? (attempts[0]?.session_title || `Sesi ${sesi}`) : '';
       const head = `
         <div class="hist-head">
           <div>
             <h3 class="hist-h">${Icon('clock')} Riwayat Pengerjaan</h3>
-            <p class="hist-sub">${esc(data.topic.title || title || '')} · tersimpan 30 hari terakhir</p>
+            <p class="hist-sub">${esc(data.topic.title || title || '')}${sesi ? ` · ${esc(sesiTitle)}` : ''} · tersimpan 30 hari terakhir</p>
           </div>
           <button type="button" class="btn btn-outline btn-sm" data-hist="close">${Icon('x')} Tutup</button>
         </div>`;
-      if (!data.attempts.length) {
+      if (!attempts.length) {
         box.innerHTML = `${head}
           <div class="hist-empty">${Icon('book')}<p>Belum ada percobaan yang tercatat buat topik ini.
             Riwayat mulai terisi dari sesi yang kamu kerjakan setelah fitur ini aktif, dan disimpan 30 hari.</p></div>`;
@@ -338,7 +344,7 @@ const LevelHistory = (() => {
       }
       box.innerHTML = `${head}
         <ul class="hist-list">
-          ${data.attempts.map((a) => `
+          ${attempts.map((a) => `
             <li>
               <button type="button" class="hist-item" data-rec="${a.id}">
                 <span class="hist-when"><b>Percobaan #${a.attempt_no}</b><small>${esc(dateText(a.created_at))}</small></span>
@@ -350,11 +356,11 @@ const LevelHistory = (() => {
               </button>
             </li>`).join('')}
         </ul>`;
-      box.querySelectorAll('[data-rec]').forEach((b) => b.addEventListener('click', () => this.attempt(+b.dataset.rec, slug, data.topic.title)));
+      box.querySelectorAll('[data-rec]').forEach((b) => b.addEventListener('click', () => this.attempt(+b.dataset.rec, slug, data.topic.title, sesi)));
     },
 
     /** Rincian satu percobaan: tiap soal, jawaban, dan arsip coretannya. */
-    async attempt(id, slug, title) {
+    async attempt(id, slug, title, sesi) {
       const box = overlay(`<div class="hist-body"></div>`, true).querySelector('.hist-body');
       loading(box);
       let data;
@@ -394,7 +400,7 @@ const LevelHistory = (() => {
                   : `<p class="hist-nopad">${Icon('pen')} Gak ada coretan di soal ini.</p>`}
             </li>`).join('')}
         </ol>`;
-      box.querySelector('[data-hist=back]').addEventListener('click', () => this.open(slug, title));
+      box.querySelector('[data-hist=back]').addEventListener('click', () => this.open(slug, title, sesi));
       box.querySelectorAll('.hist-pad').forEach((pad) => {
         let payload;
         try { payload = JSON.parse(pad.dataset.pad); } catch (_) { return; }

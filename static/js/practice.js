@@ -249,6 +249,7 @@ const Practice = (() => {
                 <small>${s.question_count} soal · lulus ≥ ${s.pass_score} · ${s.xp_per_question} XP/soal · ${req ? 'wajib' : 'bonus'}</small>
                 ${p ? `<small>Skor terbaik ${p.best}/${s.question_count} · ${p.attempts}× dicoba</small>` : ''}
               </span>
+              <span class="session-hist" data-hist-slot="${s.number}"></span>
               <button class="btn ${st === 'passed' ? 'btn-outline' : 'btn-primary'} btn-sm" ${st === 'locked' || noHearts ? 'disabled' : ''}
                       onclick="Practice.start(${s.id})">${st === 'passed' ? 'Coba lagi' : st === 'open' ? 'Mulai ➔' : 'Terkunci'}</button>
             </div>`;
@@ -256,6 +257,32 @@ const Practice = (() => {
       </div>
       <p class="graph-hint">${Icon('dice')} Soal tiap sesi diacak khusus buat akunmu, jadi tiap ngulang angkanya beda.
         XP cuma nambah kalau skor terbaikmu naik. ${Icon('heart')} Gagal lulus = −1 heart.</p>`;
+    markHistory(topic);
+  }
+
+  /**
+   * Pasang tombol "Riwayat" pada sesi yang punya percobaan tersimpan (history.js).
+   * Dipasang setelah daftar sesi tampil, bukan sebelumnya, supaya daftar tidak menunggu jaringan;
+   * sesi tanpa riwayat tidak dapat tombol apa pun.
+   */
+  async function markHistory(t) {
+    if (!t || typeof LevelHistory === 'undefined') return;
+    let data;
+    try {
+      const res = await fetch(`/api/riwayat/topik/${t.slug}/`);
+      if (!res.ok) return;
+      data = await res.json();
+    } catch (_) { return; }
+    if (topic !== t) return;                       // pengguna sudah pindah topik
+    const jumlah = {};
+    (data.attempts || []).forEach((a) => { jumlah[a.session_number] = (jumlah[a.session_number] || 0) + 1; });
+    document.querySelectorAll('[data-hist-slot]').forEach((slot) => {
+      const n = jumlah[+slot.dataset.histSlot];
+      if (!n) return;
+      slot.innerHTML = `<button type="button" class="btn btn-ghost btn-sm">${Icon('clock')} Riwayat (${n})</button>`;
+      slot.querySelector('button').addEventListener('click',
+        () => LevelHistory.open(t.slug, t.title, +slot.dataset.histSlot));
+    });
   }
 
   async function start(sessionId) {
