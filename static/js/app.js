@@ -303,6 +303,7 @@ const Nav = (() => {
       if (page === 'rank' && typeof Leaderboard !== 'undefined') Leaderboard.load();
       if (page === 'ranked' && typeof Ranked !== 'undefined') Ranked.render();
       if (page === 'shop' && typeof Shop !== 'undefined') Shop.load();
+      if (typeof Tour !== 'undefined') Tour.onPage(page);      // tur panduan halaman ini (sekali saja)
     },
   };
 })();
@@ -738,6 +739,8 @@ const QuizEngine = (() => {
 
     hideFeedback();
     QuizBoard.show(q.id || q.code);
+    // Tur panduan layar soal: sekali, saat soal pertama sesi latihan / Mode Latihan tampil
+    if (idx === 0 && (mode === 'session' || mode === 'free') && typeof Tour !== 'undefined') Tour.maybe('quiz', { mode });
   }
 
   function revealPembahasan(q) {

@@ -389,6 +389,8 @@ class UserProfile(models.Model):
     xp = models.PositiveIntegerField(default=0, help_text="Total earned Experience Points")
     streak_days = models.PositiveIntegerField(default=1, help_text="Consecutive days of active practice")
     last_active_on = models.DateField(null=True, blank=True, help_text="Hari (WIB) terakhir bermain; dasar streak (streak.py)")
+    completed_tutorials = models.JSONField(default=list, blank=True,
+                                           help_text="Slug tur panduan yang sudah selesai/dilewati, mis. ['home', 'ranked'] (tutorials.py)")
     hearts = models.PositiveIntegerField(default=10, help_text="Nyawa tersisa (maks. max_hearts)")
     max_hearts = models.PositiveIntegerField(default=10)
     hearts_lost_at = models.DateTimeField(

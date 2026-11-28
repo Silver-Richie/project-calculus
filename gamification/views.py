@@ -16,7 +16,8 @@ from django.templatetags.static import static
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_POST
 
-from . import avatar, campus, free_practice, generators, history, ranked_duel, ranking, reminders, services, sessions, shop
+from . import (avatar, campus, free_practice, generators, history, ranked_duel, ranking, reminders, services,
+               sessions, shop, tutorials)
 from .leveling import level_for, level_info
 from .models import Faculty, MainLevel, PracticeSession, SkillNode, Topic, UserProfile
 
@@ -580,3 +581,23 @@ def reminder_ics_view(request):
     response = HttpResponse(body, content_type="text/calendar; charset=utf-8")
     response["Content-Disposition"] = 'attachment; filename="pengingat-calculus-bridge.ics"'
     return response
+
+
+@login_required
+@require_POST
+def tutorial_done_api(request):
+    """POST /api/tutorial/selesai/ {"page": "ranked"} — tur halaman itu selesai/dilewati (tutorials.py, static/js/tour.js)."""
+    profile, _ = UserProfile.objects.get_or_create(user=request.user)
+    try:
+        done = tutorials.mark_done(profile, _json_body(request).get("page"))
+    except ValueError as err:
+        return JsonResponse({"status": "error", "message": str(err)}, status=400)
+    return JsonResponse({"status": "success", "completed_tutorials": done})
+
+
+@login_required
+@require_POST
+def tutorial_reset_api(request):
+    """POST /api/tutorial/ulang/ — "Ulangi Panduan Aplikasi": semua tur muncul lagi di halamannya masing-masing."""
+    profile, _ = UserProfile.objects.get_or_create(user=request.user)
+    return JsonResponse({"status": "success", "completed_tutorials": tutorials.reset(profile)})

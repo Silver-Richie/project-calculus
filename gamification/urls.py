@@ -12,7 +12,8 @@ from .views import (
     free_practice_catalog_api, free_practice_start_api, trial_quiz_api,
     set_campus_api, set_avatar_api, leaderboard_api, shop_api, shop_buy_api, shop_equip_api,
     ranked_start_api, ranked_question_api, ranked_answer_api, ranked_leave_api, ranked_forfeit_api,
-    manifest_view, service_worker_view, offline_view, reminder_google_view, reminder_ics_view,
+    manifest_view, service_worker_view, offline_view, reminder_google_view, reminder_ics_view, tutorial_done_api,
+    tutorial_reset_api,
 )
 
 app_name = 'gamification'
@@ -48,6 +49,8 @@ urlpatterns = [
     path('api/profile/campus/', set_campus_api, name='set_campus_api'),
     path('api/profile/avatar/', set_avatar_api, name='set_avatar_api'),
     path('api/peringkat/', leaderboard_api, name='leaderboard_api'),
+    path('api/tutorial/selesai/', tutorial_done_api, name='tutorial_done'),
+    path('api/tutorial/ulang/', tutorial_reset_api, name='tutorial_reset'),
     path('api/ranked/mulai/', ranked_start_api, name='ranked_start'),
     path('api/ranked/<int:match_id>/soal/', ranked_question_api, name='ranked_question'),
     path('api/ranked/<int:match_id>/jawab/', ranked_answer_api, name='ranked_answer'),
